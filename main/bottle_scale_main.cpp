@@ -407,8 +407,6 @@ void mainTask(void *pvParameters) {
                      std::fabs(value - static_cast<int32_t>(value)) * 1000),
                  data.offset);
 
-        update_load_data(storage_handle, &data);
-
         auto request_result = rdata.get_data(&request);
 
         if (request_result == data_result::timed_out) {
@@ -423,6 +421,11 @@ void mainTask(void *pvParameters) {
             }
 
             s.tare();
+            data.offset = s.get_offset();
+            data.scale = s.get_scale();
+            data.current_weight = 0;
+
+            update_load_data(storage_handle, &data);
         }
     }
 

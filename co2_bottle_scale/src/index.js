@@ -1,34 +1,30 @@
 import './style';
 import { Component } from 'preact';
+import { Router } from 'preact-router';
+import { Link } from 'preact-router/match';
+
+import { Home } from './home.js';
+import { Settings } from './settings.js';
+import { ScaleContextProvider } from './scalecontext.js'
+
+const initialData = { apiAdress : "SomeApiAddress" };
 
 export default class App extends Component {
 
-    state = {
-        load : ''
-    }
-
-    onClick = ev => {
-        console.log("Test");
-    }
-
-    componentDidMount() {
-        this.timer = setInterval( () => {
-            fetch ("http://first-co2-bottle-scale.fritz.box/api/v1/load", {mode: 'cors'})
-                .then(response => response.json())
-                .then(json => { this.setState({load: json.load}); console.log(json); });
-        }, 1000);
-    }
-
-    componentWillUnmount() {
-        clearInterval(this.timer);
-    }
-
 	render() {
 		return (
-			<div>
-				<h1>Used Co2: {this.state.load} </h1>
-                <button onclick={this.onClick}> Tare </button>
-			</div>
+            <div>
+                <ScaleContextProvider>
+                <nav>
+                    <Link activeClassName="active" href="/">Home</Link>
+                    <Link activeClassName="active" href="/settings">Settings</Link>
+                </nav>
+                <Router>
+                        <Home path="/" />
+                        <Settings path="/settings" />
+			    </Router>
+                </ScaleContextProvider>
+            </div>
 		);
 	}
 }
