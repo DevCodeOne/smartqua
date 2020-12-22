@@ -1,3 +1,6 @@
 [submodule "components/esp-idf-lib"]
 	path = components/esp-idf-lib
 	url = https://github.com/UncleRus/esp-idf-lib
+[submodule "components/frozen"]
+	path = components/frozen
+	url = https://github.com/cesanta/frozen
