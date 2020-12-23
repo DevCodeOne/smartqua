@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <cmath>
+
 #include "auth.h"
 #include "data.h"
 #include "esp_event.h"
@@ -40,11 +42,16 @@ struct load_data {
     float scale = 1.0f;
 };
 
+struct rest_data {
+    uint32_t contained_co2 = 0;
+};
+
 struct request_struct {
     bool tare_scale = false;
 };
 
 shared_data<load_data> sdata;
+shared_data<rest_data> restd;
 shared_data<request_struct> rdata;
 
 esp_err_t update_load_data(nvs_handle_t storage_handle, load_data *data) {
@@ -99,8 +106,55 @@ esp_err_t get_load(httpd_req_t *req) {
     char buf[256];
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
     load_data data;
+    rest_data data2;
 
     auto result = sdata.get_data(&data);
+    auto result2 = restd.get_data(&data2);
+
+    if (result == data_result::timed_out || result2 == data_result::timed_out) {
+        json_printf(&answer, "{ %Q : %s}", "info", "No data");
+        httpd_resp_sendstr(req, buf);
+        return ESP_OK;
+    }
+
+    json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d, %Q : %d}", "info", "OK",
+                "tare", static_cast<int32_t>(data.offset / data.scale), "load",
+                static_cast<int32_t>(data.current_weight), "contained_co2",
+                data2.contained_co2);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    ESP_LOGE(log_tag, "%s", buf);
+
+    httpd_resp_sendstr(req, buf);
+    return ESP_OK;
+}
+
+esp_err_t set_contained_co2(httpd_req *req) {
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    char buf[512];
+    json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
+
+    size_t recv_size =
+        req->content_len < sizeof(buf) ? req->content_len : sizeof(buf);
+
+    if (recv_size == 0) {
+        json_printf(&answer, "{ %Q : %s}", "info", "No data");
+        httpd_resp_sendstr(req, buf);
+        return ESP_OK;
+    }
+
+    if (httpd_req_recv(req, buf, recv_size) <= 0) {
+        return ESP_FAIL;
+    }
+
+    int32_t contained_co2 = 0;
+
+    json_scanf(buf, recv_size, "{ contained_co2 : %d }", &contained_co2);
+    ESP_LOGI(log_tag, "%s %d", buf, contained_co2);
+
+    rest_data data;
+    auto result = restd.get_data(&data);
 
     if (result == data_result::timed_out) {
         json_printf(&answer, "{ %Q : %s}", "info", "No data");
@@ -108,14 +162,18 @@ esp_err_t get_load(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d}", "info", "OK", "tare",
-                static_cast<int32_t>(data.offset / data.scale), "load",
-                static_cast<int32_t>(data.current_weight));
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    ESP_LOGE(log_tag, "%s", buf);
+    data.contained_co2 = contained_co2;
 
+    result = restd.write_data(&data);
+    if (result == data_result::timed_out) {
+        json_printf(&answer, "{ %Q : %s}", "info", "No data");
+        httpd_resp_sendstr(req, buf);
+        return ESP_OK;
+    }
+
+    json_printf(&answer, "{ %Q : %Q}", "info", "OK");
     httpd_resp_sendstr(req, buf);
+
     return ESP_OK;
 }
 
@@ -270,6 +328,12 @@ esp_err_t init_http_server() {
                                 .user_ctx = nullptr};
     httpd_register_uri_handler(http_server_handle, &tare_handler);
 
+    httpd_uri_t contained_co2_handler = {.uri = "/api/v1/contained-co2",
+                                         .method = HTTP_POST,
+                                         .handler = set_contained_co2,
+                                         .user_ctx = nullptr};
+    httpd_register_uri_handler(http_server_handle, &contained_co2_handler);
+
     httpd_uri_t file_handler = {.uri = "/*",
                                 .method = HTTP_GET,
                                 .handler = get_file,
@@ -377,7 +441,7 @@ void mainTask(void *pvParameters) {
 
     // Store curren tare value
     // auto result = s.tare();
-    // ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
+    ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
     // data.offset = s.get_offset();
     // if (result == loadcell_status::failure) {
     //     printf("Failed to tare scale");

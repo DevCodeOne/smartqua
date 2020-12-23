@@ -19,9 +19,13 @@
     "eslint": "^6.0.1",
     "eslint-config-synacor": "^3.0.4",
     "preact-cli": "^3.0.0",
+    "preact-material-components": "^1.6.1",
     "sirv-cli": "^1.0.3"
   },
   "dependencies": {
+    "fontsource-roboto": "^3.1.5",
+    "materialize-css": "^1.0.0-rc.2",
+    "mini.css": "^3.0.1",
     "preact": "^10.1.0",
     "preact-render-to-string": "^5.1.2",
     "preact-router": "^3.2.1"
