@@ -7,10 +7,25 @@ export class Settings extends Component {
 
     static state = {
         apiAddress : "",
+        setContainedCo2 : 0,
         containedCo2 : 0
     };
 
-    onClick = (event) => {
+    componentDidMount() {
+        const { apiAddress } = this.context;
+
+        this.timer = setInterval( () => {
+            fetch (apiAddress + "/api/v1/load", {mode: 'cors'})
+                .then(response => response.json())
+                .then(json => { this.setState({setContainedCo2 : json.contained_co2}); console.log(json); });
+        }, 2000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.timer);
+    }
+
+    onClick = () => {
         const { apiAddress } = this.context;
 
         fetch(apiAddress + "/api/v1/tare", {
@@ -26,18 +41,15 @@ export class Settings extends Component {
     }
     
     handleContainedCo2WeightChange = (event) => {
-        const { apiAddress } = this.context;
         if (isNaN(event.target.value)) {
             return;
         }
 
-        fetch(apiAddress + "/api/v1/contained-co2", {method: 'POST', mode : 'cors', body : JSON.stringify({ "contained_co2" : event.target.value })})
-            .then(response => response.json())
-            .then(() => { this.setState({ containedCo2 : event.target.value }); })
+        this.setState({ containedCo2 : event.target.value });
     }
 
     render() {
-        const { apiAddress, containedCo2, setContainedCo2, setApiAddress } = this.context;
+        const { apiAddress, setContainedCo2, setApiAddress } = this.context;
 
         return (
             <div class="container">
@@ -46,7 +58,7 @@ export class Settings extends Component {
                         <h3> ApiAddress : { apiAddress } </h3>
                     </div>
                     <div class="row">
-                        <h3> Contained Co2 : { containedCo2 } </h3>
+                        <h3> Contained Co2 : { this.state.setContainedCo2 } </h3>
                     </div>
                     <div class="row">
                         <div class="input-field col s12">
@@ -62,7 +74,7 @@ export class Settings extends Component {
                     </div>
                     <div class="row">
                         <div class="col s6">
-                            <a class="waves-effect waves-light btn" onclick={
+                            <button class="waves-effect waves-light btn" onclick={
                                 (e) => {
                                     e.preventDefault();
                                     if (this.state.apiAddress != undefined && this.state.apiAddress != "") {
@@ -71,11 +83,15 @@ export class Settings extends Component {
 
                                     if (this.state.containedCo2 != undefined && this.state.containedCo2 != "") {
                                         setContainedCo2(this.state.containedCo2);
+
+                                        fetch(apiAddress + "/api/v1/contained-co2", {method: 'POST', mode : 'cors', body : JSON.stringify({ "contained_co2" : this.state.containedCo2 })})
+                                            .then(response => response.json())
+                                            .then(() => { return; })
                                     }
                                 }
                             }>
                                 Save Settings
-                            </a>
+                            </button>
                         </div>
                         <div class="col s6">
                             <a class="waves-effect waves-light btn" onclick={this.onClick}> Tare </a>

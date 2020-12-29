@@ -21,11 +21,11 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "scale.h"
+#include "settings.h"
 
 static constexpr uint8_t file_path_max = 32;
-static constexpr char load_data_key[] = "load_data";
 static constexpr char log_tag[] = "Co2_Scale";
-static bool can_write_to_storage = true;
+static loadcell<18, 19> scale;
 static int retry_num = 0;
 char wifi_ssid[] = WIFI_SSID;
 char wifi_passphrase[] = WIFI_PASS;
@@ -36,49 +36,41 @@ static constexpr uint8_t wifi_connected_bit = BIT0;
 static constexpr uint8_t wifi_fail_bit = BIT1;
 static EventGroupHandle_t wifi_event_group;
 
-struct load_data {
+enum struct scale_setting_indices { offset, weight, scale, contained_co2 };
+
+struct scale_settings {
+    using index_type = scale_setting_indices;
+
+    static inline constexpr char name[] = "load_data";
+
+    template <scale_setting_indices T>
+    void set_value(auto new_value) {
+        if constexpr (T == scale_setting_indices::offset) {
+            offset = new_value;
+        } else if constexpr (T == scale_setting_indices::contained_co2) {
+            contained_co2 = new_value;
+        } else if constexpr (T == scale_setting_indices::scale) {
+            scale = new_value;
+        }
+    };
+
+    template <scale_setting_indices T>
+    constexpr auto &get_value() {
+        if constexpr (T == scale_setting_indices::offset) {
+            return offset;
+        } else if constexpr (T == scale_setting_indices::contained_co2) {
+            return contained_co2;
+        } else {
+            return scale;
+        }
+    }
+
     int32_t offset = 0;
-    float current_weight = 0.0f;
     float scale = 1.0f;
+    int32_t contained_co2;
 };
 
-struct rest_data {
-    uint32_t contained_co2 = 0;
-};
-
-struct request_struct {
-    bool tare_scale = false;
-};
-
-shared_data<load_data> sdata;
-shared_data<rest_data> restd;
-shared_data<request_struct> rdata;
-
-esp_err_t update_load_data(nvs_handle_t storage_handle, load_data *data) {
-    esp_err_t err =
-        nvs_set_blob(storage_handle, load_data_key,
-                     reinterpret_cast<void *>(&data), sizeof(load_data));
-
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    err = nvs_commit(storage_handle);
-
-    return err;
-}
-
-esp_err_t read_load_data(nvs_handle_t storage_handle, load_data *data) {
-    size_t struct_size = sizeof(load_data);
-    esp_err_t err = nvs_get_blob(storage_handle, load_data_key,
-                                 reinterpret_cast<void *>(&data), &struct_size);
-
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    return err;
-}
+nvs_setting<scale_settings, nvs_init::lazy_load> data;
 
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data) {
@@ -103,32 +95,34 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 }
 
 esp_err_t get_load(httpd_req_t *req) {
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+
     char buf[256];
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
-    load_data data;
-    rest_data data2;
+    scale_settings data;
 
-    auto result = sdata.get_data(&data);
-    auto result2 = restd.get_data(&data2);
+    auto off = scale.get_offset();
+    auto sc = scale.get_scale();
+    float current_weight = 0;
+    auto result = scale.read_scale(&current_weight);
 
-    if (result == data_result::timed_out || result2 == data_result::timed_out) {
-        json_printf(&answer, "{ %Q : %s}", "info", "No data");
+    if (result != loadcell_status::success) {
+        json_printf(&answer, "{ %Q : %Q }", "info", "Scale error");
         httpd_resp_sendstr(req, buf);
         return ESP_OK;
     }
 
     json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d, %Q : %d}", "info", "OK",
-                "tare", static_cast<int32_t>(data.offset / data.scale), "load",
-                static_cast<int32_t>(data.current_weight), "contained_co2",
-                data2.contained_co2);
-    httpd_resp_set_type(req, "application/json");
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+                "tare", static_cast<int32_t>(off / sc), "load",
+                static_cast<int32_t>(current_weight), "contained_co2", 0);
     ESP_LOGE(log_tag, "%s", buf);
 
     httpd_resp_sendstr(req, buf);
     return ESP_OK;
 }
 
+// TODO: reimplement
 esp_err_t set_contained_co2(httpd_req *req) {
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
@@ -153,23 +147,7 @@ esp_err_t set_contained_co2(httpd_req *req) {
     json_scanf(buf, recv_size, "{ contained_co2 : %d }", &contained_co2);
     ESP_LOGI(log_tag, "%s %d", buf, contained_co2);
 
-    rest_data data;
-    auto result = restd.get_data(&data);
-
-    if (result == data_result::timed_out) {
-        json_printf(&answer, "{ %Q : %s}", "info", "No data");
-        httpd_resp_sendstr(req, buf);
-        return ESP_OK;
-    }
-
-    data.contained_co2 = contained_co2;
-
-    result = restd.write_data(&data);
-    if (result == data_result::timed_out) {
-        json_printf(&answer, "{ %Q : %s}", "info", "No data");
-        httpd_resp_sendstr(req, buf);
-        return ESP_OK;
-    }
+    data.set_value<scale_setting_indices::contained_co2>(contained_co2);
 
     json_printf(&answer, "{ %Q : %Q}", "info", "OK");
     httpd_resp_sendstr(req, buf);
@@ -183,37 +161,10 @@ esp_err_t tare_scale(httpd_req_t *req) {
     char buf[256];
 
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
-    request_struct data;
 
-    auto result = rdata.get_data(&data);
+    scale.tare();
 
-    if (result == data_result::timed_out) {
-        json_printf(&answer, "{ %Q : %s}", "info", "No data");
-        httpd_resp_sendstr(req, buf);
-        return ESP_OK;
-    }
-
-    data.tare_scale = true;
-    result = rdata.write_data(&data);
-
-    if (result == data_result::timed_out) {
-        json_printf(&answer, "{ %Q : %s}", "info", "Couldn't request tare");
-        httpd_resp_sendstr(req, buf);
-        return ESP_OK;
-    }
-
-    int i = 0;
-    do {
-        result = rdata.get_data(&data, 1000);
-        vTaskDelay(200 / portTICK_PERIOD_MS);
-        ++i;
-    } while (i < 10 && data.tare_scale);
-
-    if (i == 10) {
-        json_printf(&answer, "{ %Q : %s}", "info", "Tare request timed out");
-        httpd_resp_sendstr(req, buf);
-        return ESP_OK;
-    }
+    data.set_value<scale_setting_indices::offset>(scale.get_offset());
 
     json_printf(&answer, "{ %Q : %Q}", "info", "OK");
     httpd_resp_sendstr(req, buf);
@@ -405,31 +356,11 @@ void networkTask(void *pvParameters) {
 }
 
 void mainTask(void *pvParameters) {
-    load_data data;
-    request_struct request;
-    esp_err_t err = nvs_flash_init();
-
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
-        err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-
-    ESP_ERROR_CHECK(err);
-
-    nvs_handle_t storage_handle;
-    err = nvs_open("storage", NVS_READWRITE, &storage_handle);
-
-    if (err != ESP_OK) {
-        can_write_to_storage = false;
-    }
-
     ESP_LOGI(log_tag, "Starting scale");
 
     float value = 0;
-    loadcell<18, 19> s;
     while (1) {
-        auto result = s.init_scale();
+        auto result = scale.init_scale();
         if (result == loadcell_status::failure) {
             ESP_LOGI(log_tag, "Failed to initialize scale");
         } else {
@@ -441,22 +372,20 @@ void mainTask(void *pvParameters) {
 
     // Store curren tare value
     // auto result = s.tare();
-    ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
+    // ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
     // data.offset = s.get_offset();
     // if (result == loadcell_status::failure) {
     //     printf("Failed to tare scale");
     // }
+    // ESP_LOGI(log_tag, "Offset : %d",
+    //          data.get_value<scale_setting_indices::offset>());
 
-    ESP_ERROR_CHECK(read_load_data(storage_handle, &data));
-    s.set_offset(data.offset);
-    s.set_scale(201.0f);
+    scale.set_offset(data.get_value<scale_setting_indices::offset>());
+    scale.set_scale(201.0f);
+    // Andere Zelle: s.set_scale(570.f);
 
     while (1) {
-        auto result = s.read_in_units(10, &value);
-        data.current_weight = value;
-        data.offset = s.get_offset();
-        data.scale = s.get_scale();
-        sdata.write_data(&data);
+        auto result = scale.read_in_units(10, &value);
 
         vTaskDelay(500 / portTICK_PERIOD_MS);
 
@@ -469,38 +398,16 @@ void mainTask(void *pvParameters) {
                  static_cast<int32_t>(value),
                  static_cast<int32_t>(
                      std::fabs(value - static_cast<int32_t>(value)) * 1000),
-                 data.offset);
-
-        auto request_result = rdata.get_data(&request);
-
-        if (request_result == data_result::timed_out) {
-            ESP_LOGI(log_tag, "Couldn't read request data");
-        } else if (request.tare_scale) {
-            request.tare_scale = false;
-            request_result = rdata.write_data(&request);
-
-            if (request_result == data_result::timed_out) {
-                ESP_LOGI(log_tag,
-                         "Couldn't write tare request fullfillment back \n");
-            }
-
-            s.tare();
-            data.offset = s.get_offset();
-            data.scale = s.get_scale();
-            data.current_weight = 0;
-
-            update_load_data(storage_handle, &data);
-        }
+                 data.get_value<scale_setting_indices::offset>());
     }
-
-    nvs_close(storage_handle);
 }
 
 extern "C" {
 
 void app_main() {
     xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, NULL, 5, NULL, 0);
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, NULL, 5, NULL,
-                            1);
+    // xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, NULL, 5,
+    // NULL,
+    //                         1);
 }
 }
