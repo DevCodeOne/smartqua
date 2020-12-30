@@ -25,16 +25,17 @@
 
 static constexpr uint8_t file_path_max = 32;
 static constexpr char log_tag[] = "Co2_Scale";
-static loadcell<18, 19> scale;
-static int retry_num = 0;
 char wifi_ssid[] = WIFI_SSID;
 char wifi_passphrase[] = WIFI_PASS;
+
+int retry_num = 0;
+loadcell<18, 19> scale;
+EventGroupHandle_t wifi_event_group;
 
 httpd_handle_t http_server_handle = nullptr;
 
 static constexpr uint8_t wifi_connected_bit = BIT0;
 static constexpr uint8_t wifi_fail_bit = BIT1;
-static EventGroupHandle_t wifi_event_group;
 
 enum struct scale_setting_indices { offset, weight, scale, contained_co2 };
 
@@ -47,6 +48,7 @@ struct scale_settings {
     void set_value(auto new_value) {
         if constexpr (T == scale_setting_indices::offset) {
             offset = new_value;
+            ESP_LOGI("Settings", "Offset : %d", offset);
         } else if constexpr (T == scale_setting_indices::contained_co2) {
             contained_co2 = new_value;
         } else if constexpr (T == scale_setting_indices::scale) {
@@ -100,7 +102,6 @@ esp_err_t get_load(httpd_req_t *req) {
 
     char buf[256];
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
-    scale_settings data;
 
     auto off = scale.get_offset();
     auto sc = scale.get_scale();
@@ -163,7 +164,6 @@ esp_err_t tare_scale(httpd_req_t *req) {
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
 
     scale.tare();
-
     data.set_value<scale_setting_indices::offset>(scale.get_offset());
 
     json_printf(&answer, "{ %Q : %Q}", "info", "OK");
@@ -296,6 +296,9 @@ esp_err_t init_http_server() {
 }
 
 void networkTask(void *pvParameters) {
+    // Initialize nvs directly
+    nvs_flash nvs;
+
     wifi_event_group = xEventGroupCreate();
 
     tcpip_adapter_init();
@@ -370,7 +373,7 @@ void mainTask(void *pvParameters) {
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
-    // Store curren tare value
+    // Store currentt tare value
     // auto result = s.tare();
     // ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
     // data.offset = s.get_offset();
@@ -405,9 +408,11 @@ void mainTask(void *pvParameters) {
 extern "C" {
 
 void app_main() {
+    // Nvs has to be initialized for the wifi
+    data.initialize();
+
     xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, NULL, 5, NULL, 0);
-    // xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, NULL, 5,
-    // NULL,
-    //                         1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, NULL, 5, NULL,
+                            1);
 }
 }

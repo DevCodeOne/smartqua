@@ -73,7 +73,6 @@ loadcell_status loadcell<sck, dout>::read_value(int32_t *value) {
 
     if (wait_result != ESP_OK || hx711_is_ready(&m_dev, &is_ready) != ESP_OK ||
         !is_ready) {
-        ESP_LOGI("Scale", "Couldn't read from Scale");
         return loadcell_status::failure;
     }
 
@@ -82,7 +81,6 @@ loadcell_status loadcell<sck, dout>::read_value(int32_t *value) {
     if (read_result != ESP_OK) {
         return loadcell_status::failure;
     }
-    ESP_LOGI("Scale", "Read raw value %d", *value);
 
     *value -= m_offset;
 
@@ -105,7 +103,6 @@ std::pair<uint8_t, loadcell_status> loadcell<sck, dout>::read_average(
     int32_t current_value = 0;
     for (; read_n_values < times; ++read_n_values) {
         last_status = read_value(&current_value);
-        ESP_LOGI("Scale", "Read value %d", current_value);
 
         if (last_status != loadcell_status::success) {
             break;
