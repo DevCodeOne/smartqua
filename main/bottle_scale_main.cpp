@@ -65,7 +65,7 @@ esp_err_t get_load(httpd_req_t *req) {
     auto off = scale.get_offset();
     auto sc = scale.get_scale();
     float current_weight = 0;
-    auto result = scale.read_scale(&current_weight);
+    auto result = scale.read_value(&current_weight);
 
     if (result != loadcell_status::success) {
         json_printf(&answer, "{ %Q : %Q }", "info", "Scale error");
@@ -151,16 +151,14 @@ void networkTask(void *pvParameters) {
     };
     // clang-format on
 
+    esp_event_loop_create_default();
+
     wifi_manager<WIFI_MODE_STA> wifi(config);
     wifi.await_connection();
 
     init_filesystem();
 
     webserver server;
-    server.register_handler({.uri = "/api/v1/load",
-                             .method = HTTP_GET,
-                             .handler = get_load,
-                             .user_ctx = nullptr});
     server.register_handler({.uri = "/api/v1/tare",
                              .method = HTTP_POST,
                              .handler = tare_scale,
@@ -173,6 +171,8 @@ void networkTask(void *pvParameters) {
                              .method = HTTP_GET,
                              .handler = get_load,
                              .user_ctx = nullptr});
+    
+    server.register_file_handler();
 
     while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -182,7 +182,6 @@ void networkTask(void *pvParameters) {
 void mainTask(void *pvParameters) {
     ESP_LOGI(log_tag, "Starting scale");
 
-    float value = 0;
     while (1) {
         auto result = scale.init_scale();
         if (result == loadcell_status::failure) {
@@ -207,12 +206,12 @@ void mainTask(void *pvParameters) {
     scale.set_offset(data.get_value<scale_setting_indices::offset>());
     scale.set_scale(201.0f);
 
+    float value = 0;
     while (1) {
-        auto result = scale.read_in_units(10, &value);
-
         vTaskDelay(500 / portTICK_PERIOD_MS);
+        auto result = scale.read_value(&value);
 
-        if (result.second == loadcell_status::failure) {
+        if (result == loadcell_status::failure) {
             ESP_LOGI(log_tag, "Failed to read from scale");
             continue;
         }
@@ -220,19 +219,15 @@ void mainTask(void *pvParameters) {
         ESP_LOGI(log_tag, "Read value %d.%03dG \t Offset %d",
                  static_cast<int32_t>(value),
                  static_cast<int32_t>(
-                     std::fabs(value - static_cast<int32_t>(value)) * 1000),
-                 data.get_value<scale_setting_indices::offset>());
+                     std::fabs(value - static_cast<int32_t>(value)) * 1000), 0);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
 
 extern "C" {
 
 void app_main() {
-    // Nvs has to be initialized for the wifi
-    data.initialize();
-
-    xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, NULL, 5, NULL, 0);
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, NULL, 5, NULL,
-                            1);
+    xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, nullptr, 5, nullptr, 0);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, nullptr, 5, nullptr, 1);
 }
 }

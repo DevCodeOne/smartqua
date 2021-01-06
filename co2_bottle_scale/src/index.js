@@ -1,34 +1,17 @@
-import { Component } from 'preact';
-import { Router } from 'preact-router';
-import { Link } from 'preact-router/match';
+import React from 'react';
+import ReactDOM from 'react-dom';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
 
-import { Home } from './home.js';
-import { Settings } from './settings.js';
-import { ScaleContextProvider } from './scalecontext.js'
+ReactDOM.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+  document.getElementById('root')
+);
 
-import 'materialize-css/dist/js/materialize.min.js'
-import 'materialize-css/dist/css/materialize.min.css'
-
-export default class App extends Component {
-
-	render() {
-		return (
-            <div>
-                <nav>
-                    <div>
-                        <ul id="nav-mobile" class="right">
-                            <li><Link activeClassName="active" href="/">Home</Link></li>
-                            <li><Link activeClassName="active" href="/settings">Settings</Link></li>
-                        </ul>
-                    </div>
-                </nav>
-                <ScaleContextProvider>
-                <Router>
-                        <Home path="/" />
-                        <Settings path="/settings" />
-			    </Router>
-                </ScaleContextProvider>
-            </div>
-		);
-	}
-}
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();

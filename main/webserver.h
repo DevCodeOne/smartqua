@@ -15,12 +15,6 @@ class webserver final {
 
         httpd_start(&m_http_server_handle, &config);
 
-        httpd_uri_t file_handler = {.uri = "/*",
-                                    .method = HTTP_GET,
-                                    .handler = webserver::get_file,
-                                    .user_ctx = this};
-
-        register_handler(file_handler);
     }
 
     webserver(const webserver &other) = delete;
@@ -30,6 +24,15 @@ class webserver final {
 
     webserver &operator=(const webserver &other) = delete;
     webserver &operator=(webserver &&other) = delete;
+
+    void register_file_handler() {
+        httpd_uri_t file_handler = {.uri = "/*",
+                                    .method = HTTP_GET,
+                                    .handler = webserver::get_file,
+                                    .user_ctx = this};
+
+        register_handler(file_handler);
+    }
 
     void register_handler(httpd_uri_t handler) {
         httpd_register_uri_handler(m_http_server_handle, &handler);
@@ -45,7 +48,7 @@ inline esp_err_t set_content_type_from_file(httpd_req_t *req,
                                             const char *filepath) {
     auto ends_with = [](std::string_view current_view, std::string_view ending) {
         const auto view_len = current_view.length();
-        const auto ending_len = current_view.length();
+        const auto ending_len = ending.length();
         if (view_len < ending_len) {
             return false;
         }
@@ -103,9 +106,9 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
             /* Send the buffer contents as HTTP response chunk */
             if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK) {
                 close(fd);
-                ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed!");
+                ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath);
                 /* Abort sending file */
-                httpd_resp_sendstr_chunk(req, NULL);
+                httpd_resp_sendstr_chunk(req, nullptr);
                 /* Respond with 500 Internal Server Error */
                 httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                     "Failed to send file");

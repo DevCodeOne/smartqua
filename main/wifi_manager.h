@@ -9,6 +9,7 @@
 
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_netif.h"
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
 #include "nvs_flash_utils.h"
@@ -45,7 +46,9 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
    public:
     wifi_manager(const wifi_config<wifi_mode_t::WIFI_MODE_STA> &config)
         : m_config(config), m_wifi_event_group(xEventGroupCreate()) {
-        tcpip_adapter_init();
+        esp_netif_init();
+
+        esp_netif_create_default_wifi_sta();
 
         wifi_init_config_t tmp_init_conf = WIFI_INIT_CONFIG_DEFAULT();
         esp_wifi_init(&tmp_init_conf);
@@ -55,10 +58,14 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
                                    &wifi_manager::event_handler, this);
 
+        std::memset(m_wifi_conf.sta.ssid, 0, sizeof(m_wifi_conf.sta.ssid));
+        std::memset(m_wifi_conf.sta.password, 0, sizeof(m_wifi_conf.sta.password));
         std::memcpy(m_wifi_conf.sta.ssid, m_config.creds.ssid.data(),
                     strlen(m_config.creds.ssid.data()));
         std::memcpy(m_wifi_conf.sta.password, m_config.creds.password.data(),
                     strlen(m_config.creds.password.data()));
+
+        ESP_LOGI(__PRETTY_FUNCTION__, "SSID: %s PASS: %s", m_wifi_conf.sta.ssid, m_wifi_conf.sta.password);
 
         m_wifi_conf.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
@@ -114,7 +121,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
 
    private:
     wifi_config<wifi_mode_t::WIFI_MODE_STA> m_config;
-    wifi_config_t m_wifi_conf;
+    wifi_config_t m_wifi_conf{};
     EventGroupHandle_t m_wifi_event_group;
     nvs_flash m_nvs;
     int32_t retry_num = 0;

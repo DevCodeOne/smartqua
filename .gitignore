@@ -1,5 +1,6 @@
-build/*
+.vscode
 .cache/*
+build/*
+main/build/**
+sdkconfig.old
 main/auth.h
-**/node_modules
-**/package-lock.json

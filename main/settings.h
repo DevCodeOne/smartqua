@@ -13,8 +13,11 @@
 enum struct nvs_init { instant, lazy_load };
 
 template <typename SettingType, nvs_init InitType = nvs_init::lazy_load>
-requires(std::is_standard_layout_v<SettingType>) class nvs_setting {
+class nvs_setting {
    public:
+    static_assert(std::is_standard_layout_v<SettingType>,
+                  "SettingType has to be standard layout");
+
     using setting_type = SettingType;
     using setting_index_type = typename setting_type::index_type;
 
