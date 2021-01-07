@@ -1,20 +1,19 @@
 import React, { Component } from 'react'
 
-import { Typography } from '@material-ui/core'
+import { Typography, Grid } from '@material-ui/core'
 import { ApiService } from './ApiService.js'
 
 export class Home extends Component {
     constructor(props) {
         super(props);
-        this.state = { currentLoad : "0g"};
+        this.state = { currentLoad : "0g", containedCo2 : "0g"};
     }
 
     componentDidMount() {
         this.timer = setInterval( () => {
             const data = ApiService.GetLoad();
-            data.then(data => this.setState( { currentLoad : data.load + "g"}))
+            data.then(data => this.setState( { currentLoad : data.load + "g", containedCo2 : (data.contained_co2 - (Math.abs(data.load))) + "g"}))
         }, 1000);
-
     }
 
     componentWillUnmount() {
@@ -22,12 +21,26 @@ export class Home extends Component {
     }
 
     render() {
-        return (
+      return (
         <div>
-          <Typography variant="h1">
-            Current Load : { this.state.currentLoad }
-          </Typography>
+          <Grid container direction="row" justify="center" alignItems="center" spacing={4}>
+            <Grid item xs={12}>
+              <Typography variant="h2" align="Center">
+                Co2 Usage
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="h3" align="center">
+                Still contained Co2 : {this.state.containedCo2}
+              </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="h3" align="Center">
+                Weight difference : {this.state.currentLoad}
+              </Typography>
+            </Grid>
+          </Grid>
         </div>
-        );
+      );
     }
 }

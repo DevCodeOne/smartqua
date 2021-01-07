@@ -75,7 +75,7 @@ esp_err_t get_load(httpd_req_t *req) {
 
     json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d, %Q : %d}", "info", "OK",
                 "tare", static_cast<int32_t>(off / sc), "load",
-                static_cast<int32_t>(current_weight), "contained_co2", 0);
+                static_cast<int32_t>(current_weight), "contained_co2", data.get_value<scale_setting_indices::contained_co2>());
     ESP_LOGE(log_tag, "%s", buf);
 
     httpd_resp_sendstr(req, buf);
@@ -86,6 +86,7 @@ esp_err_t set_contained_co2(httpd_req *req) {
     httpd_resp_set_type(req, "application/json");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     char buf[512];
+    std::memset(buf, 0, sizeof(buf));
     json_out answer = JSON_OUT_BUF(buf, sizeof(buf));
 
     size_t recv_size =

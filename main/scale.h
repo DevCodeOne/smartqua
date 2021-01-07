@@ -39,12 +39,16 @@ class loadcell_resource final {
 
     // TODO: add some sort of stop to this
     static void read_samples(void *unused) {
-        auto status = hx711_init(&_dev);
-        int32_t value = 0;
+        // TODO: Make number of retries configuerable
+        for (unsigned int i = 0; i < 10; ++i) {
+            auto status = hx711_init(&_dev);
+            int32_t value = 0;
         
-        if (status != ESP_OK) {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Couldn't initialize scale");
-            return;
+            if (status != ESP_OK) {
+                ESP_LOGE(__PRETTY_FUNCTION__, "Couldn't initialize scale");
+                return;
+            }
+            std::this_thread:sleep(std::chrono::milliseconds(500));
         }
         while (1) {
             esp_err_t wait_result = hx711_wait(&_dev, interval_millis);
