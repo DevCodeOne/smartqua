@@ -106,9 +106,10 @@ private:
     std::array<std::optional<pwm>, num_outputs> outputs;
 };
 
+// TODO: add other events
 template<>
 inline void pwm_settings::dispatch(retrieve_single_pwm &event) const {
-    if (event.index < num_outputs && data.initialized[event.index]) {
+    if (event.index < num_outputs) {
         event.data = data.data[event.index];
     }
 }
