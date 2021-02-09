@@ -11,6 +11,7 @@ class webserver final {
    public:
     webserver() {
         httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+        config.stack_size = 4096 * 2;
         config.uri_match_fn = httpd_uri_match_wildcard;
 
         httpd_start(&m_http_server_handle, &config);

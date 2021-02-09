@@ -83,7 +83,7 @@ void networkTask(void *pvParameters) {
 
     server.register_handler({.uri ="/api/v1/pwm",
                              .method = HTTP_POST,
-                             .handler = create_pwm_output,
+                             .handler = post_pwm_output,
                              .user_ctx = nullptr});
 
     server.register_handler({.uri ="/api/v1/pwm",
@@ -94,6 +94,7 @@ void networkTask(void *pvParameters) {
     server.register_file_handler();
 
     while (1) {
+        ESP_LOGI(log_tag, "%s", __PRETTY_FUNCTION__);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
@@ -127,10 +128,9 @@ void mainTask(void *pvParameters) {
     global_store.read_event(e);
     // scale.set_offset(e.data.offset);
     // scale.set_scale(201.0f);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
 
-    float value = 0;
     while (1) {
+        vTaskDelay(500 / portTICK_PERIOD_MS);
         /*auto result = scale.read_value(&value);
 
         if (result == loadcell_status::failure) {
@@ -142,6 +142,7 @@ void mainTask(void *pvParameters) {
                  static_cast<int32_t>(value),
                  static_cast<int32_t>(
                      std::fabs(value - static_cast<int32_t>(value)) * 1000), 0);*/
+        ESP_LOGI(log_tag, "%s", __PRETTY_FUNCTION__);
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
