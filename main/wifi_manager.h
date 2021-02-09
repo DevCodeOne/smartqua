@@ -70,7 +70,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         m_wifi_conf.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
         esp_wifi_set_mode(WIFI_MODE_STA);
-        esp_wifi_set_config(ESP_IF_WIFI_STA, &m_wifi_conf);
+        esp_wifi_set_config(wifi_interface_t::WIFI_IF_STA, &m_wifi_conf);
         esp_wifi_start();
     }
 

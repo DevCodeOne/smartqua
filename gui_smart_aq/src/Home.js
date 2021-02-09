@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 
 import { Typography, Grid } from '@material-ui/core'
 import { ApiService } from './ApiService.js'
+import { DragableChart } from './DragableChart.js'
 
 export class Home extends Component {
     constructor(props) {
@@ -30,14 +31,17 @@ export class Home extends Component {
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="h3" align="center">
+              <Typography variant="h4" align="center">
                 Still contained Co2 : {this.state.containedCo2}
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant="h3" align="Center">
+              <Typography variant="h4" align="Center">
                 Weight difference : {this.state.currentLoad}
               </Typography>
+            </Grid>
+            <Grid item xs={12}>
+              <DragableChart Width={500} RectSize={50} GapSize={5} />
             </Grid>
           </Grid>
         </div>
