@@ -97,7 +97,8 @@ esp_err_t post_pwm_output(httpd_req *req) {
             .channel = static_cast<ledc_channel_t>(channel),
             .max_value = static_cast<uint16_t>(max_value),
             .current_value = static_cast<uint16_t>(current_value),
-            .gpio_num = static_cast<uint8_t>(gpio_num)
+            .gpio_num = static_cast<uint8_t>(gpio_num),
+            .fade = fade
         }, 
         .index = static_cast<size_t>(*index),
         .description{""}

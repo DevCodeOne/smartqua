@@ -76,22 +76,22 @@ void networkTask(void *pvParameters) {
                              .handler = get_load,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/pwm/*",
+    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
                              .method = HTTP_GET,
                              .handler = get_pwm_outputs,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/pwm/*",
+    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
                              .method = HTTP_PUT,
                              .handler = post_pwm_output,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/pwm/*",
+    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
                              .method = HTTP_DELETE,
                              .handler = delete_pwm_output,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/pwm/*",
+    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
                              .method = HTTP_PATCH,
                              .handler = set_pwm_output,
                              .user_ctx = nullptr});

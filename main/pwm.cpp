@@ -9,6 +9,8 @@ pwm::pwm(const pwm_config *pwm_conf) : m_pwm_conf(pwm_conf) { }
 void pwm::update_value() {
     if (!m_pwm_conf->fade) {
         ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, m_pwm_conf->channel, m_pwm_conf->current_value, 0);
+    } else {
+        ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, m_pwm_conf->channel, m_pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
     }
 }
 

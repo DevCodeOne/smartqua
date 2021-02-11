@@ -1,6 +1,8 @@
 idf_component_register(SRCS     "aq_main.cpp"
                                 "scale.cpp"
                                 "scale_rest.cpp"
+                                "devices.cpp"
+                                "devices.h"
                                 "pwm.cpp"
                                 "pwm_rest.cpp"
                             "../components/frozen/frozen.c"
