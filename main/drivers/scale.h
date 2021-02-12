@@ -10,8 +10,8 @@
 
 #include "esp_log.h"
 #include "hx711.h"
-#include "sample_container.h"
-#include "thread_utils.h"
+#include "utils/sample_container.h"
+#include "utils/thread_utils.h"
 
 enum struct loadcell_status { uninitialized, success, failure };
 

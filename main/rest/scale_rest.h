@@ -4,9 +4,9 @@
 #include "esp_log.h"
 #include "frozen.h"
 
-#include "store.h"
-#include "scale.h"
-#include "settings.h"
+#include "storage/store.h"
+#include "storage/settings.h"
+#include "drivers/scale.h"
 
 esp_err_t get_load(httpd_req_t *req);
 esp_err_t set_contained_co2(httpd_req *req);

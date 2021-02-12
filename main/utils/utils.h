@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <tuple>
+#include <type_traits>
 
 template<size_t Index>
 struct constexpr_for {
@@ -16,6 +18,23 @@ struct constexpr_for<0> {
     template<typename TupleType, typename Callable>
     static void doCall(TupleType &tuple, Callable &&call) {
         call(std::get<0>(tuple));
+    }
+};
+
+template<size_t Index>
+struct constexpr_for_index {
+    template<typename Callable>
+    constexpr static void doCall(Callable &&call) {
+        call(std::integral_constant<size_t, Index>{});
+        constexpr_for_index<Index - 1>::doCall(call);
+    }
+};
+
+template<>
+struct constexpr_for_index<0> {
+    template<typename Callable>
+    constexpr static void doCall(Callable &&call) {
+        call(std::integral_constant<size_t, 0>{});
     }
 };
 

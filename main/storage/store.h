@@ -4,7 +4,8 @@
 
 #include <tuple>
 #include <shared_mutex>
-#include "utils.h"
+
+#include "utils/utils.h"
 
 using ignored_event = void;
 
@@ -46,7 +47,7 @@ class store {
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
             std::unique_lock instance_guard{_instance_mutex};
 
-            constexpr_for<sizeof...(StoreTypes) - 1>::doCall(_stores, [&event](auto &current_store){
+            constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](auto &current_store){
                 using result_type = decltype(std::declval<decltype(current_store.sstore)>().dispatch(event));
 
                 Detail::return_value_handler<decltype(current_store.sstore), decltype(current_store.ssave), decltype(event), result_type>
@@ -60,8 +61,8 @@ class store {
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
             std::shared_lock instance_guard{_instance_mutex};
 
-            constexpr_for<sizeof...(StoreTypes) - 1>::doCall(_stores, [&event](const auto &currentStore){
-                currentStore.sstore.template dispatch<T>(event);
+            constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](const auto &currentStore){
+                currentStore.sstore.dispatch(event);
             });
         }
     private:
@@ -70,7 +71,7 @@ class store {
 
         void init_values() {
             ESP_LOGI(__PRETTY_FUNCTION__, "Init values");
-            constexpr_for<sizeof...(StoreTypes) - 1>::doCall(_stores, [](auto &current_store){
+            constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [](auto &current_store){
                 auto initial_value = current_store.ssave.get_value();
                 current_store.sstore = initial_value;
             });

@@ -15,9 +15,9 @@ enum struct device_write_result {
 };
 
 struct device_config { 
-    std::array<gpio_num_t, max_pins_for_device> pins;
-    std::array<char, name_length> device_driver;
-    std::array<char, 256> device_config;
+    std::array<char, name_length> device_driver_name;
+    // TODO: add method to write driver conf
+    std::array<char, device_config_size> device_config; // Binary data
 };
 
 struct device_values {

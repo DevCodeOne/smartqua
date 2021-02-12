@@ -1,25 +1,9 @@
 #include <cstdio>
 
 #include "aq_main.h"
-#include "pwm_rest.h"
-#include "json_utils.h"
-#include "http_utils.h"
-
-std::optional<int> extract_index_from_uri(const char *uri) { std::string_view uri_view = uri;
-    auto argument = uri_view.find_last_of("/");
-    std::optional<int> index{};
-
-    if (argument + 1 != uri_view.size()) {
-        int new_index = 0;
-        int result = std::sscanf(uri_view.data() + argument + 1, "%d", &new_index);
-
-        if (result) {
-            index = new_index;
-        }
-    }
-
-    return index;
-}
+#include "rest/pwm_rest.h"
+#include "utils/json_utils.h"
+#include "utils/http_utils.h"
 
 // TODO: print lightweight version
 esp_err_t get_pwm_outputs(httpd_req *req) {

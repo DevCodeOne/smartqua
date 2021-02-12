@@ -3,8 +3,6 @@
 
 #include <cmath>
 
-#include "auth.h"
-#include "data.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_spi_flash.h"
@@ -16,12 +14,14 @@
 #include "nvs_flash.h"
 
 // clang-format off
-#include "scale.h"
-#include "settings.h"
-#include "wifi_manager.h"
-#include "webserver.h"
-#include "scale_rest.h"
-#include "pwm_rest.h"
+#include "auth.h"
+#include "drivers/scale.h"
+#include "storage/settings.h"
+#include "network/wifi_manager.h"
+#include "network/webserver.h"
+#include "rest/scale_rest.h"
+#include "rest/pwm_rest.h"
+#include "rest/devices_rest.h"
 #include "aq_main.h"
 // clang-format on
 
@@ -95,6 +95,27 @@ void networkTask(void *pvParameters) {
                              .method = HTTP_PATCH,
                              .handler = set_pwm_output,
                              .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/devices/*",
+                             .method = HTTP_GET,
+                             .handler = get_devices,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/devices/*",
+                             .method = HTTP_PUT,
+                             .handler = post_device,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/devices/*",
+                             .method = HTTP_DELETE,
+                             .handler = remove_device,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/devices/*",
+                             .method = HTTP_PATCH,
+                             .handler = set_device,
+                             .user_ctx = nullptr});
+
     
     server.register_file_handler();
 
@@ -156,6 +177,6 @@ extern "C" {
 
 void app_main() {
     xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, nullptr, 5, nullptr, 0);
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, nullptr, 5, nullptr, 1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 5, nullptr, 5, nullptr, 1);
 }
 }

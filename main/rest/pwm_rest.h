@@ -9,11 +9,11 @@
 #include "esp_log.h"
 #include "frozen.h"
 
-#include "store.h"
-#include "pwm.h"
-#include "utils.h"
+#include "storage/store.h"
+#include "drivers/pwm.h"
+#include "utils/utils.h"
+#include "utils/json_utils.h"
 #include "smartqua_config.h"
-#include "json_utils.h"
 
 esp_err_t get_pwm_outputs(httpd_req *req);
 esp_err_t post_pwm_output(httpd_req *req);

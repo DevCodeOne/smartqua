@@ -12,7 +12,8 @@
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
-#include "nvs_flash_utils.h"
+
+#include "storage/nvs_flash_utils.h"
 
 static constexpr uint8_t wifi_connected_bit = BIT0;
 static constexpr uint8_t wifi_fail_bit = BIT1;
