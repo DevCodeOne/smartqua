@@ -9,15 +9,15 @@
 
 #include "smartqua_config.h"
 
-// TODO: check if device is valid
+// TODO: check if device is valid and add device addresses to address
 std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config *config) {
     return std::optional<ds18x20_driver>(ds18x20_driver(config));
 }
 
-std::optional<ds18x20_driver> ds18x20_driver::create_driver(const char *data_in, size_t data_in_len, device_config &device_conf_out) {
+std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_view input, device_config &device_conf_out) {
     std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
     int gpio_num = -1;
-    json_scanf(data_in, data_in_len, R"({ gpio_num : %d})", &gpio_num);
+    json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpio_num);
     ESP_LOGI("ds18x20_driver", "gpio_num : %d", gpio_num);
 
     if (gpio_num == -1) {
@@ -78,7 +78,9 @@ device_write_result ds18x20_driver::write_value(const device_values &value) {
 device_read_result ds18x20_driver::read_value(device_values &value) const {
     const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
     float temperature = 0.0f;
-    ESP_LOGI("ds18x20_driver", "Reading from gpio_num : %d @ address : %lld", static_cast<int>(config->gpio), config->addr);
+    ESP_LOGI("ds18x20_driver", "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
+        static_cast<uint32_t>(config->addr >> 32),
+        static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
 
     auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
 

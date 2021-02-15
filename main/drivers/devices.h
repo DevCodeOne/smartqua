@@ -4,6 +4,7 @@
 #include <optional>
 #include <variant>
 #include <cstring>
+#include <string_view>
 
 #include "frozen.h"
 #include "esp_log.h"
@@ -38,6 +39,8 @@ public:
     device &operator=(device &&other) = default;
 
     device_write_result write_value(const device_values &value);
+    // To calibrate something or execute actions
+    device_write_result write_options(const std::string_view options);
     device_read_result read_value(device_values &value) const;
 private:
     std::variant<DeviceDrivers ...> m_driver = nullptr;
@@ -47,12 +50,12 @@ private:
 // the correct driver will be found by the device_name
 // device_conf_out will contain the necessary data for the driver to be initialized from storage
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, const char *data_in, size_t data_in_len, device_config &device_conf_out) {
+std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, const std::string_view input, device_config &device_conf_out) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
     ESP_LOGI("Device_Driver", "Searching driver %s", driver_name);
 
     constexpr_for_index<sizeof...(DeviceDrivers) - 1>::doCall(
-        [data_in, data_in_len, driver_name, &device_conf_out, &found_device_driver](auto current_index) constexpr {
+        [input, driver_name, &device_conf_out, &found_device_driver](auto current_index) constexpr {
             using driver_type = std::tuple_element_t<decltype(current_index)::value, std::tuple<DeviceDrivers ...>>;
 
             // Not the driver we are looking for
@@ -61,7 +64,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, 
             }
 
             ESP_LOGI("Device_Driver", "Found driver %s", driver_name);
-            auto result = driver_type::create_driver(data_in, data_in_len, device_conf_out);
+            auto result = driver_type::create_driver(input, device_conf_out);
             
             // Driver creation wasn't successfull
             if (!result.has_value()) {

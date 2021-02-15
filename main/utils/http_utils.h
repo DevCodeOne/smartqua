@@ -7,7 +7,7 @@
 
 #include "esp_http_server.h"
 
-std::optional<int> extract_index_from_uri(const char *uri);
+std::optional<unsigned int> extract_index_from_uri(const char *uri);
 
 template<size_t BufferSize, size_t ChunkSize = 512>
 esp_err_t send_in_chunks(httpd_req *req, std::array<char, BufferSize> &chunk, size_t num_bytes_to_send = BufferSize) {

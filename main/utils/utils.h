@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
+#include <limits>
 
 template<size_t Index>
 struct constexpr_for {
@@ -68,4 +69,14 @@ struct all_unique<std::integral_constant<size_t, 0>, Types ...> {
 
 template<typename ... Types>
 static inline constexpr bool all_unique_v = all_unique<std::integral_constant<size_t, sizeof...(Types) - 1>, Types ...>::value;
+
+template<typename T, typename T2>
+bool check_assign(T &to_assign_to, T2 to_assign) {
+    if (to_assign > std::numeric_limits<T>::max() || to_assign < std::numeric_limits<T>::min()) {
+        return false;
+    }
+
+    to_assign_to = static_cast<T>(to_assign);
+    return true;
+}
 

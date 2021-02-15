@@ -4,10 +4,10 @@
 #include <cstdlib>
 #include <optional>
 
-std::optional<int> extract_index_from_uri(const char *uri) { 
+std::optional<unsigned int> extract_index_from_uri(const char *uri) { 
     std::string_view uri_view = uri;
     auto argument = uri_view.find_last_of("/");
-    std::optional<int> index{};
+    std::optional<unsigned int> index{};
 
     if (argument + 1 != uri_view.size()) {
         int new_index = 0;

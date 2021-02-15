@@ -1,26 +1,46 @@
-#include <mutex>
-
 #include "pwm.h"
 
+#include <mutex>
+#include <cstring>
+
+#include "frozen.h"
 #include "esp_log.h"
+#include "utils/utils.h"
 
-pwm::pwm(const pwm_config *pwm_conf) : m_pwm_conf(pwm_conf) { }
+pwm::pwm(const device_config *conf) : m_conf(conf) { }
 
-void pwm::update_value() {
-    if (!m_pwm_conf->fade) {
-        ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, m_pwm_conf->channel, m_pwm_conf->current_value, 0);
-    } else {
-        ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, m_pwm_conf->channel, m_pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+device_write_result pwm::write_value(const device_values &values) {
+    auto *pwm_conf = reinterpret_cast<pwm_config *>(m_conf->device_config.data());
+    esp_err_t result = ESP_FAIL;
+
+    if (!values.generic_pwm.has_value()) {
+        return device_write_result::not_supported;
     }
+
+    pwm_conf->current_value = *values.generic_pwm;
+
+    if (!pwm_conf->fade) {
+        result = ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 0);
+    } else {
+        // Maybe do the fading in a dedicated thread, and block that thread ?
+        result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+    }
+
+    return result == ESP_OK ? device_write_result::ok : device_write_result::failure;
 }
 
-std::optional<pwm> create_pwm_output(const pwm_config *pwm_conf) {
-    // TODO: somehow configure timers differently
+device_read_result pwm::read_value(device_values &values) const {
+    return device_read_result::not_supported;
+}
+
+std::optional<pwm> pwm::create_driver(const device_config *config) {
     static std::once_flag init_fading{};
     std::call_once(init_fading, [](){ 
         ESP_LOGI("Init fading", "Initialized fading");
         ledc_fade_func_install(0); 
     });
+
+    auto *pwm_conf = reinterpret_cast<pwm_config *>(config->device_config.data());
     ledc_timer_config_t ledc_timer{};
     ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
     ledc_timer.duty_resolution = LEDC_TIMER_13_BIT;
@@ -49,5 +69,40 @@ std::optional<pwm> create_pwm_output(const pwm_config *pwm_conf) {
         return std::nullopt;
     }
 
-    return std::make_optional(pwm{pwm_conf});
+    return std::make_optional(pwm{config});
+}
+
+// TODO: check if gpio is already in use
+std::optional<pwm> pwm::create_driver(const std::string_view input, device_config &device_conf_out) {
+    // Only prepare device_conf_out in this method and pass it along
+
+    pwm_config new_conf{};
+    int frequency = new_conf.frequency;
+    int timer = new_conf.timer;
+    int channel = new_conf.channel;
+    int max_value = new_conf.max_value;
+    int current_value = new_conf.current_value;
+    int gpio_num = new_conf.gpio_num;
+    bool fade = new_conf.fade;
+
+    json_scanf(input.data(), input.size(),
+        "{ frequency : %d, timer : %d, channel : %d, max_value : %d, current_value : %d, gpio_num : %d, fade : %B}", 
+        &frequency, &timer, &channel, &max_value, &current_value, &gpio_num, &fade);
+
+    bool assign_result = true;
+    assign_result &= check_assign(new_conf.frequency, frequency);
+    assign_result &= check_assign(new_conf.timer, timer);
+    assign_result &= check_assign(new_conf.channel, channel);
+    assign_result &= check_assign(new_conf.max_value, max_value);
+    assign_result &= check_assign(new_conf.current_value, current_value);
+    assign_result &= check_assign(new_conf.gpio_num, gpio_num);
+    new_conf.fade = static_cast<bool>(fade);
+
+    if (!assign_result) {
+        // Some value was out of range
+        return std::nullopt;
+    }
+
+    std::memcpy(reinterpret_cast<pwm_config *>(device_conf_out.device_config.data()), &new_conf, sizeof(pwm_config));
+    return create_driver(&device_conf_out);
 }

@@ -2,8 +2,29 @@
 
 #include <cstdarg>
 #include <array>
+#include <utility>
 
 #include "frozen.h"
+
+template<typename T1, typename T2>
+constexpr auto constexpr_pow(T1 n, T2 e) {
+    static_assert(std::is_integral_v<T1> && std::is_integral_v<T2>);
+    if (e == 0) {
+        return 1;
+    }
+
+    if (e == 1) {
+        return n;
+    }
+
+    return n * constexpr_pow(n, e - 1);
+}
+
+template<typename FloatType, typename IntTypes = int, size_t AfterPoint = 2>
+std::pair<IntTypes, IntTypes> fixed_decimal_rep(FloatType value) {
+    const auto integer_value = static_cast<IntTypes>(value);
+    return std::make_pair(integer_value, (value - integer_value) * constexpr_pow(10, AfterPoint));
+}
 
 template<typename T>
 struct print_to_json { };

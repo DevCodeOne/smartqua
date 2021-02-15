@@ -19,7 +19,7 @@ class ds18x20_driver {
     public:
         static inline constexpr char name[] = "ds18x20_driver";
 
-        static std::optional<ds18x20_driver> create_driver(const char *data_in, size_t data_in_len, device_config &device_conf_out);
+        static std::optional<ds18x20_driver> create_driver(const std::string_view input, device_config &device_conf_out);
         static std::optional<ds18x20_driver> create_driver(const device_config *config);
 
         device_write_result write_value(const device_values &value);

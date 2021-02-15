@@ -20,7 +20,6 @@
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
 #include "rest/scale_rest.h"
-#include "rest/pwm_rest.h"
 #include "rest/devices_rest.h"
 #include "aq_main.h"
 // clang-format on
@@ -76,29 +75,14 @@ void networkTask(void *pvParameters) {
                              .handler = get_load,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
-                             .method = HTTP_GET,
-                             .handler = get_pwm_outputs,
-                             .user_ctx = nullptr});
-
-    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
-                             .method = HTTP_PUT,
-                             .handler = post_pwm_output,
-                             .user_ctx = nullptr});
-
-    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
-                             .method = HTTP_DELETE,
-                             .handler = delete_pwm_output,
-                             .user_ctx = nullptr});
-
-    server.register_handler({.uri ="/api/v1/outputs/pwm/*",
-                             .method = HTTP_PATCH,
-                             .handler = set_pwm_output,
-                             .user_ctx = nullptr});
-
     server.register_handler({.uri ="/api/v1/devices/*",
                              .method = HTTP_GET,
                              .handler = get_devices,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/devices",
+                             .method = HTTP_POST,
+                             .handler = post_device,
                              .user_ctx = nullptr});
 
     server.register_handler({.uri ="/api/v1/devices/*",

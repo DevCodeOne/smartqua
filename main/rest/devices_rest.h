@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <string_view>
 
 #include "esp_http_server.h"
 
@@ -17,7 +18,7 @@ esp_err_t set_device(httpd_req *req);
 esp_err_t remove_device(httpd_req *req);
 
 struct add_device { 
-    size_t index = std::numeric_limits<size_t>::max();
+    std::optional<size_t> index = std::nullopt;
     const char description[name_length];
     const char *driver_name;
     const char *json_input;
@@ -33,7 +34,10 @@ struct read_from_device {
     device_values read_value;
  };
 
-struct write_to_device { };
+struct write_to_device { 
+    size_t index = std::numeric_limits<size_t>::max();
+    device_values write_value;
+};
 
 template<size_t N> 
 struct device_setting_trivial {
@@ -56,19 +60,22 @@ public:
     template<typename T>
     using filter_return_type = std::conditional_t<!
         all_unique_v<T,
-        add_device, remove_single_device>, trivial_representation, ignored_event>;
+        add_device, remove_single_device, write_to_device>, trivial_representation, ignored_event>;
 
     device_settings &operator=(trivial_representation new_value);
     
+    // Ignore other read and write events
     template<typename T>
     filter_return_type<T> dispatch(T &event) {}
+
+    template<typename T>
+    void dispatch(T &event) const {}
 
     filter_return_type<add_device> dispatch(add_device &event);
 
     filter_return_type<remove_single_device> dispatch(remove_single_device &event);
 
-    template<typename T>
-    void dispatch(T &event) const {}
+    filter_return_type<write_to_device> dispatch(write_to_device &event);
 
     // TODO: maybe different return type ?
     void dispatch(read_from_device &event) const;
@@ -94,11 +101,29 @@ device_settings<DeviceDrivers ...> &device_settings<DeviceDrivers ...>::operator
 template<typename ... DeviceDrivers>
 auto device_settings<DeviceDrivers ...>::dispatch(add_device &event) -> filter_return_type<add_device> {
     ESP_LOGI("Device_Settings", "Trying to add new device");
-    if (event.driver_name != nullptr && event.index < num_devices && !data.initialized[event.index]) {
-        devices[event.index] = create_device<DeviceDrivers ...>(event.driver_name, event.json_input, event.json_len, data.data[event.index]);
-        data.initialized[event.index] = devices[event.index].has_value();
+    if (event.driver_name == nullptr) {
+        ESP_LOGI("Device_Settings", "No driver_name provided");
+    }
+
+    if (!event.index.has_value()) {
+        for (size_t i = 0; i < data.initialized.size(); ++i) {
+            if (data.initialized[i]) {
+                event.index = i;
+                break;
+            }
+        }
+    }
+
+    if (!event.index.has_value()) {
+        ESP_LOGI("Device_Settings", "No free index found");
+    }
+
+    if (*event.index < num_devices && !data.initialized[*event.index]) {
+        devices[*event.index] = create_device<DeviceDrivers ...>(event.driver_name, 
+            std::string_view(event.json_input, event.json_len), data.data[*event.index]);
+        data.initialized[*event.index] = devices[*event.index].has_value();
     } else {
-        ESP_LOGI("Device_Settings", "Send data not valid");
+        ESP_LOGI("Device_Settings", "Index is not valid");
     }
     return data;
 }
@@ -110,6 +135,17 @@ auto device_settings<DeviceDrivers ...>::dispatch(remove_single_device &event) -
         data.initialized[event.index] = false;
     }
 
+    return data;
+}
+
+template<typename ... DeviceDrivers>
+auto device_settings<DeviceDrivers ...>::dispatch(write_to_device &event) -> filter_return_type<write_to_device> {
+    if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
+        ESP_LOGI("Device_Settings", "Writing to device ...");
+        devices[event.index]->write_value(event.write_value);
+    } else {
+        ESP_LOGI("Device_Settings", "Device not valid");
+    }
     return data;
 }
 
