@@ -71,11 +71,11 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
 
 ds18x20_driver::ds18x20_driver(const device_config *conf) : m_conf(conf) { }
 
-device_write_result ds18x20_driver::write_value(const device_values &value) { 
-    return device_write_result::not_supported;
+device_operation_result ds18x20_driver::write_value(const device_values &value) { 
+    return device_operation_result::not_supported;
 }
 
-device_read_result ds18x20_driver::read_value(device_values &value) const {
+device_operation_result ds18x20_driver::read_value(device_values &value) const {
     const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
     float temperature = 0.0f;
     ESP_LOGI("ds18x20_driver", "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
@@ -87,9 +87,9 @@ device_read_result ds18x20_driver::read_value(device_values &value) const {
     ESP_LOGI("ds18x20_driver", "Read temperature : %d", static_cast<int>(temperature * 1000));
 
     if (result != ESP_OK) {
-        return device_read_result::failure;
+        return device_operation_result::failure;
     }
 
     value.temperature = temperature;
-    return device_read_result::ok;
+    return device_operation_result::ok;
 }

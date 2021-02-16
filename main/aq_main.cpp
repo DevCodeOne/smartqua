@@ -27,6 +27,11 @@
 static constexpr uint8_t file_path_max = 32;
 static constexpr char log_tag[] = "Co2_Scale";
 
+store<
+    single_store<scale_settings, nvs_setting<scale_settings::trivial_representation> >,
+    single_store<device_settings_type, nvs_setting<device_settings_type::trivial_representation> >
+    > global_store;
+
 int retry_num = 0;
 // loadcell scale{18, 19};
 

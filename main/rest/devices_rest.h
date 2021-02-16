@@ -17,25 +17,33 @@ esp_err_t post_device(httpd_req *req);
 esp_err_t set_device(httpd_req *req);
 esp_err_t remove_device(httpd_req *req);
 
+enum struct device_collection_operation {
+    ok, collection_full, index_invalid, failed
+};
+
 struct add_device { 
-    std::optional<size_t> index = std::nullopt;
+    std::optional<unsigned int> index = std::nullopt;
     const char description[name_length];
     const char *driver_name;
     const char *json_input;
     size_t json_len;
+    device_collection_operation op_result;
 };
 
 struct remove_single_device {
     size_t index = std::numeric_limits<size_t>::max();
+    device_collection_operation op_result;
 };
 
 struct read_from_device {
     size_t index = std::numeric_limits<size_t>::max();
+    device_operation_result op_result;
     device_values read_value;
  };
 
 struct write_to_device { 
     size_t index = std::numeric_limits<size_t>::max();
+    device_operation_result op_result;
     device_values write_value;
 };
 
@@ -106,8 +114,8 @@ auto device_settings<DeviceDrivers ...>::dispatch(add_device &event) -> filter_r
     }
 
     if (!event.index.has_value()) {
-        for (size_t i = 0; i < data.initialized.size(); ++i) {
-            if (data.initialized[i]) {
+        for (unsigned int i = 0; i < data.initialized.size(); ++i) {
+            if (!data.initialized[i]) {
                 event.index = i;
                 break;
             }
@@ -142,7 +150,7 @@ template<typename ... DeviceDrivers>
 auto device_settings<DeviceDrivers ...>::dispatch(write_to_device &event) -> filter_return_type<write_to_device> {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
-        devices[event.index]->write_value(event.write_value);
+        event.op_result = devices[event.index]->write_value(event.write_value);
     } else {
         ESP_LOGI("Device_Settings", "Device not valid");
     }
@@ -153,7 +161,7 @@ template<typename ... DeviceDrivers>
 void device_settings<DeviceDrivers ...>::dispatch(read_from_device &event) const {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
-        devices[event.index]->read_value(event.read_value);
+        event.op_result = devices[event.index]->read_value(event.read_value);
     } else {
         ESP_LOGI("Device_Settings", "Device not valid");
     }

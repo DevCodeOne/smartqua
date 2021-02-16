@@ -9,15 +9,16 @@
 
 pwm::pwm(const device_config *conf) : m_conf(conf) { }
 
-device_write_result pwm::write_value(const device_values &values) {
+device_operation_result pwm::write_value(const device_values &values) {
     auto *pwm_conf = reinterpret_cast<pwm_config *>(m_conf->device_config.data());
     esp_err_t result = ESP_FAIL;
 
     if (!values.generic_pwm.has_value()) {
-        return device_write_result::not_supported;
+        return device_operation_result::not_supported;
     }
 
     pwm_conf->current_value = *values.generic_pwm;
+    ESP_LOGI("pwm_driver", "Setting new value %d", pwm_conf->current_value);
 
     if (!pwm_conf->fade) {
         result = ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 0);
@@ -26,17 +27,17 @@ device_write_result pwm::write_value(const device_values &values) {
         result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
     }
 
-    return result == ESP_OK ? device_write_result::ok : device_write_result::failure;
+    return result == ESP_OK ? device_operation_result::ok : device_operation_result::failure;
 }
 
-device_read_result pwm::read_value(device_values &values) const {
-    return device_read_result::not_supported;
+device_operation_result pwm::read_value(device_values &values) const {
+    return device_operation_result::not_supported;
 }
 
 std::optional<pwm> pwm::create_driver(const device_config *config) {
     static std::once_flag init_fading{};
     std::call_once(init_fading, [](){ 
-        ESP_LOGI("Init fading", "Initialized fading");
+        ESP_LOGI("pwm_driver", "Initialized fading");
         ledc_fade_func_install(0); 
     });
 
@@ -51,6 +52,7 @@ std::optional<pwm> pwm::create_driver(const device_config *config) {
     auto result = ledc_timer_config(&ledc_timer);
 
     if (result != ESP_OK) {
+        ESP_LOGI("pwm_driver", "Couldn't create ledc driver");
         return std::nullopt;
     }
 
@@ -66,6 +68,7 @@ std::optional<pwm> pwm::create_driver(const device_config *config) {
     result = ledc_channel_config(&ledc_channel);
 
     if (result != ESP_OK) {
+        ESP_LOGI("pwm_driver", "Couldn't create ledc driver");
         return std::nullopt;
     }
 

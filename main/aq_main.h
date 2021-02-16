@@ -13,7 +13,7 @@
 using device_settings_type = device_settings<ds18x20_driver, pwm>;
 
 // TODO: add timers
-static inline store<
+extern store<
     single_store<scale_settings, nvs_setting<scale_settings::trivial_representation> >,
     single_store<device_settings_type, nvs_setting<device_settings_type::trivial_representation> >
     > global_store;

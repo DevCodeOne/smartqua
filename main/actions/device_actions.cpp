@@ -5,6 +5,10 @@
 #include "aq_main.h"
 
 json_action_result get_devices_action(std::optional<unsigned int> index, char *buf, size_t buf_len) {
+    if (!index.has_value()) {
+        return { 0, json_action_result_value::failed };
+    }
+
     json_out answer = JSON_OUT_BUF(buf, buf_len);
     int answer_len = 0;
 
@@ -31,7 +35,7 @@ json_action_result add_device_action(std::optional<unsigned int> index, char *in
     std::memcpy(driver_name.data(), str_token.ptr, std::min(static_cast<int>(name_length), str_token.len));
     
     add_device to_add {};
-    to_add.index = static_cast<size_t>(*index);
+    to_add.index = index;
     to_add.driver_name = driver_name.data();
     to_add.json_input = token.ptr;
     to_add.json_len = token.len;
@@ -53,12 +57,10 @@ json_action_result remove_device_action(unsigned int index, char *buf, size_t bu
 }
 
 json_action_result set_device_action(unsigned int index, char *buf, size_t buf_len) {  
-    json_token token;
-
-    json_scanf(buf, buf_len, "{ driver_param : %T }", &token);
-
     write_to_device to_write {};
     to_write.index = static_cast<size_t>(index);
+
+    json_scanf(buf, buf_len, "%M", json_scanf_single<decltype(to_write.write_value)>, &to_write.write_value);
 
     // TODO: parse device_values
     global_store.write_event(to_write);

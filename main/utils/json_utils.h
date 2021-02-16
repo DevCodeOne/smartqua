@@ -3,8 +3,10 @@
 #include <cstdarg>
 #include <array>
 #include <utility>
+#include <charconv>
 
 #include "frozen.h"
+#include "esp_log.h"
 
 template<typename T1, typename T2>
 constexpr auto constexpr_pow(T1 n, T2 e) {
@@ -27,6 +29,9 @@ std::pair<IntTypes, IntTypes> fixed_decimal_rep(FloatType value) {
 }
 
 template<typename T>
+struct read_from_json { };
+
+template<typename T>
 struct print_to_json { };
 
 template<size_t Size>
@@ -35,6 +40,14 @@ struct print_to_json<std::array<char, Size>> {
         return json_printf(out, "%.*Q", str, str.size());
     }
 };
+
+template<typename T>
+void json_scanf_single(const char *str, int len, void *user_data) {
+    using decayed_type = std::decay_t<T>;
+    read_from_json<decayed_type>::read(str, len, 
+        reinterpret_cast<std::add_pointer_t<decayed_type>>(user_data));
+}
+
 
 template<typename T>
 int json_printf_single(json_out *out, va_list *ap) {

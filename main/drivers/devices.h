@@ -38,10 +38,10 @@ public:
     device &operator=(const device &other) = default;
     device &operator=(device &&other) = default;
 
-    device_write_result write_value(const device_values &value);
+    device_operation_result write_value(const device_values &value);
     // To calibrate something or execute actions
-    device_write_result write_options(const std::string_view options);
-    device_read_result read_value(device_values &value) const;
+    device_operation_result write_options(const std::string_view options);
+    device_operation_result read_value(device_values &value) const;
 private:
     std::variant<DeviceDrivers ...> m_driver = nullptr;
 };
@@ -64,6 +64,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, 
             }
 
             ESP_LOGI("Device_Driver", "Found driver %s", driver_name);
+            std::strncpy(device_conf_out.device_driver_name.data(), driver_type::name, name_length - 1);
             auto result = driver_type::create_driver(input, device_conf_out);
             
             // Driver creation wasn't successfull
@@ -106,7 +107,7 @@ template<typename DriverType>
 device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver)) {}
 
 template<typename ... DeviceDrivers>
-device_write_result device<DeviceDrivers ...>::write_value(const device_values &value) {
+device_operation_result device<DeviceDrivers ...>::write_value(const device_values &value) {
     return std::visit(
         [&value](auto &current_driver) { 
             return current_driver.write_value(value); 
@@ -114,7 +115,7 @@ device_write_result device<DeviceDrivers ...>::write_value(const device_values &
 }
 
 template<typename ... DeviceDrivers>
-device_read_result device<DeviceDrivers ...>::read_value(device_values &value) const {
+device_operation_result device<DeviceDrivers ...>::read_value(device_values &value) const {
     return std::visit(
         [&value](const auto &current_driver) { 
             ESP_LOGI("Device_Driver", "Delegating to driver");
