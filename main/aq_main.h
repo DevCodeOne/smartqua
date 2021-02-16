@@ -4,7 +4,7 @@
 
 #include "storage/store.h"
 #include "rest/scale_rest.h"
-#include "rest/devices_rest.h"
+#include "actions/device_actions.h"
 #include "rest/soft_timers_rest.h"
 
 #include "drivers/ds18x20_driver.h"

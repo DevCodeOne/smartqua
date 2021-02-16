@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-
-#include <cmath>
-
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_spi_flash.h"
@@ -15,8 +10,6 @@
 
 // clang-format off
 #include "auth.h"
-#include "drivers/scale.h"
-#include "storage/settings.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
 #include "rest/scale_rest.h"

@@ -44,7 +44,6 @@ json_action_result add_device_action(std::optional<unsigned int> index, char *in
 
     return { 0, json_action_result_value::successfull };
 }
-
 json_action_result remove_device_action(unsigned int index, char *buf, size_t buf_len) {
     json_out answer = JSON_OUT_BUF(buf, buf_len);
     json_action_result result { .answer_len = 0, .result = json_action_result_value::successfull };
