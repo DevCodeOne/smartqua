@@ -5,19 +5,11 @@
 #include <string_view>
 
 #include "smartqua_config.h"
+#include "actions/action_types.h"
 #include "drivers/device_types.h"
 #include "drivers/devices.h"
 #include "utils/utils.h"
 #include "storage/store.h"
-
-enum struct json_action_result_value {
-    successfull, not_found, failed
-};
-
-struct json_action_result  {
-    int answer_len = -1;
-    json_action_result_value result;
-};
 
 json_action_result get_devices_action(std::optional<unsigned int> index, char *buf, size_t buf_len);
 json_action_result add_device_action(std::optional<unsigned int> index, char *buf, size_t buf_len);
@@ -80,7 +72,7 @@ struct device_setting_trivial {
 template<typename ... DeviceDrivers>
 class device_settings final {
 public:
-    static inline constexpr size_t num_devices = 15;
+    static inline constexpr size_t num_devices = max_num_devices;
 
     device_settings() = default;
     ~device_settings() = default;
@@ -185,6 +177,7 @@ auto device_settings<DeviceDrivers ...>::dispatch(write_to_device &event) -> fil
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
         event.result.op_result = devices[event.index]->write_value(event.write_value);
+        event.result.collection_result = device_collection_operation::ok;
     } else {
         ESP_LOGI("Device_Settings", "Device not valid");
         event.result.collection_result = device_collection_operation::index_invalid;
@@ -197,6 +190,7 @@ void device_settings<DeviceDrivers ...>::dispatch(read_from_device &event) const
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
         event.result.op_result = devices[event.index]->read_value(event.read_value);
+        event.result.collection_result = device_collection_operation::ok;
     } else {
         ESP_LOGI("Device_Settings", "Device not valid");
         event.result.collection_result = device_collection_operation::index_invalid;

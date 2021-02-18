@@ -14,19 +14,14 @@
 #include "network/webserver.h"
 #include "rest/scale_rest.h"
 #include "rest/devices_rest.h"
+#include "rest/soft_timers_rest.h"
+#include "utils/idf-utils.h"
 #include "aq_main.h"
 // clang-format on
 
-static constexpr uint8_t file_path_max = 32;
-static constexpr char log_tag[] = "Co2_Scale";
+static constexpr char log_tag[] = "Aq_main";
 
-store<
-    single_store<scale_settings, nvs_setting<scale_settings::trivial_representation> >,
-    single_store<device_settings_type, nvs_setting<device_settings_type::trivial_representation> >
-    > global_store;
-
-int retry_num = 0;
-// loadcell scale{18, 19};
+decltype(global_store) global_store;
 
 httpd_handle_t http_server_handle = nullptr;
 
@@ -38,6 +33,11 @@ esp_err_t init_filesystem() {
     config.max_files = 4;
     config.format_if_mount_failed = false;
     return esp_vfs_spiffs_register(&config);
+}
+
+void init_timezone() {
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", true);
+    tzset();
 }
 
 void networkTask(void *pvParameters) {
@@ -58,19 +58,32 @@ void networkTask(void *pvParameters) {
     wifi.await_connection();
 
     init_filesystem();
+    init_timezone();
 
     webserver server;
-    server.register_handler({.uri = "/api/v1/tare",
-                             .method = HTTP_POST,
-                             .handler = tare_scale,
-                             .user_ctx = nullptr});
-    server.register_handler({.uri = "/api/v1/contained-co2",
-                             .method = HTTP_POST,
-                             .handler = set_contained_co2,
-                             .user_ctx = nullptr});
-    server.register_handler({.uri = "/api/v1/load",
+    server.register_handler({.uri ="/api/v1/timers/*",
                              .method = HTTP_GET,
-                             .handler = get_load,
+                             .handler = get_timers_rest,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/timers",
+                             .method = HTTP_POST,
+                             .handler = post_timer_rest,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/timers/*",
+                             .method = HTTP_PUT,
+                             .handler = post_timer_rest,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/timers/*",
+                             .method = HTTP_DELETE,
+                             .handler = remove_timer_rest,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/timers/*",
+                             .method = HTTP_PATCH,
+                             .handler = set_timer_rest,
                              .user_ctx = nullptr});
 
     server.register_handler({.uri ="/api/v1/devices/*",
@@ -101,64 +114,25 @@ void networkTask(void *pvParameters) {
     
     server.register_file_handler();
 
-    while (1) {
-        ESP_LOGI(log_tag, "%s", __PRETTY_FUNCTION__);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-
-void mainTask(void *pvParameters) {
-    ESP_LOGI(log_tag, "Starting scale");
-
-    /*
-    while (1) {
-        auto result = scale.init_scale();
-        if (result == loadcell_status::failure) {
-            ESP_LOGI(log_tag, "Failed to initialize scale");
-        } else {
-            ESP_LOGI(log_tag, "Initialized scale");
-            break;
-        }
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-    }*/
-
-    // Store current tare value
-    // auto result = s.tare();
-    // ESP_ERROR_CHECK(update_load_data(storage_handle, &data));
-    // data.offset = s.get_offset();
-    // if (result == loadcell_status::failure) {
-    //     printf("Failed to tare scale");
-    // }
-    // ESP_LOGI(log_tag, "Offset : %d",
-    //          data.get_value<scale_setting_indices::offset>());
-
-    scale_event e{};
-    global_store.read_event(e);
-    // scale.set_offset(e.data.offset);
-    // scale.set_scale(201.0f);
+    sntp_clock clock;
+    time_t now;
+    tm timeinfo;
+    std::array<char, 64> timeout;
 
     while (1) {
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        /*auto result = scale.read_value(&value);
+        time(&now);
+        localtime_r(&now, &timeinfo);
+        strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
 
-        if (result == loadcell_status::failure) {
-            ESP_LOGI(log_tag, "Failed to read from scale");
-            continue;
-        }
+        ESP_LOGI(log_tag, "Main Loop current time %s", timeout.data());
 
-        ESP_LOGI(log_tag, "Read value %d.%03dG \t Offset %d",
-                 static_cast<int32_t>(value),
-                 static_cast<int32_t>(
-                     std::fabs(value - static_cast<int32_t>(value)) * 1000), 0);*/
-        ESP_LOGI(log_tag, "%s", __PRETTY_FUNCTION__);
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 }
 
 extern "C" {
 
 void app_main() {
-    xTaskCreatePinnedToCore(mainTask, "mainTask", 4096, nullptr, 5, nullptr, 0);
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 5, nullptr, 5, nullptr, 1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 8, nullptr, 5, nullptr, 1);
 }
 }

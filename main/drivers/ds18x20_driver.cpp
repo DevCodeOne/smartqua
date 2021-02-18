@@ -34,42 +34,32 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
 
     // Skip already found addresses and use only the new ones
 
-    // Mutex block
-    {
-        std::unique_lock instance_guard{_instance_mutex};
+    std::optional<unsigned int> index_to_add = std::nullopt;
 
-        auto new_address = std::find_if(sensor_addresses.cbegin(), sensor_addresses.cend(), [](auto current_address) {
-            return std::none_of(ds18x20_driver::_devices_addresses.cbegin(), ds18x20_driver::_devices_addresses.cend(), 
-            [&current_address](auto &already_found_address) {
-                return already_found_address.has_value() && *already_found_address == current_address;
-            });
-        });
-
-        if (new_address == sensor_addresses.cend()) {
-            return std::nullopt;
+    for (unsigned int i = 0; i < detected_sensors; ++i) {
+        if (add_address(sensor_addresses[i])) {
+            index_to_add = i;
         }
-
-        auto first_empty_slot = std::find_if(ds18x20_driver::_devices_addresses.begin(), ds18x20_driver::_devices_addresses.end(),
-            [](auto &current_entry) {
-                return !current_entry.has_value();
-            });
-
-        if (first_empty_slot == ds18x20_driver::_devices_addresses.cend()) {
-            return std::nullopt;
-        }
-
-        ESP_LOGI("ds18x20_driver", "Found devices on gpio_num : %d @ address : %lld", gpio_num, *new_address);
-
-        ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), *new_address };
-        std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
-        std::strncpy(device_conf_out.device_driver_name.data(), ds18x20_driver::name, name_length);
-        *first_empty_slot = *new_address;
     }
+
+    if (!index_to_add.has_value()) {
+        return std::nullopt;
+    }
+
+    ESP_LOGI("ds18x20_driver", "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
+
+    ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
+    std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
+    std::strncpy(device_conf_out.device_driver_name.data(), ds18x20_driver::name, name_length);
 
     return std::make_optional<ds18x20_driver>(ds18x20_driver(&device_conf_out));
 }
 
 ds18x20_driver::ds18x20_driver(const device_config *conf) : m_conf(conf) { }
+
+ds18x20_driver::~ds18x20_driver() { 
+    remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
+}
 
 device_operation_result ds18x20_driver::write_value(const device_values &value) { 
     return device_operation_result::not_supported;
@@ -92,4 +82,43 @@ device_operation_result ds18x20_driver::read_value(device_values &value) const {
 
     value.temperature = temperature;
     return device_operation_result::ok;
+}
+
+bool ds18x20_driver::add_address(ds18x20_addr_t address) {
+    std::unique_lock instance_guard{_instance_mutex};
+
+    bool is_new_address = std::none_of(ds18x20_driver::_device_addresses.cbegin(), ds18x20_driver::_device_addresses.cend(), 
+        [&address](auto &already_found_address) {
+            return already_found_address.has_value() && *already_found_address == address;
+    });
+
+    if (!is_new_address) {
+        return false;
+    }
+
+    auto first_empty_slot = std::find(ds18x20_driver::_device_addresses.begin(), ds18x20_driver::_device_addresses.end(), std::nullopt);
+
+    // No free addresses
+    if (first_empty_slot == ds18x20_driver::_device_addresses.cend()) {
+        return false;
+    }
+
+    return true;
+}
+
+bool ds18x20_driver::remove_address(ds18x20_addr_t address) {
+    std::unique_lock instance_guard{_instance_mutex};
+
+    auto found_address = std::find_if(ds18x20_driver::_device_addresses.begin(), ds18x20_driver::_device_addresses.end(), 
+        [&address](auto &current_address) {
+            return current_address.has_value() && *current_address == address;
+        });
+
+    if (found_address == ds18x20_driver::_device_addresses.end()) {
+        return false;
+    }
+
+    *found_address = std::nullopt;
+
+    return true;
 }

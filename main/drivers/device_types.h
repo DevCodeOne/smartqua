@@ -59,7 +59,7 @@ struct read_from_json<device_values> {
 };
 template<>
 struct print_to_json<device_values> {
-    static int print(json_out *out, device_values &values) {
+    static int print(json_out *out, const device_values &values) {
         int written = json_printf(out, "{");
 
         bool has_prev = false;

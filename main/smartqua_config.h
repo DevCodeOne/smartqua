@@ -22,8 +22,8 @@
 #define MAX_NUM_TIMERS 16
 #endif
 
-#ifndef MAX_ACTION_NAME_LENGTH
-#define MAX_ACTION_NAME_LENGTH 16
+#ifndef MAX_ACTION_PAYLOAD_LENGTH
+#define MAX_ACTION_PAYLOAD_LENGTH 64
 #endif
 
 static inline constexpr uint8_t name_length = NAME_LENGTH;
@@ -36,4 +36,4 @@ static inline constexpr uint8_t device_config_size = MAX_DEVICE_CONFIG_SIZE;
 
 static inline constexpr uint8_t max_num_timers = MAX_NUM_TIMERS;
 
-static inline constexpr uint8_t max_action_name_length = MAX_ACTION_NAME_LENGTH;
+static inline constexpr uint8_t max_action_payload_length = MAX_ACTION_PAYLOAD_LENGTH;
