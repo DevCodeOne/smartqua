@@ -40,8 +40,10 @@ public:
 
     device_operation_result write_value(const device_values &value);
     // To calibrate something or execute actions
-    device_operation_result write_options(const std::string_view options);
+    device_operation_result write_options(const char *json_input, size_t len);
     device_operation_result read_value(device_values &value) const;
+    device_operation_result get_info(char *output_buffer, size_t output_buffer_len) const;
+
 private:
     std::variant<DeviceDrivers ...> m_driver = nullptr;
 };
@@ -120,5 +122,23 @@ device_operation_result device<DeviceDrivers ...>::read_value(device_values &val
         [&value](const auto &current_driver) { 
             ESP_LOGI("Device_Driver", "Delegating to driver");
             return current_driver.read_value(value); 
+        }, m_driver);
+}
+
+template<typename ... DeviceDrivers>
+device_operation_result device<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
+    return std::visit(
+        [output_buffer, output_buffer_len](const auto &current_driver) { 
+            ESP_LOGI("Device_Driver", "Delegating to driver");
+            return current_driver.get_info(output_buffer, output_buffer_len); 
+        }, m_driver);
+}
+
+template<typename ... DeviceDrivers>
+device_operation_result device<DeviceDrivers ...>::write_options(const char *json_input, size_t input_len) {
+    return std::visit(
+        [json_input, input_len](const auto &current_driver) { 
+            ESP_LOGI("Device_Driver", "Delegating to driver");
+            return current_driver.write_options(json_input, input_len); 
         }, m_driver);
 }

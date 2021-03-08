@@ -1,7 +1,33 @@
 #include "scale.h"
 
-loadcell::loadcell(uint8_t sck, uint8_t dout, int32_t offset) : m_offset(offset), m_loadcell_resource(sck, dout) {}
+loadcell::loadcell(const device_config *conf) : m_conf(conf), m_loadcell_resource(reinterpret_cast<loadcell_config *>(&m_conf->device_config)) {}
 
+// TODO: implement
+device_operation_result loadcell::write_value(const device_values &value) {
+    return device_operation_result::failure;
+}
+
+device_operation_result loadcell::read_value(device_values &out) const {
+    return device_operation_result::failure;
+}
+
+device_operation_result loadcell::write_device_options(const char *json_input, size_t input_len) {
+    return device_operation_result::failure;
+}
+
+device_operation_result loadcell::get_info(char *output, size_t output_buffer_len) const {
+    return device_operation_result::failure;
+}
+
+std::optional<loadcell> loadcell::create_driver(const std::string_view input, device_config &device_conf_out) {
+    return std::nullopt;
+}
+
+std::optional<loadcell> loadcell::create_driver(const device_config *config) {
+    return std::nullopt;
+}
+
+/*
 loadcell_status loadcell::init_scale() {
     std::unique_lock instance_lock{m_resource_lock};
 
@@ -68,4 +94,4 @@ loadcell_status loadcell::read_value(float *value) {
     *value = static_cast<float>(raw_value) / m_scale;
 
     return loadcell_status::success;
-}
+}*/

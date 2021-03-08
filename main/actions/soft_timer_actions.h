@@ -10,17 +10,16 @@
 #include "drivers/soft_timers.h"
 #include "storage/store.h"
 
-json_action_result get_timers_action(std::optional<unsigned int> index, char *buf, size_t buf_len);
-json_action_result add_timer_action(std::optional<unsigned int> index, char *buf, size_t buf_len);
-json_action_result remove_timer_action(unsigned int index, char *buf, size_t buf_len);
-json_action_result set_timer_action(unsigned int index, char *buf, size_t buf_len);
+json_action_result get_timers_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+json_action_result add_timer_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+json_action_result remove_timer_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+json_action_result set_timer_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 
-enum struct timer_collection_operation {
-    ok, collection_full, index_invalid, failed
-};
+using timer_collection_operation = collection_operation_result;
 
 struct add_timer {
     std::optional<unsigned int> index = std::nullopt;
+    std::array<char, name_length> timer_name;
     std::string_view description;
 
     struct {
@@ -50,6 +49,16 @@ struct update_timer {
 struct retrieve_timer_info {
     unsigned int index = std::numeric_limits<unsigned int>::max();
     std::optional<single_timer_settings> timer_info;
+
+    struct {
+        timer_collection_operation collection_result = timer_collection_operation::failed;
+    } result;
+};
+
+struct retrieve_timer_overview {
+    std::optional<unsigned int> index = std::nullopt;
+    char *output_dst = nullptr;
+    size_t output_len = 0;
 
     struct {
         timer_collection_operation collection_result = timer_collection_operation::failed;
@@ -94,6 +103,8 @@ namespace Detail {
 
         void dispatch(retrieve_timer_info &event) const;
 
+        void dispatch(retrieve_timer_overview &event) const;
+
     private:
         trivial_representation data;
         std::array<std::optional<soft_timer>, N> m_soft_timers;
@@ -130,6 +141,7 @@ namespace Detail {
         if (event.index.has_value() && *event.index < N && !data.initialized[*event.index]) {
             m_soft_timers[*event.index] = create_timer(event.description, data.timers[*event.index]);
             data.initialized[*event.index] = m_soft_timers[*event.index].has_value();
+            data.description[*event.index] = event.timer_name;
 
             if (data.initialized[*event.index]) {
                 event.result.result_index = *event.index;
@@ -188,6 +200,32 @@ namespace Detail {
         } else {
             event.result.collection_result = timer_collection_operation::index_invalid;
         }
+    }
+
+    template<size_t N>
+    void soft_timer_settings<N>::dispatch(retrieve_timer_overview &event) const {
+        unsigned int start_index = 0;
+        if (event.index.has_value()) {
+            start_index = *event.index;
+        }
+
+        if (start_index > N) {
+            event.result.collection_result = timer_collection_operation::index_invalid; 
+        }
+
+        const char *format = ", { index : %u, description : %M }";
+        json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
+
+        int written = 0;
+        json_printf(&out, "[");
+        for (unsigned int index = start_index; index < N; ++index) {
+            if (data.initialized[index]) {
+                written += json_printf(&out, format + (written == 0 ? 1 : 0), index, 
+                    json_printf_single<std::decay_t<decltype(data.description[index])>>, &data.description[index]);
+            }
+        }
+        json_printf(&out, " ]");
+        event.result.collection_result = timer_collection_operation::ok;
     }
 
 }

@@ -9,9 +9,36 @@
 
 #include "smartqua_config.h"
 
-// TODO: check if device is valid and add device addresses to address
 std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config *config) {
-    return std::optional<ds18x20_driver>(ds18x20_driver(config));
+    auto driver_data = reinterpret_cast<const ds18x20_driver_data *>(config->device_config.data());
+    auto pin = device_resource::get_gpio_resource(driver_data->gpio, gpio_purpose::bus);
+
+    if (!pin) {
+        ESP_LOGI("ds18x20_driver", "GPIO pin couldn't be reserved");
+        return std::nullopt;
+    }
+
+    std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
+    auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(driver_data->gpio), sensor_addresses.data(), max_num_devices);
+
+    if (detected_sensors < 1) {
+        ESP_LOGI("ds18x20_driver", "Didn't find any devices");
+        return std::nullopt;
+    }
+
+    auto result = std::find(sensor_addresses.cbegin(), sensor_addresses.cend(), driver_data->addr);
+
+    if (result == sensor_addresses.cend()) {
+        ESP_LOGI("ds18x20_driver", "Didn't this specific device");
+        return std::nullopt;
+    }
+
+    if (!add_address(driver_data->addr)) {
+        ESP_LOGI("ds18x20_driver", "The device is already in use");
+        return std::nullopt;
+    }
+    
+    return std::optional<ds18x20_driver>(ds18x20_driver(config, pin));
 }
 
 std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_view input, device_config &device_conf_out) {
@@ -25,6 +52,13 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
         return std::nullopt;
     }
 
+    auto pin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), gpio_purpose::bus);
+
+    if (!pin) {
+        ESP_LOGI("ds18x20_driver", "GPIO pin couldn't be reserved");
+        return std::nullopt;
+    }
+
     auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices);
 
     if (detected_sensors < 1) {
@@ -33,7 +67,6 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
     }
 
     // Skip already found addresses and use only the new ones
-
     std::optional<unsigned int> index_to_add = std::nullopt;
 
     for (unsigned int i = 0; i < detected_sensors; ++i) {
@@ -52,10 +85,10 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
     std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
     std::strncpy(device_conf_out.device_driver_name.data(), ds18x20_driver::name, name_length);
 
-    return std::make_optional<ds18x20_driver>(ds18x20_driver(&device_conf_out));
+    return std::make_optional<ds18x20_driver>(ds18x20_driver(&device_conf_out, pin));
 }
 
-ds18x20_driver::ds18x20_driver(const device_config *conf) : m_conf(conf) { }
+ds18x20_driver::ds18x20_driver(const device_config *conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { }
 
 ds18x20_driver::~ds18x20_driver() { 
     remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
@@ -81,6 +114,17 @@ device_operation_result ds18x20_driver::read_value(device_values &value) const {
     }
 
     value.temperature = temperature;
+    return device_operation_result::ok;
+}
+
+// TODO: implement both
+device_operation_result ds18x20_driver::get_info(char *output_buffer, size_t output_buffer_len) const {
+    json_out out = JSON_OUT_BUF(output_buffer, output_buffer_len);
+    json_printf(&out, "{}");
+    return device_operation_result::ok;
+}
+
+device_operation_result ds18x20_driver::write_device_options(const char *json_input, size_t input_len) {
     return device_operation_result::ok;
 }
 

@@ -3,6 +3,7 @@
 #include "scale_rest.h"
 #include "aq_main.h"
 
+/*
 // extern loadcell scale;
 static constexpr char log_tag[] = "RestScale";
 
@@ -88,3 +89,4 @@ esp_err_t tare_scale(httpd_req_t *req) {
     httpd_resp_sendstr(req, buf);
     return ESP_OK;
 }
+*/

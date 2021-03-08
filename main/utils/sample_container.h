@@ -8,7 +8,33 @@ template <typename T, typename AvgType, uint32_t n_samples = 10u>
 class sample_container final {
    public:
     sample_container() = default;
+    sample_container(const sample_container &other) {
+        std::unique_lock other_instance(other.m_resource_mutex);
+
+        m_avg = other.m_avg;
+        m_samples = other.m_samples;
+    }
+
+    sample_container(sample_container &&other) {
+        std::unique_lock other_instance(other.m_resource_mutex);
+
+        m_avg = std::move(other.m_avg);
+        m_samples = other.m_samples;
+    }
     ~sample_container() = default;
+
+    sample_container &operator=(sample_container other) {
+        std::unique_lock other_instance(other.m_resource_mutex);
+
+        using std::swap;
+        swap(m_avg, other.m_avg);
+        swap(m_samples, other.m_samples);
+
+        return *this;
+    }
+
+    sample_container &operator=(sample_container &&other) {
+    }
 
     sample_container &put_sample(T value) {
         std::unique_lock _instance_lock{m_resource_mutex};

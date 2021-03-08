@@ -70,9 +70,23 @@ struct all_unique<std::integral_constant<size_t, 0>, Types ...> {
 template<typename ... Types>
 static inline constexpr bool all_unique_v = all_unique<std::integral_constant<size_t, sizeof...(Types) - 1>, Types ...>::value;
 
+template<typename T, bool is_enum = std::is_enum_v<T>>
+struct find_size_type {
+    using type = T;
+};
+
+template<typename T>
+struct find_size_type<T, true> {
+    using type = std::underlying_type_t<T>;
+};
+
+template<typename T>
+using find_size_type_t = typename find_size_type<T>::type;
+
 template<typename T, typename T2>
 bool check_assign(T &to_assign_to, T2 to_assign) {
-    if (to_assign > std::numeric_limits<T>::max() || to_assign < std::numeric_limits<T>::min()) {
+    using size_type = find_size_type_t<T>;
+    if (to_assign > std::numeric_limits<size_type>::max() || to_assign < std::numeric_limits<size_type>::min()) {
         return false;
     }
 

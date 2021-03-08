@@ -12,23 +12,33 @@
 #include "hx711.h"
 #include "utils/sample_container.h"
 #include "utils/thread_utils.h"
+#include "drivers/device_types.h"
 
 enum struct loadcell_status { uninitialized, success, failure };
+
+struct loadcell_config {
+    int32_t offset;
+    float scale;
+    uint8_t sck;
+    uint8_t dout;
+};
 
 namespace Detail {
 template <uint8_t n_samples = 10u, uint32_t interval_millis = 1000>
 class loadcell_resource final {
    public:
-    loadcell_resource(uint8_t sck, uint8_t dout) : m_dev{.dout = static_cast<gpio_num_t>(dout),
-                     .pd_sck = static_cast<gpio_num_t>(sck),
-                     .gain = HX711_GAIN_A_64}{
+    loadcell_resource(loadcell_config *conf) : m_dev{
+                    .dout = static_cast<gpio_num_t>(conf->dout),
+                    .pd_sck = static_cast<gpio_num_t>(conf->sck),
+                    .gain = HX711_GAIN_A_64}{
         create_sensor_sampling_thread();
     }
-    loadcell_resource(loadcell_resource &&other) = delete;
     ~loadcell_resource() = default;
 
     void create_sensor_sampling_thread() {
-        thread_creator::create_thread(loadcell_resource::read_samples, "scale_read_thread", reinterpret_cast<void *>(this));
+        std::call_once(_thread_flag, []() {
+            thread_creator::create_thread(loadcell_resource::read_samples, "scale_read_thread");
+        });
     }
 
     loadcell_status read_value(int32_t *value) {
@@ -37,8 +47,9 @@ class loadcell_resource final {
     }
 
     // TODO: add some sort of stop to this
-    static void read_samples(void *ptr) {
+    static void read_samples(void *) {
         // TODO: Make number of retries configurable
+        /*
         int32_t value = 0;
         auto thiz = reinterpret_cast<loadcell_resource<n_samples, interval_millis> *>(ptr);
         for (unsigned int i = 0; i < 10; ++i) {
@@ -70,6 +81,9 @@ class loadcell_resource final {
             // ESP_LOGI(__PRETTY_FUNCTION__, "Read raw value %d", value);
             thiz->m_values.put_sample(value);
 
+        }*/
+        while (1) {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
         }
     }
 
@@ -86,28 +100,20 @@ class loadcell_resource final {
 
 class loadcell {
    public:
-    loadcell(uint8_t sck, uint8_t dout, int32_t offset = 0);
+    static inline constexpr char name[] = "hx711_driver";
 
-    loadcell_status init_scale();
-    loadcell_status read_raw(int32_t *value);
-    loadcell_status read_value(float *value);
-    loadcell_status tare();
-    loadcell_status set_offset(int32_t value);
-    loadcell_status set_scale(float scale);
+    static std::optional<loadcell> create_driver(const std::string_view input, device_config &device_conf_out);
+    static std::optional<loadcell> create_driver(const device_config *config);
 
-    int32_t get_offset() const {
-        std::lock_guard instance_lock{m_resource_lock};
-        return m_offset;
-    }
-
-    float get_scale() const {
-        std::lock_guard instance_lock{m_resource_lock};
-        return m_scale;
-    }
+    device_operation_result write_value(const device_values &value);
+    device_operation_result read_value(device_values &out) const;
+    device_operation_result write_device_options(const char *json_input, size_t input_len);
+    device_operation_result get_info(char *output, size_t output_buffer_len) const;
 
    private:
-    int32_t m_offset = 0;
-    float m_scale = 1.0f;
-    mutable std::shared_mutex m_resource_lock;
+    loadcell(const device_config *config);
+
+    const device_config *m_conf = nullptr;
+    // Think about putting this into the heap
     Detail::loadcell_resource<20> m_loadcell_resource;
 };

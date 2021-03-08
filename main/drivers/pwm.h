@@ -7,32 +7,13 @@
 #include <optional>
 
 #include "driver/ledc.h"
+
 #include "drivers/device_types.h"
-
-/*template<size_t N>
-struct print_to_json<pwm_setting_trivial<N>> {
-    static int print(json_out *out, pwm_setting_trivial<N> &setting) {
-        return json_printf(out, "%M", json_printf_array<decltype(setting.data)>, &setting.data);
-    }
-};
-
-template<>
-struct print_to_json<pwm_config> {
-    static int print(json_out *out, pwm_config &config) {
-        return json_printf(out, "{ %Q : %d, %Q : %d, %Q : %d, %Q : %d, %Q : %d, %Q : %d, %Q : %B }",
-        "frequency", config.frequency, "timer", static_cast<int>(config.timer),
-        "channel", static_cast<int>(config.channel),
-        "max_value", static_cast<int>(config.max_value),
-        "gpio_num", static_cast<int>(config.gpio_num),
-        "current_value", static_cast<int>(config.current_value),
-        "fade", config.fade);
-    }
-};
-*/
+#include "drivers/device_resource.h"
 
 struct pwm_config {
+    timer_config timer_conf {};
     uint16_t frequency = 100;
-    ledc_timer_t timer = LEDC_TIMER_0;
     ledc_channel_t channel = LEDC_CHANNEL_0;
     uint16_t max_value = (1 << 16) - 1;
     uint16_t current_value = 0;
@@ -40,7 +21,6 @@ struct pwm_config {
     bool fade = false;
 };
 
-// TODO: multiple channels
 class pwm final {
     public:
         static inline constexpr char name[] = "pwm_driver";
@@ -52,10 +32,14 @@ class pwm final {
 
         device_operation_result write_value(const device_values &value);
         device_operation_result read_value(device_values &value) const;
+        device_operation_result write_device_options(const char *json_input, size_t input_len);
+        device_operation_result get_info(char *output, size_t output_buffer_len) const;
     private:
-        pwm(const device_config *conf);
+        pwm(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel);
 
         const device_config *m_conf = nullptr;
-        static inline std::array<std::optional<gpio_num_t>, max_num_devices> _pwm_gpios;
+        std::shared_ptr<timer_resource> m_timer = nullptr;
+        std::shared_ptr<gpio_resource> m_gpio = nullptr;
+        std::shared_ptr<led_channel> m_channel = nullptr;
         static inline std::shared_mutex _instance_mutex;
 };

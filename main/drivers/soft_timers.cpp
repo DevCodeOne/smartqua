@@ -2,6 +2,8 @@
 
 soft_timer::soft_timer(single_timer_settings *timer) : m_timer(timer) { }
 
+soft_timer::soft_timer(soft_timer && other) : m_timer(other.m_timer) { other.m_timer = nullptr; };
+
 soft_timer::~soft_timer() { 
     soft_timer_driver::remove_timer(m_timer);
 }
@@ -33,12 +35,13 @@ std::optional<soft_timer> create_timer(std::string_view input, single_timer_sett
 
     timer_settings.weekday_mask = static_cast<uint8_t>(weekday_mask);
     
-    if (token.len > static_cast<int>(timer_settings.payload.size())) {
+    if (token.len + 1 > static_cast<int>(timer_settings.payload.size())) {
         ESP_LOGI("Soft_timer_driver", "Payload was too large %d : %d", token.len, timer_settings.payload.size());
         return std::nullopt;
     }
 
     std::strncpy(timer_settings.payload.data(), token.ptr, token.len);
+    *(timer_settings.payload.data() + token.len) = '\0';
 
     return create_timer(&timer_settings);
 }

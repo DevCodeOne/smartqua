@@ -8,6 +8,7 @@
 #include "storage/settings.h"
 #include "drivers/scale.h"
 
+/*
 esp_err_t get_load(httpd_req_t *req);
 esp_err_t set_contained_co2(httpd_req *req);
 esp_err_t tare_scale(httpd_req_t *req);
@@ -71,4 +72,4 @@ inline auto scale_settings::dispatch<scale_event>(scale_event &event) -> filter_
     }
     return data;
 }
-
+*/

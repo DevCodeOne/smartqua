@@ -3,6 +3,7 @@
 #include "esp_log.h"
 
 #include <tuple>
+#include <mutex>
 #include <shared_mutex>
 
 #include "utils/utils.h"
@@ -37,13 +38,10 @@ struct single_store {
 template<typename ... StoreTypes>
 class store {
     public:
-        store() {
-            ESP_LOGI(__PRETTY_FUNCTION__, "Init store");
-            init_values();
-        }
-
         template<typename T>
         void write_event(T &event) {
+            init_values();
+
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
             std::unique_lock instance_guard{_instance_mutex};
 
@@ -57,7 +55,9 @@ class store {
 
 
         template<typename T>
-        void read_event(T &event) const {
+        void read_event(T &event) {
+            init_values();
+
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
             std::shared_lock instance_guard{_instance_mutex};
 
@@ -65,18 +65,21 @@ class store {
                 currentStore.sstore.dispatch(event);
             });
         }
+
+        void init_values() {
+            std::call_once(_init_flag, []() {
+                ESP_LOGI(__PRETTY_FUNCTION__, "Init values");
+                constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [](auto &current_store){
+                    auto initial_value = current_store.ssave.get_value();
+                    current_store.sstore = initial_value;
+                });
+            });
+        }
+
     private:
         static inline std::tuple<StoreTypes ...> _stores;
         static inline std::shared_mutex _instance_mutex;
-
-        void init_values() {
-            ESP_LOGI(__PRETTY_FUNCTION__, "Init values");
-            constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [](auto &current_store){
-                auto initial_value = current_store.ssave.get_value();
-                current_store.sstore = initial_value;
-            });
-
-        }
+        static inline std::once_flag _init_flag;
 };
 
 

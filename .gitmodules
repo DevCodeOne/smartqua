@@ -4,3 +4,6 @@
 [submodule "components/frozen"]
 	path = components/frozen
 	url = https://github.com/cesanta/frozen
+[submodule "components/ctre"]
+	path = header_only/ctre
+	url = https://github.com/hanickadot/compile-time-regular-expressions

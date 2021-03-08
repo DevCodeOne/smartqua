@@ -107,10 +107,10 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
                 esp_wifi_connect();
                 thiz->retry_num++;
                 ESP_LOGI(__PRETTY_FUNCTION__, "retry to connect to the AP");
+                ESP_LOGI(__PRETTY_FUNCTION__, "connection to the AP failed");
             } else {
                 xEventGroupSetBits(thiz->m_wifi_event_group, wifi_fail_bit);
             }
-            ESP_LOGI(__PRETTY_FUNCTION__, "connect to the AP fail");
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
             ESP_LOGI(__PRETTY_FUNCTION__, "got ip:" IPSTR,

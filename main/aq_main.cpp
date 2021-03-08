@@ -16,6 +16,8 @@
 #include "rest/devices_rest.h"
 #include "rest/soft_timers_rest.h"
 #include "utils/idf-utils.h"
+#include "utils/sd_filesystem.h"
+#include "utils/sd_card_logger.h"
 #include "aq_main.h"
 // clang-format on
 
@@ -24,16 +26,6 @@ static constexpr char log_tag[] = "Aq_main";
 decltype(global_store) global_store;
 
 httpd_handle_t http_server_handle = nullptr;
-
-esp_err_t init_filesystem() {
-    esp_vfs_spiffs_conf_t config = {};
-    config.base_path = "/storage";
-    config.partition_label = nullptr;
-    /* Maximum number of files which can be opened at the same time */
-    config.max_files = 4;
-    config.format_if_mount_failed = false;
-    return esp_vfs_spiffs_register(&config);
-}
 
 void init_timezone() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", true);
@@ -57,60 +49,62 @@ void networkTask(void *pvParameters) {
     wifi_manager<WIFI_MODE_STA> wifi(config);
     wifi.await_connection();
 
-    init_filesystem();
     init_timezone();
 
+    sd_card_logger logger;
+    logger.install_sd_card_logger();
+    global_store.init_values();
+
     webserver server;
-    server.register_handler({.uri ="/api/v1/timers/*",
+    server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_GET,
-                             .handler = get_timers_rest,
+                             .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers",
+    server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_POST,
-                             .handler = post_timer_rest,
+                             .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers/*",
+    server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_PUT,
-                             .handler = post_timer_rest,
+                             .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers/*",
+    server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_DELETE,
-                             .handler = remove_timer_rest,
+                             .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers/*",
+    server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_PATCH,
-                             .handler = set_timer_rest,
+                             .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices/*",
+    server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_GET,
-                             .handler = get_devices,
+                             .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices",
+    server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_POST,
-                             .handler = post_device,
+                             .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices/*",
+    server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_PUT,
-                             .handler = post_device,
+                             .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices/*",
+    server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_DELETE,
-                             .handler = remove_device,
+                             .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices/*",
+    server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_PATCH,
-                             .handler = set_device,
+                             .handler = do_devices,
                              .user_ctx = nullptr});
-
     
     server.register_file_handler();
 
