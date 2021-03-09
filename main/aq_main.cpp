@@ -32,6 +32,17 @@ void init_timezone() {
     tzset();
 }
 
+void print_time(void *) {
+    std::time_t now;
+    std::tm timeinfo;
+    std::array<char, 64> timeout;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
+
+    ESP_LOGI(log_tag, "Main Loop current time %s", timeout.data());
+}
+
 void networkTask(void *pvParameters) {
     // clang-format off
     wifi_config<WIFI_MODE_STA> config{
@@ -109,18 +120,15 @@ void networkTask(void *pvParameters) {
     server.register_file_handler();
 
     sntp_clock clock;
-    time_t now;
-    tm timeinfo;
-    std::array<char, 64> timeout;
+
+    task_pool<max_task_pool_size>::post_task(single_task{
+        .single_shot = false,
+        .func_ptr = print_time,
+        .argument = nullptr
+    });
 
     while (1) {
-        time(&now);
-        localtime_r(&now, &timeinfo);
-        strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
-
-        ESP_LOGI(log_tag, "Main Loop current time %s", timeout.data());
-
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 }
 

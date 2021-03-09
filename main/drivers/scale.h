@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <mutex>
+#include <memory>
 #include <shared_mutex>
 #include <thread>
 #include <utility>
@@ -11,7 +12,7 @@
 #include "esp_log.h"
 #include "hx711.h"
 #include "utils/sample_container.h"
-#include "utils/thread_utils.h"
+#include "utils/task_pool.h"
 #include "drivers/device_types.h"
 
 enum struct loadcell_status { uninitialized, success, failure };
@@ -23,6 +24,7 @@ struct loadcell_config {
     uint8_t dout;
 };
 
+// TODO: use the task_pool api
 namespace Detail {
 template <uint8_t n_samples = 10u, uint32_t interval_millis = 1000>
 class loadcell_resource final {
@@ -36,14 +38,12 @@ class loadcell_resource final {
     ~loadcell_resource() = default;
 
     void create_sensor_sampling_thread() {
-        std::call_once(_thread_flag, []() {
-            thread_creator::create_thread(loadcell_resource::read_samples, "scale_read_thread");
-        });
+        task_pool<max_task_pool_size>::post_task(single_task{});
     }
 
     loadcell_status read_value(int32_t *value) {
-        *value = m_values.average();
-        return _status;
+        // *value = m_values.average();
+        return loadcell_status::failure;
     }
 
     // TODO: add some sort of stop to this
@@ -92,9 +92,6 @@ class loadcell_resource final {
     // sample_container is thread-safe
     sample_container<int32_t, float, n_samples> m_values{};
     hx711_t m_dev;
-    static inline std::once_flag _thread_flag{};
-    static inline loadcell_status _status = loadcell_status::uninitialized;
-
 };
 }  // namespace Detail
 
@@ -114,6 +111,5 @@ class loadcell {
     loadcell(const device_config *config);
 
     const device_config *m_conf = nullptr;
-    // Think about putting this into the heap
     Detail::loadcell_resource<20> m_loadcell_resource;
 };

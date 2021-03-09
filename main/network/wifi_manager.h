@@ -27,9 +27,9 @@ struct wifi_credentials {
 };
 
 enum struct wifi_reconnect_policy : uint32_t {
-    infinite = std::numeric_limits<uint32_t>::max(),
     never = 0,
-    once = 1
+    once = 1,
+    infinite = std::numeric_limits<uint32_t>::max()
 };
 
 template <wifi_mode_t Mode>
