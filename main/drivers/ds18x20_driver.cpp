@@ -18,11 +18,12 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config 
         return std::nullopt;
     }
 
+    /*
     std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
     auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(driver_data->gpio), sensor_addresses.data(), max_num_devices);
 
     if (detected_sensors < 1) {
-        ESP_LOGI("ds18x20_driver", "Didn't find any devices");
+        ESP_LOGI("ds18x20_driver", "Didn't find any devices on gpio : %u", driver_data->gpio);
         return std::nullopt;
     }
 
@@ -31,7 +32,7 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config 
     if (result == sensor_addresses.cend()) {
         ESP_LOGI("ds18x20_driver", "Didn't this specific device");
         return std::nullopt;
-    }
+    }*/
 
     if (!add_address(driver_data->addr)) {
         ESP_LOGI("ds18x20_driver", "The device is already in use");

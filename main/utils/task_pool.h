@@ -7,6 +7,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <optional>
+#include <thread>
 
 #include "utils/thread_utils.h"
 
@@ -57,9 +58,11 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *ptr) {
                 }
             }
             index = (index + 1) % _tasks.size();
+            if (current_task || index == 0) {
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            }
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }
 

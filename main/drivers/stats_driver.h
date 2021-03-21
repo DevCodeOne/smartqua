@@ -1,0 +1,259 @@
+#pragma once
+
+#include <algorithm>
+#include <algorithm>
+#include <cstdint>
+#include <string_view>
+#include <optional>
+#include <shared_mutex>
+
+#include "frozen.h"
+#include "esp_vfs.h"
+
+#include "stats_types.h"
+#include "smartqua_config.h"
+#include "actions/device_actions.h"
+#include "utils/idf-utils.h"
+#include "utils/task_pool.h"
+#include "utils/utils.h"
+#include "utils/sd_filesystem.h"
+
+template<typename DriverType>
+class single_stat final {
+    public:
+        single_stat(const single_stat &other) = delete;
+        single_stat(single_stat &&other);
+        ~single_stat();
+
+        single_stat &operator=(const single_stat &other) = delete;
+        single_stat &operator=(single_stat &&other);
+    private:
+        single_stat(single_stat_settings *stat_settings);
+
+        single_stat_settings *m_stat_settings;
+
+        template<size_t N>
+        friend class stats_driver;
+};
+
+template<typename DriverType>
+single_stat<DriverType>::single_stat(single_stat_settings *stat_settings) : m_stat_settings(stat_settings) { }
+
+template<typename DriverType>
+single_stat<DriverType>::single_stat(single_stat && other) : m_stat_settings(other.m_stat_settings) { other.m_stat_settings = nullptr; }
+
+template<typename DriverType>
+single_stat<DriverType>::~single_stat() { DriverType::remove_stat(m_stat_settings); }
+
+template<typename DriverType>
+single_stat<DriverType> &single_stat<DriverType>::operator=(single_stat &&other) {
+    using std::swap;
+
+    swap(m_stat_settings, other.m_stat_settings);
+    return *this;
+}
+
+template<size_t N>
+class stats_driver final {
+    public:
+        using stat_type = single_stat<stats_driver<N>>;
+
+        static bool add_stat(single_stat_settings *settings);
+        static bool remove_stat(single_stat_settings *settings);
+
+        static std::optional<stat_type> create_stat(single_stat_settings *);
+        static std::optional<stat_type> create_stat(std::string_view description, single_stat_settings &out);
+    
+    private:
+        static void stats_driver_task(void *);
+        static void init_task();
+
+        struct stats_data {
+            std::array<single_stat_settings *, N> stat_settings{};
+        };
+
+        static inline std::once_flag _task_initialized{};
+        static inline std::shared_mutex _instance_mutex{};
+        static inline stats_data _data;
+};
+
+template<size_t N>
+bool stats_driver<N>::add_stat(single_stat_settings *settings) {
+    init_task();
+
+    std::unique_lock instance_guard{_instance_mutex};
+
+    if (!settings) {
+        return false;
+    }
+
+    bool is_already_in_use = std::find_if(_data.stat_settings.begin(), _data.stat_settings.end(), [settings](auto &current_setting) {
+        if (current_setting == nullptr) {
+            return false;
+        }
+
+        return current_setting == settings || current_setting->device_index == settings->device_index;
+    }) != _data.stat_settings.end();
+
+    if (is_already_in_use) {
+        ESP_LOGI("Soft_timer_driver", "Address already in use");
+        return false; 
+    }
+
+    auto first_empty_space = std::find(_data.stat_settings.begin(), _data.stat_settings.end(), nullptr);
+
+    if (first_empty_space == _data.stat_settings.end()) {
+        ESP_LOGI("stats_driver", "No space left");
+        return false;
+    }
+
+    *first_empty_space = settings;
+
+    return true;
+}
+
+template<size_t N>
+bool stats_driver<N>::remove_stat(single_stat_settings *settings) {
+    std::unique_lock instance_guard{_instance_mutex};
+
+    if (!settings) {
+        return false;
+    }
+
+    auto result = std::find(_data.stat_settings.begin(), _data.stat_settings.end(), settings);
+
+    if (result == _data.stat_settings.end()) {
+        return false;
+    }
+
+    ESP_LOGI("stats_driver", "Removed address %p", *result);
+    *result = nullptr;
+    return true;
+}
+
+template<size_t N>
+auto stats_driver<N>::create_stat(std::string_view description, single_stat_settings &out_stat_settings) -> std::optional<stat_type> {
+    unsigned int device_index = static_cast<unsigned int>(out_stat_settings.device_index);
+    unsigned int stat_interval = static_cast<unsigned int>(out_stat_settings.stat_interval.count());
+
+    json_scanf(description.data(), description.size(), R"({ device_index : %u, stat_interval_minutes : %u })", &device_index, &stat_interval);
+
+    out_stat_settings.stat_interval = std::chrono::minutes(stat_interval);
+    bool result = check_assign(out_stat_settings.device_index, device_index);
+
+    if (!result) {
+        return std::nullopt;
+    }
+
+    return stats_driver::create_stat(&out_stat_settings);
+}
+
+template<size_t N>
+auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::optional<stat_type> {
+    if (!stats_driver::add_stat(stat_settings)) {
+        ESP_LOGI("stats_driver", "Stat is already created");
+        return std::nullopt;
+    }
+
+    return std::make_optional(stat_type{stat_settings});
+}
+
+template<size_t N>
+void stats_driver<N>::init_task() {
+    std::call_once(_task_initialized, []{
+        ESP_LOGI("stats_driver", "Adding stats_task to task_pool");
+        task_pool<max_task_pool_size>::post_task(single_task{
+            .single_shot = false,
+            .func_ptr = stats_driver<N>::stats_driver_task,
+            .interval = std::chrono::minutes{1},
+            .argument = nullptr
+        });
+    });
+}
+
+template<size_t N>
+void stats_driver<N>::stats_driver_task(void *) {
+    ESP_LOGI("stats_driver", "Checking on stats");
+    std::unique_lock instance_guard{_instance_mutex};
+
+    std::tm timeinfo;
+    std::time_t now;
+
+    wait_for_clock_sync(&now, &timeinfo);
+
+    using namespace std::chrono;
+
+    minutes minutes_since_midnight = minutes{timeinfo.tm_min} + hours{timeinfo.tm_hour};
+    std::array<char, 256> data_out;
+    std::array<char, 64> out_file;
+    std::array<char, 36> out_path;
+
+    int stats_dir = snprintf(out_path.data(), out_path.size(), "%s/stats", sd_filesystem::mount_point);
+
+    bool folder_available = false;
+    struct stat tmp_stat{0};
+    if (stat(out_path.data(), &tmp_stat) == -1) {
+        folder_available = mkdir(out_path.data(), 0777) == 0;
+        ESP_LOGI("stats_driver", "Creating stats folder");
+    } else {
+        folder_available = true;
+        ESP_LOGI("stats_driver", "Stats folder already exists");
+    }
+
+    // TODO: create fileutils to create path with multiple folders at once
+    snprintf(out_path.data() + stats_dir, out_path.size() - stats_dir, "/%d", timeinfo.tm_yday);
+
+    if (stat(out_path.data(), &tmp_stat) == -1) {
+        folder_available &= mkdir(out_path.data(), 0777) == 0;
+        ESP_LOGI("stats_driver", "Creating stats folder for the day");
+    } else {
+        folder_available &= true;
+        ESP_LOGI("stats_driver", "Stats folder for the day already exists");
+    }
+    
+    if (folder_available) {
+        ESP_LOGI("stats_driver", "Writing stats to folder : %s", out_path.data());
+    } else {
+        ESP_LOGI("stats_driver", "Folder : %s to write stats to couldn't be created", out_path.data());
+    }
+
+    for (auto &current_stat : _data.stat_settings) {
+        if (!current_stat) {
+            continue;
+        }
+
+        auto time_since_last_measure = std::chrono::abs(minutes_since_midnight - current_stat->last_checked);
+
+        if (time_since_last_measure < current_stat->stat_interval) {
+
+            ESP_LOGI("stats_driver", "Not yet taking stat of device %u, because %d < %d",
+                current_stat->device_index,
+                static_cast<int32_t>(time_since_last_measure.count()),
+                static_cast<int32_t>(current_stat->stat_interval.count()));
+            continue;
+        }
+
+        auto result = get_devices_action(current_stat->device_index, nullptr, 0, data_out.data(), data_out.size() - 1);
+
+        if (result.result == json_action_result_value::successfull) {
+            ESP_LOGI("stats_driver", "Got %s", data_out.data());
+            data_out[result.answer_len - 1] = '\0';
+            current_stat->last_checked = minutes_since_midnight;
+
+            snprintf(out_file.data(), out_file.size(), "%s/device_%d.csv", out_path.data(), current_stat->device_index);
+
+            std::FILE *output = std::fopen(out_file.data(), "a");
+
+            if (output == nullptr) {
+                ESP_LOGE("stats_driver", "Couldn't open file: %s ", out_file.data());
+                continue;
+            }
+
+            std::fprintf(output, "%u; \"%s\"", static_cast<uint32_t>(minutes_since_midnight.count()), data_out.data());
+            std::fputc('\n', output);
+            std::fclose(output);
+
+            ESP_LOGI("stats_driver", "Wrote to %s ", out_file.data());
+        }
+    }
+}

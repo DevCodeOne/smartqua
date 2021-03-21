@@ -18,3 +18,18 @@ void sntp_clock::init_sntp() {
 void sntp_clock::sync_callback(timeval *val) { 
     ESP_LOGI("sntp_clock", "sntp sync callback");
 }
+
+void wait_for_clock_sync(std::time_t *now, std::tm *timeinfo) {
+    sntp_clock clock{};
+
+    std::tm local_timeinfo;
+    std::time_t local_now;
+
+    std::tm *dst_timeinfo = timeinfo != nullptr ? timeinfo : &local_timeinfo;
+    std::time_t *dst_now = now != nullptr ? now : &local_now;
+
+    do {
+        time(dst_now);
+        localtime_r(dst_now, dst_timeinfo);
+    } while (dst_timeinfo->tm_year < 100);
+}

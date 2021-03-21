@@ -100,10 +100,10 @@ struct device_setting_trivial {
     std::array<bool, N> initialized;
 };
 
-template<typename ... DeviceDrivers>
+template<size_t N, typename ... DeviceDrivers>
 class device_settings final {
 public:
-    static inline constexpr size_t num_devices = max_num_devices;
+    static inline constexpr size_t num_devices = N;
 
     device_settings() = default;
     ~device_settings() = default;
@@ -145,8 +145,8 @@ private:
 };
 
 // TODO: implement
-template<typename ... DeviceDrivers>
-device_settings<DeviceDrivers ...> &device_settings<DeviceDrivers ...>::operator=(trivial_representation new_value) {
+template<size_t N, typename ... DeviceDrivers>
+device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::operator=(trivial_representation new_value) {
     data = new_value;
 
     for (unsigned int i = 0; i < data.initialized.size(); ++i) {
@@ -158,8 +158,8 @@ device_settings<DeviceDrivers ...> &device_settings<DeviceDrivers ...>::operator
     return *this;
 }
 
-template<typename ... DeviceDrivers>
-auto device_settings<DeviceDrivers ...>::dispatch(add_device &event) -> filter_return_type<add_device> {
+template<size_t N, typename ... DeviceDrivers>
+auto device_settings<N, DeviceDrivers ...>::dispatch(add_device &event) -> filter_return_type<add_device> {
     ESP_LOGI("Device_Settings", "Trying to add new device");
     if (event.driver_name == nullptr) {
         ESP_LOGI("Device_Settings", "No driver_name provided");
@@ -199,8 +199,8 @@ auto device_settings<DeviceDrivers ...>::dispatch(add_device &event) -> filter_r
     return data;
 }
 
-template<typename ... DeviceDrivers>
-auto device_settings<DeviceDrivers ...>::dispatch(remove_single_device &event) -> filter_return_type<remove_single_device> {
+template<size_t N, typename ... DeviceDrivers>
+auto device_settings<N, DeviceDrivers ...>::dispatch(remove_single_device &event) -> filter_return_type<remove_single_device> {
     if (event.index < num_devices && data.initialized[event.index]) {
         devices[event.index] = std::nullopt;
         data.initialized[event.index] = false;
@@ -212,8 +212,8 @@ auto device_settings<DeviceDrivers ...>::dispatch(remove_single_device &event) -
     return data;
 }
 
-template<typename ... DeviceDrivers>
-auto device_settings<DeviceDrivers ...>::dispatch(write_to_device &event) -> filter_return_type<write_to_device> {
+template<size_t N, typename ... DeviceDrivers>
+auto device_settings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> filter_return_type<write_to_device> {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
         event.result.op_result = devices[event.index]->write_value(event.write_value);
@@ -225,8 +225,8 @@ auto device_settings<DeviceDrivers ...>::dispatch(write_to_device &event) -> fil
     return data;
 }
 
-template<typename ... DeviceDrivers>
-auto device_settings<DeviceDrivers ...>::dispatch(write_device_options &event) -> filter_return_type<write_to_device> {
+template<size_t N, typename ... DeviceDrivers>
+auto device_settings<N, DeviceDrivers ...>::dispatch(write_device_options &event) -> filter_return_type<write_to_device> {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
         event.result.op_result = devices[event.index]->write_options(event.json_input, event.json_len);
@@ -238,8 +238,8 @@ auto device_settings<DeviceDrivers ...>::dispatch(write_device_options &event) -
     return data;
 }
 
-template<typename ... DeviceDrivers>
-void device_settings<DeviceDrivers ...>::dispatch(read_from_device &event) const {
+template<size_t N, typename ... DeviceDrivers>
+void device_settings<N, DeviceDrivers ...>::dispatch(read_from_device &event) const {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
         event.result.op_result = devices[event.index]->read_value(event.read_value);
@@ -250,8 +250,8 @@ void device_settings<DeviceDrivers ...>::dispatch(read_from_device &event) const
     }
 }
 
-template<typename ... DeviceDrivers>
-void device_settings<DeviceDrivers ...>::dispatch(retrieve_device_info &event) const {
+template<size_t N, typename ... DeviceDrivers>
+void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event) const {
     if (event.index < num_devices && data.initialized[event.index] && devices[event.index].has_value()) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
         event.result.op_result = devices[event.index]->get_info(event.output_dst, event.output_len);
@@ -262,8 +262,8 @@ void device_settings<DeviceDrivers ...>::dispatch(retrieve_device_info &event) c
     }
 }
 
-template<typename ... DeviceDrivers>
-void device_settings<DeviceDrivers ...>::dispatch(retrieve_device_overview &event) const {
+template<size_t N, typename ... DeviceDrivers>
+void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_overview &event) const {
     unsigned int start_index = 0;
     if (event.index.has_value()) {
         start_index = *event.index;

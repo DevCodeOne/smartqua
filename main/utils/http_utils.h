@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "esp_http_server.h"
+#include "esp_log.h"
 
 std::optional<unsigned int> extract_index_from_uri(const char *uri);
 

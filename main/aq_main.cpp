@@ -12,7 +12,7 @@
 #include "auth.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
-#include "rest/scale_rest.h"
+#include "rest/stats_rest.h"
 #include "rest/devices_rest.h"
 #include "rest/soft_timers_rest.h"
 #include "utils/idf-utils.h"
@@ -116,7 +116,33 @@ void networkTask(void *pvParameters) {
                              .method = HTTP_PATCH,
                              .handler = do_devices,
                              .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/stats*",
+                             .method = HTTP_GET,
+                             .handler = do_stats,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/stats*",
+                             .method = HTTP_POST,
+                             .handler = do_stats,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/stats*",
+                             .method = HTTP_PUT,
+                             .handler = do_stats,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/stats*",
+                             .method = HTTP_DELETE,
+                             .handler = do_stats,
+                             .user_ctx = nullptr});
+
+    server.register_handler({.uri ="/api/v1/stats*",
+                             .method = HTTP_PATCH,
+                             .handler = do_stats,
+                             .user_ctx = nullptr});
     
+
     server.register_file_handler();
 
     sntp_clock clock;

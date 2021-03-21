@@ -34,7 +34,7 @@ struct single_store {
 };
 
 // TODO: add store type specific prefix to the names, storetypes have to be unique
-// TODO: initialize stores
+// TODO: maybe add mutex for every single store, so that one store can trigger another one, but not itself
 template<typename ... StoreTypes>
 class store {
     public:

@@ -75,6 +75,7 @@ inline esp_err_t set_content_type_from_file(httpd_req_t *req,
     return httpd_resp_set_type(req, type);
 }
 
+// TODO: add file browser thing for sd-card
 template <typename T>
 esp_err_t webserver<T>::get_file(httpd_req_t *req) {
     char filepath[256]{"/storage"};
@@ -87,13 +88,20 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
     }
 
     int fd = open(filepath, O_RDONLY, 0);
+
     if (fd == -1) {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file : %s", filepath);
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                            "Failed to read existing file");
-        return ESP_FAIL;
+        // Try to open the path as is
+        fd = open(req->uri, O_RDONLY, 0);
+
+        if (fd == -1) {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file : %s", filepath);
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "Failed to read existing file");
+            return ESP_FAIL;
+        }
     }
+
 
     set_content_type_from_file(req, filepath);
 

@@ -60,6 +60,7 @@ struct print_to_json<std::array<char, Size>> {
     }
 };
 
+// TODO: maybe replace with ref
 template<typename T>
 void json_scanf_single(const char *str, int len, void *user_data) {
     using decayed_type = std::decay_t<T>;
