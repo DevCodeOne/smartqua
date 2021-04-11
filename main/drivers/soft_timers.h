@@ -183,24 +183,24 @@ void soft_timer_driver<N>::handle_timers(void *) {
             {
                 std::unique_lock instance_guard{_instance_mutex};
                 if (_data.timers[current_index] == nullptr) {
-                    ESP_LOGI("Soft_timer_driver", "Timer is null %d %p", current_index, _data.timers[current_index]);
+                    // ESP_LOGI("Soft_timer_driver", "Timer is null %d %p", current_index, _data.timers[current_index]);
                     continue;
                 }
 
                 if (!_data.timers[current_index]->enabled) {
-                    ESP_LOGI("Soft_timer_driver", "Timer is not enabled");
+                    // ESP_LOGI("Soft_timer_driver", "Timer is not enabled");
                     continue;
                 }
 
                 // Already executed
                 if (_data.timers_executed[current_index]) {
-                    ESP_LOGI("Soft_timer_driver", "Already executed this timer");
+                    // ESP_LOGI("Soft_timer_driver", "Already executed this timer");
                     continue;
                 }
 
                 // Is not active on this weekday
                 if (!(_data.timers[current_index]->weekday_mask & 1 << timeinfo.tm_wday)) {
-                    ESP_LOGI("Soft_timer_driver", "Not active on this day");
+                    // ESP_LOGI("Soft_timer_driver", "Not active on this day");
                     continue;
                 }
 

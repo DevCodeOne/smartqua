@@ -91,8 +91,24 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
 
 ds18x20_driver::ds18x20_driver(const device_config *conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { }
 
+ds18x20_driver::ds18x20_driver(ds18x20_driver &&other) : m_conf(other.m_conf), m_pin(other.m_pin) {
+    other.m_conf = nullptr;
+    other.m_pin = nullptr;
+ }
+
+ ds18x20_driver &ds18x20_driver::operator=(ds18x20_driver &&other) {
+    using std::swap;
+
+    swap(m_conf, other.m_conf);
+    swap(m_pin, other.m_pin);
+
+    return *this;
+}
+
 ds18x20_driver::~ds18x20_driver() { 
-    remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
+    if (m_conf) {
+        remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
+    }
 }
 
 device_operation_result ds18x20_driver::write_value(const device_values &value) { 
@@ -132,12 +148,13 @@ device_operation_result ds18x20_driver::write_device_options(const char *json_in
 bool ds18x20_driver::add_address(ds18x20_addr_t address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    bool is_new_address = std::none_of(ds18x20_driver::_device_addresses.cbegin(), ds18x20_driver::_device_addresses.cend(), 
-        [&address](auto &already_found_address) {
+    bool adress_already_exists = std::any_of(ds18x20_driver::_device_addresses.cbegin(), ds18x20_driver::_device_addresses.cend(), 
+        [&address](const auto &already_found_address) {
             return already_found_address.has_value() && *already_found_address == address;
-    });
+        });
 
-    if (!is_new_address) {
+    if (adress_already_exists) {
+        ESP_LOGI("ds18x20_driver", "No new address, don't add this address");
         return false;
     }
 
@@ -147,6 +164,8 @@ bool ds18x20_driver::add_address(ds18x20_addr_t address) {
     if (first_empty_slot == ds18x20_driver::_device_addresses.cend()) {
         return false;
     }
+
+    *first_empty_slot = address;
 
     return true;
 }

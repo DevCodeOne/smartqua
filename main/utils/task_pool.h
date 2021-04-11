@@ -18,6 +18,7 @@ struct single_task {
     task_func_type func_ptr = nullptr;
     std::chrono::seconds interval = std::chrono::seconds{5};
     void *argument = nullptr;
+    std::chrono::seconds last_executed = std::chrono::seconds{0};
 };
 
 enum struct task_id : uint64_t {
@@ -43,19 +44,34 @@ class task_pool {
 template<size_t TaskPoolSize>
 void task_pool<TaskPoolSize>::task_pool_thread(void *ptr) {
     size_t index = 0;
+
+    using last_executed_type = decltype(std::declval<single_task>().last_executed);
+
+
     while (1) {
         {
+            auto seconds_since_epoch = 
+            std::chrono::duration_cast<last_executed_type>(std::chrono::steady_clock::now().time_since_epoch());
+
             std::unique_lock instance_guard{_instance_mutex};
             auto &[current_id, current_task] = _tasks[index];
             if (current_task) {
-                // TODO: maybe add something like a timestamp, so a task can be executed only after a certain amount of time
-                if (current_task->func_ptr != nullptr) {
-                    current_task->func_ptr(current_task->argument);
+
+                if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
+
+                    ESP_LOGI("task_pool", "Executing this task now");
+
+                    if (current_task->func_ptr != nullptr) {
+                        current_task->func_ptr(current_task->argument);
+                    }
+
+                    if (current_task->single_shot) {
+                        current_task = std::nullopt;
+                    }
+
+                    current_task->last_executed = seconds_since_epoch;
                 }
 
-                if (current_task->single_shot) {
-                    current_task = std::nullopt;
-                }
             }
             index = (index + 1) % _tasks.size();
             if (current_task || index == 0) {

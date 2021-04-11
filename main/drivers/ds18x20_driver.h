@@ -21,7 +21,12 @@ class ds18x20_driver final {
     public:
         static inline constexpr char name[] = "ds18x20_driver";
 
+        ds18x20_driver(const ds18x20_driver &other) = delete;
+        ds18x20_driver(ds18x20_driver &&other);
         ~ds18x20_driver();
+
+        ds18x20_driver &operator=(const ds18x20_driver &other) = delete;
+        ds18x20_driver &operator=(ds18x20_driver &&other);
 
         static std::optional<ds18x20_driver> create_driver(const std::string_view input, device_config &device_conf_out);
         static std::optional<ds18x20_driver> create_driver(const device_config *config);

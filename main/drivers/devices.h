@@ -74,7 +74,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, 
                 return;
             }
 
-            found_device_driver = *result;
+            found_device_driver = std::move(*result);
         });
 
     return found_device_driver;
@@ -97,7 +97,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const device_config *devi
             }
 
             ESP_LOGI("Device_Driver", "Created device with driver %s", device_conf->device_driver_name.data());
-            found_device_driver = *result;
+            found_device_driver = std::move(*result);
         }
     });
 

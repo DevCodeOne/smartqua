@@ -22,6 +22,7 @@ class webserver final {
     webserver(const webserver &other) = delete;
     webserver(webserver &&other) = delete;
 
+    // TODO: close server
     ~webserver() {}
 
     webserver &operator=(const webserver &other) = delete;

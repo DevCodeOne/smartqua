@@ -13,6 +13,7 @@ idf_component_register(SRCS     "aq_main.cpp"
                                 "drivers/ds18x20_driver.cpp"
                                 "utils/idf-utils.cpp"
                                 "utils/sd_filesystem.cpp"
+                                "utils/filesystem_utils.cpp"
                                 "utils/sd_card_logger.cpp"
                             "../components/frozen/frozen.c"
                     INCLUDE_DIRS 

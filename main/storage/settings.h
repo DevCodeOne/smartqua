@@ -12,6 +12,7 @@
 #include "nvs_flash_utils.h"
 
 #include "utils/sd_filesystem.h"
+#include "utils/filesystem_utils.h"
 #include "smartqua_config.h"
 
 enum struct setting_init { instant, lazy_load };
@@ -121,6 +122,8 @@ class nvs_setting {
 template<typename SettingType, setting_init InitType = setting_init::lazy_load>
 class sd_card_setting {
     public:
+        static inline constexpr char folder_name [] = "binary_data";
+
         static_assert(std::is_standard_layout_v<SettingType>, 
             "SettingType has to conform to the standard layout concept");
 
@@ -160,6 +163,32 @@ class sd_card_setting {
         }
 
     private:
+        template<typename ArrayType>
+        bool copy_tmp_filename_to_buffer(ArrayType &dst) {
+            auto result = snprintf(dst.data(), dst.size(), "%s/%s/%s.bin.tmp", sd_filesystem::mount_point, folder_name, SettingType::name);
+            return result > 0 && result < dst.size();
+        }
+
+        template<typename ArrayType>
+        bool copy_filename_to_buffer(ArrayType &dst) {
+            auto result = snprintf(dst.data(), dst.size(), "%s/%s/%s.bin", sd_filesystem::mount_point, folder_name, SettingType::name);
+            return result > 0 && result < dst.size();
+        }
+
+        FILE *open_tmp_file() {
+            std::array<char, 64> filename{'\0'};
+            copy_tmp_filename_to_buffer(filename);
+
+            auto opened_file = std::fopen(filename.data(), "r+");
+
+            if (!opened_file) {
+                // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
+                opened_file = std::fopen(filename.data(), "w+");
+            }
+
+            return opened_file;
+        }
+
         esp_err_t init_sd_card() {
             ESP_LOGI("sd_card_setting", "Initializing sd card");
 
@@ -176,14 +205,22 @@ class sd_card_setting {
                 return ESP_FAIL;
             }
 
-            std::array<char, name_length * 2> filename{'\0'};
-            snprintf(filename.data(), filename.size() - 1, "%s/%s.bin", sd_filesystem::mount_point, SettingType::name);
-            m_target_file = std::fopen(filename.data(), "r+");
+            std::array<char, 32> out_path{'\0'};
+            auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", sd_filesystem::mount_point, folder_name);
 
-            if (!m_target_file) {
-                // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
-                m_target_file = std::fopen(filename.data(), "w+");
+            if (result < 0) {
+                ESP_LOGI("sd_card_setting", "Couldn't write folder path");
+                return ESP_FAIL;
             }
+
+            bool out_folder_exists = ensure_path_exists(out_path.data());
+
+            if (!out_folder_exists) {
+                ESP_LOGI("sd_card_setting", "Couldn't create folder structure");
+                return ESP_FAIL;
+            }
+
+            m_target_file = open_tmp_file();
 
             if (!m_target_file) {
                 ESP_LOGI("sd_card_setting", "Couldn't open target file");
@@ -201,18 +238,30 @@ class sd_card_setting {
             }
 
             ESP_LOGI("sd_card_setting", "Loading from sd card");
-            fseek(m_target_file, 0, SEEK_END);
-            auto file_size = std::ftell(m_target_file);
+            std::array<char, 64> filename{'\0'};
+            copy_filename_to_buffer(filename);
+            auto opened_file = std::fopen(filename.data(), "r+");
 
-            if (file_size != sizeof(setting_type)) {
-                ESP_LOGI("sd_card_setting", "File size is %d and that isn't the correct size", static_cast<int>(file_size));
+            if (!opened_file) {
+                ESP_LOGI("sd_card_setting", "There is no file to read from");
+                std::fclose(opened_file);
                 return ESP_FAIL;
             }
 
-            fseek(m_target_file, 0, SEEK_SET);
-            auto read_size = fread(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, m_target_file);
+            std::fseek(opened_file, 0, SEEK_END);
+            auto file_size = std::ftell(opened_file);
+
+            if (file_size != sizeof(setting_type)) {
+                ESP_LOGI("sd_card_setting", "File size of %s is %d and that isn't the correct size", SettingType::name, static_cast<int>(file_size));
+                std::fclose(opened_file);
+                return ESP_FAIL;
+            }
+
+            fseek(opened_file, 0, SEEK_SET);
+            auto read_size = fread(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, opened_file);
 
             ESP_LOGI("sd_card_setting", "Read %d bytes from the sd card", read_size * sizeof(setting_type));
+            std::fclose(opened_file);
 
             return read_size == 1;
         }
@@ -223,15 +272,33 @@ class sd_card_setting {
             }
 
             ESP_LOGI("sd_card_setting", "Writing to sd card");
-            rewind(m_target_file);
+            std::rewind(m_target_file);
 
-            auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, m_target_file);
-            fflush(m_target_file);
-            fsync(fileno(m_target_file));
-
+            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, m_target_file);
+            std::fclose(m_target_file);
             ESP_LOGI("sd_card_setting", "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
+
+            int rename_result = -1;
+            if (written_size == 1) {
+                std::array<char, 64> tmp_filename{'\0'};
+                std::array<char, 64> filename{'\0'};
+                copy_tmp_filename_to_buffer(tmp_filename);
+                copy_filename_to_buffer(filename);
+                std::remove(filename.data());
+                ESP_LOGI("sd_card_setting", "Renaming %s to %s", tmp_filename.data(), filename.data());
+                rename_result = std::rename(tmp_filename.data(), filename.data());
+            } else {
+                ESP_LOGI("sd_card_setting", "Setting couldn't be written skipping renaming to real file to avoid issues");
+            }
+
+            if (rename_result < 0) {
+                ESP_LOGI("sd_card_setting", "Couldn't rename file");
+            }
+
+            m_target_file = open_tmp_file();
+
             
-            return written_size == 1;
+            return written_size == 1 && rename_result >= 0;
         }
     
         bool m_initialized = false;

@@ -15,6 +15,8 @@ class sd_card_logger final {
     public:
         static bool install_sd_card_logger();
         static bool uninstall_sd_card_logger();
+
+        static inline constexpr char log_path_format [] = "%s/logs";
     private:
         static int printf_log(const char *fmt, va_list list);
         static FILE *open_current_log();

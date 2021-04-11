@@ -17,6 +17,7 @@
 #include "utils/task_pool.h"
 #include "utils/utils.h"
 #include "utils/sd_filesystem.h"
+#include "utils/filesystem_utils.h"
 
 template<typename DriverType>
 class single_stat final {
@@ -188,30 +189,10 @@ void stats_driver<N>::stats_driver_task(void *) {
     std::array<char, 64> out_file;
     std::array<char, 36> out_path;
 
-    int stats_dir = snprintf(out_path.data(), out_path.size(), "%s/stats", sd_filesystem::mount_point);
+    snprintf(out_path.data(), out_path.size(), "%s/stats/%d", sd_filesystem::mount_point, timeinfo.tm_yday);
+    auto output_folder_exists = ensure_path_exists(out_path.data());
 
-    bool folder_available = false;
-    struct stat tmp_stat{0};
-    if (stat(out_path.data(), &tmp_stat) == -1) {
-        folder_available = mkdir(out_path.data(), 0777) == 0;
-        ESP_LOGI("stats_driver", "Creating stats folder");
-    } else {
-        folder_available = true;
-        ESP_LOGI("stats_driver", "Stats folder already exists");
-    }
-
-    // TODO: create fileutils to create path with multiple folders at once
-    snprintf(out_path.data() + stats_dir, out_path.size() - stats_dir, "/%d", timeinfo.tm_yday);
-
-    if (stat(out_path.data(), &tmp_stat) == -1) {
-        folder_available &= mkdir(out_path.data(), 0777) == 0;
-        ESP_LOGI("stats_driver", "Creating stats folder for the day");
-    } else {
-        folder_available &= true;
-        ESP_LOGI("stats_driver", "Stats folder for the day already exists");
-    }
-    
-    if (folder_available) {
+    if (output_folder_exists) {
         ESP_LOGI("stats_driver", "Writing stats to folder : %s", out_path.data());
     } else {
         ESP_LOGI("stats_driver", "Folder : %s to write stats to couldn't be created", out_path.data());
@@ -237,7 +218,7 @@ void stats_driver<N>::stats_driver_task(void *) {
 
         if (result.result == json_action_result_value::successfull) {
             ESP_LOGI("stats_driver", "Got %s", data_out.data());
-            data_out[result.answer_len - 1] = '\0';
+            data_out[result.answer_len] = '\0';
             current_stat->last_checked = minutes_since_midnight;
 
             snprintf(out_file.data(), out_file.size(), "%s/device_%d.csv", out_path.data(), current_stat->device_index);

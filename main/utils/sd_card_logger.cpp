@@ -1,6 +1,7 @@
 #include "sd_card_logger.h"
 
 #include "utils/sd_filesystem.h"
+#include "utils/filesystem_utils.h"
 
 bool sd_card_logger::install_sd_card_logger() {
     std::unique_lock instance_guard{_instance_mutex };
@@ -60,10 +61,20 @@ FILE *sd_card_logger::open_current_log() {
         }
 
         std::array<char, name_length> time{};
+        // TODO: do this inline in one array
+        std::array<char, name_length> folder_name{};
         std::array<char, name_length * 4> new_log_name{};
-        strftime(time.data(), name_length, "%F", &timeinfo);
-        snprintf(new_log_name.data(), new_log_name.size() - 1, "%s/log_%s.txt", sd_filesystem::mount_point, time.data());
 
+        snprintf(folder_name.data(), folder_name.size() - 1, sd_card_logger::log_path_format, sd_filesystem::mount_point);
+        auto output_folder_exists = ensure_path_exists(folder_name.data());
+
+        if (!output_folder_exists) {
+            return nullptr;
+        }
+
+        strftime(time.data(), name_length, "%F", &timeinfo);
+        snprintf(new_log_name.data(), new_log_name.size() - 1, "%s/log_%s.txt", folder_name.data(), time.data());
+  
         _log_output_file = fopen(new_log_name.data(), "a+");
 
         if (_log_output_file) {
