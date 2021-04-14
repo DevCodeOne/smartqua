@@ -25,4 +25,4 @@ add_custom_target(deletebloat ALL
     COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map 
             || true)
 
-spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)
+# spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)

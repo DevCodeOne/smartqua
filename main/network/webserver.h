@@ -6,6 +6,10 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 
+#include "utils/web_utils.h"
+#include "utils/large_buffer_pool.h"
+#include "aq_main.h"
+
 template <typename T = void>
 class webserver final {
    public:
@@ -79,20 +83,85 @@ inline esp_err_t set_content_type_from_file(httpd_req_t *req,
 // TODO: add file browser thing for sd-card
 template <typename T>
 esp_err_t webserver<T>::get_file(httpd_req_t *req) {
-    char filepath[256]{"/storage"};
+    struct stat tmp_stat{};
+    char filepath[256]{"/external/app_data"};
+    std::string_view selected_path = "";
+    std::string_view request_uri = req->uri;
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
-    if (req->uri[strlen(req->uri) - 1] == '/') {
+    if (request_uri == "/") {
         strncat(filepath, "/index.html", sizeof(filepath) - 1);
     } else {
-        strncat(filepath, req->uri, sizeof(filepath) - 1);
+        strncat(filepath, request_uri.data(), sizeof(filepath) - 1);
     }
 
-    int fd = open(filepath, O_RDONLY, 0);
+    if (stat(filepath, &tmp_stat) != -1) {
+        selected_path = filepath;
+    }
 
-    if (fd == -1) {
-        // Try to open the path as is
-        fd = open(req->uri, O_RDONLY, 0);
+    // Execute only if path wasn't already selected
+    if (selected_path.size() == 0) {
+        std::memset(reinterpret_cast<char *>(&tmp_stat), 0, sizeof(struct stat));
+        if (stat(request_uri.data(), &tmp_stat) != -1) {
+            selected_path = req->uri ;
+        }
+    }
+
+    if (selected_path.size() == 0) {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file or directory : %s", req->uri);
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Path doesn't exist");
+        return ESP_FAIL;
+    }
+
+    if (S_ISDIR(tmp_stat.st_mode)) {
+        ESP_LOGI(__PRETTY_FUNCTION__, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
+        // TODO: Maybe do this with a seperate buffer
+        // TODO: maybe add pagination for more results
+        std::array<std::pair<std::array<char, 256+name_length>, std::array<char, name_length>>, 6> results {};
+
+        DIR *directory = opendir(selected_path.data());
+        dirent *current_entry = nullptr;
+
+        if (directory == nullptr) {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open directory %s", selected_path.data());
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "Failed open directory");
+            return ESP_FAIL;;
+        }
+
+        for (unsigned int current_index = 0; current_index < results.size() && (current_entry = readdir(directory)); ++current_index) {
+            std::snprintf(results[current_index].first.data(), results[current_index].first.size(),
+            "%s/%s", selected_path.data(), current_entry->d_name);
+            std::strncpy(results[current_index].second.data(), current_entry->d_name, results[current_index].second.size());
+        }
+
+        auto buffer = large_buffer_pool_type::get_free_buffer();
+
+        if (!buffer.has_value()) {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to get buffer");
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "Failed to read existing file");
+            return ESP_FAIL;;
+        }
+
+        int written_bytes = generate_link_list_website(buffer->data(), buffer->size(), results);
+
+        if (written_bytes != -1) {
+            send_in_chunks(req, buffer->data(), written_bytes);
+        } else {
+            ESP_LOGE(__PRETTY_FUNCTION__, "Buffer was too small for website");
+            /* Respond with 500 Internal Server Error */
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                "Buffer was too small for website");
+            return ESP_FAIL;;
+        }
+    } else if (S_ISREG(tmp_stat.st_mode)) {
+        ESP_LOGI(__PRETTY_FUNCTION__, "Path is a file %s %s", selected_path.data(), request_uri.data());
+        int fd = open(selected_path.data(), O_RDONLY, 0);
 
         if (fd == -1) {
             ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file : %s", filepath);
@@ -101,36 +170,36 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
                                 "Failed to read existing file");
             return ESP_FAIL;
         }
-    }
 
 
-    set_content_type_from_file(req, filepath);
+        set_content_type_from_file(req, filepath);
 
-    char chunk[512];
-    ssize_t read_bytes;
-    do {
-        /* Read file in chunks into the scratch buffer */
-        read_bytes = read(fd, chunk, sizeof(chunk));
-        if (read_bytes == -1) {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read file : %s", filepath);
-        } else if (read_bytes > 0) {
-            /* Send the buffer contents as HTTP response chunk */
-            if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK) {
-                close(fd);
-                ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath);
-                /* Abort sending file */
-                httpd_resp_sendstr_chunk(req, nullptr);
-                /* Respond with 500 Internal Server Error */
-                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                                    "Failed to send file");
-                return ESP_FAIL;
+        char chunk[512];
+        ssize_t read_bytes;
+        do {
+            /* Read file in chunks into the scratch buffer */
+            read_bytes = read(fd, chunk, sizeof(chunk));
+            if (read_bytes == -1) {
+                ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read file : %s", filepath);
+            } else if (read_bytes > 0) {
+                /* Send the buffer contents as HTTP response chunk */
+                if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK) {
+                    close(fd);
+                    ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath);
+                    /* Abort sending file */
+                    httpd_resp_sendstr_chunk(req, nullptr);
+                    /* Respond with 500 Internal Server Error */
+                    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                        "Failed to send file");
+                    return ESP_FAIL;
+                }
             }
-        }
-    } while (read_bytes > 0);
-    /* Close file after sending complete */
-    close(fd);
-    ESP_LOGI(__PRETTY_FUNCTION__, "File sending complete");
-    /* Respond with an empty chunk to signal HTTP response completion */
-    httpd_resp_send_chunk(req, nullptr, 0);
+        } while (read_bytes > 0);
+        /* Close file after sending complete */
+        close(fd);
+        ESP_LOGI(__PRETTY_FUNCTION__, "File sending complete");
+        /* Respond with an empty chunk to signal HTTP response completion */
+        httpd_resp_send_chunk(req, nullptr, 0);
+    }
     return ESP_OK;
 }

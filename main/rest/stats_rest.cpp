@@ -6,7 +6,7 @@
 #include "ctre.hpp"
 #include "frozen.h"
 
-#include "utils/http_utils.h"
+#include "utils/web_utils.h"
 #include "actions/stats_actions.h"
 
 static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/stats\/(?<index>[0-9]+)(?:\/(?<what>\w+)|\/)?)"};

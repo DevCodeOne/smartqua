@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #ifndef NAME_LENGTH
-#define NAME_LENGTH 16
+#define NAME_LENGTH 32
 #endif
 
 #ifndef MAX_PINS_FOR_DEVICE
