@@ -252,7 +252,10 @@ class sd_card_setting {
             auto file_size = std::ftell(opened_file);
 
             if (file_size != sizeof(setting_type)) {
-                ESP_LOGI("sd_card_setting", "File size of %s is %d and that isn't the correct size", SettingType::name, static_cast<int>(file_size));
+                ESP_LOGI("sd_card_setting", "File size of %s is %d and that isn't the correct size %d", 
+                    SettingType::name,
+                    static_cast<int>(file_size),
+                    static_cast<int>(sizeof(setting_type)));
                 std::fclose(opened_file);
                 return ESP_FAIL;
             }

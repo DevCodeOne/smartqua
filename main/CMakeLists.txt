@@ -15,6 +15,7 @@ idf_component_register(SRCS     "aq_main.cpp"
                                 "utils/sd_filesystem.cpp"
                                 "utils/filesystem_utils.cpp"
                                 "utils/sd_card_logger.cpp"
+                                "utils/web_utils.cpp"
                             "../components/frozen/frozen.c"
                     INCLUDE_DIRS 
                     "."

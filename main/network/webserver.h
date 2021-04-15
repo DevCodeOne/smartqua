@@ -80,15 +80,20 @@ inline esp_err_t set_content_type_from_file(httpd_req_t *req,
     return httpd_resp_set_type(req, type);
 }
 
-// TODO: add file browser thing for sd-card
 template <typename T>
 esp_err_t webserver<T>::get_file(httpd_req_t *req) {
+    // TODO: get credentials from central settings
+    if (!handle_authentication(req, "admin", "admin")) {
+        return ESP_OK;
+    }
+
     struct stat tmp_stat{};
     char filepath[256]{"/external/app_data"};
     std::string_view selected_path = "";
     std::string_view request_uri = req->uri;
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
 
+    // TODO: Remove trailing /
     if (request_uri == "/") {
         strncat(filepath, "/index.html", sizeof(filepath) - 1);
     } else {
@@ -117,25 +122,19 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
 
     if (S_ISDIR(tmp_stat.st_mode)) {
         ESP_LOGI(__PRETTY_FUNCTION__, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
-        // TODO: Maybe do this with a seperate buffer
-        // TODO: maybe add pagination for more results
-        std::array<std::pair<std::array<char, 256+name_length>, std::array<char, name_length>>, 6> results {};
-
+        // TODO: maybe add pagination for more results witzh telldir and seekdir
+        // TODO: replace closedir with something else, gsl::finally like
         DIR *directory = opendir(selected_path.data());
         dirent *current_entry = nullptr;
+        long int entry_offset = 0;
+        bool generated_path_directory = false;
 
         if (directory == nullptr) {
             ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open directory %s", selected_path.data());
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed open directory");
-            return ESP_FAIL;;
-        }
-
-        for (unsigned int current_index = 0; current_index < results.size() && (current_entry = readdir(directory)); ++current_index) {
-            std::snprintf(results[current_index].first.data(), results[current_index].first.size(),
-            "%s/%s", selected_path.data(), current_entry->d_name);
-            std::strncpy(results[current_index].second.data(), current_entry->d_name, results[current_index].second.size());
+            return ESP_FAIL;
         }
 
         auto buffer = large_buffer_pool_type::get_free_buffer();
@@ -145,10 +144,30 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed to read existing file");
-            return ESP_FAIL;;
+            closedir(directory);
+            return ESP_FAIL;
         }
 
-        int written_bytes = generate_link_list_website(buffer->data(), buffer->size(), results);
+        auto gen_link = [&directory, &current_entry, &selected_path, &generated_path_directory](auto &link, auto &name) {
+            if (!generated_path_directory) {
+                copy_parent_directory(selected_path.data(), link.data(), link.size());
+                std::strncpy(name.data(), "..", name.size());
+                generated_path_directory = true;
+                return true;
+            }
+
+            if (current_entry = readdir(directory); current_entry == nullptr) {
+                return false;
+            }
+            std::snprintf(link.data(), link.size(), "%s/%s", selected_path.data(), current_entry->d_name);
+            std::strncpy(name.data(), current_entry->d_name, name.size());
+
+            return true;
+        };
+
+        int written_bytes = generate_link_list_website(buffer->data(), buffer->size(), gen_link);
+
+        closedir(directory);
 
         if (written_bytes != -1) {
             send_in_chunks(req, buffer->data(), written_bytes);
@@ -159,6 +178,7 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
                                 "Buffer was too small for website");
             return ESP_FAIL;;
         }
+        
     } else if (S_ISREG(tmp_stat.st_mode)) {
         ESP_LOGI(__PRETTY_FUNCTION__, "Path is a file %s %s", selected_path.data(), request_uri.data());
         int fd = open(selected_path.data(), O_RDONLY, 0);

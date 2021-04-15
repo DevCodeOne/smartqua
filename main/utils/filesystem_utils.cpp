@@ -27,3 +27,39 @@ bool ensure_path_exists(const char *path, uint32_t mask) {
 
     return path_exists;
 }
+
+bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
+    std::string_view input(path);
+    int32_t copy_to_char = 0;
+
+    if (dst_len < 2) {
+        return false;
+    }
+
+    // If there is no parent directory
+    std::strncpy(dst, ".", dst_len);
+
+    // input.size ... 1 the 0-th position is not checked
+    for (auto i = input.size() - 1; i > 0; --i) {
+        if (input[i] == '/') {
+            // Check if previous char is not an escape char
+            if (input[i - 1] != '\\') {
+                copy_to_char = i - 1;
+                break;
+            }
+        }
+    }
+
+    if (copy_to_char == 0) {
+        return true;
+    }
+
+    // dst_len is too small to contain the path
+    if (dst_len <= copy_to_char + 1) {
+        return false;
+    }
+
+    // + 1 for terminating \0
+    std::strncpy(dst, path, copy_to_char + 1);
+    return true;
+}

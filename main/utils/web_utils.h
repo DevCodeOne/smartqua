@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cmath>
 #include <optional>
+#include <string_view>
 
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -38,8 +39,8 @@ esp_err_t send_in_chunks(httpd_req *req, std::array<char, BufferSize> &chunk, si
     return send_in_chunks(req, chunk.data(), num_bytes_to_send);
 }
 
-template<typename ResultList>
-int generate_link_list_website(char *dst, size_t dst_size, const ResultList &results) {
+template<typename GeneratorFunction>
+int generate_link_list_website(char *dst, size_t dst_size, GeneratorFunction &gen_func) {
     int offset = 0;
     int tmp_offset = 0;
     tmp_offset = snprintf(dst, dst_size,
@@ -55,7 +56,10 @@ int generate_link_list_website(char *dst, size_t dst_size, const ResultList &res
     
     offset += tmp_offset;
 
-    for (const auto &[link, name] : results) {
+    std::array<char, 512> link;
+    std::array<char, 256> name;
+
+    while (gen_func(link, name)) {
         tmp_offset = snprintf(dst + offset, dst_size - offset,
         R"(
                 <li><a href="%s">%s</a></li>
@@ -82,3 +86,5 @@ int generate_link_list_website(char *dst, size_t dst_size, const ResultList &res
 
     return offset;
 }
+
+bool handle_authentication(httpd_req *req, std::string_view user, std::string_view password);
