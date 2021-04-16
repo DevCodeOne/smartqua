@@ -1,8 +1,10 @@
 #include "filesystem_utils.h"
 
 #include <cstring>
+#include <cstdlib>
 
 #include "esp_vfs.h"
+#include "esp_log.h"
 #include "ctre.hpp"
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
@@ -62,4 +64,25 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
     // + 1 for terminating \0
     std::strncpy(dst, path, copy_to_char + 1);
     return true;
+}
+
+int64_t load_file_completly_into_buffer(const char *path, char *dst, size_t dst_len) {
+    auto opened_file = std::fopen(path, "rb");
+
+    if (opened_file == nullptr) {
+        return -1;
+    }
+    std::fseek(opened_file, 0, SEEK_END);
+    auto file_size = std::ftell(opened_file);
+
+    if (file_size > dst_len) {
+        std::fclose(opened_file);
+        return -1;
+    }
+
+    std::rewind(opened_file);
+    int64_t read_size = std::fread(dst, 1, file_size, opened_file);
+    std::fclose(opened_file);
+
+    return read_size;
 }

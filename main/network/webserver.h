@@ -2,32 +2,45 @@
 
 #include <cstdio>
 #include <string_view>
+#include <memory>
 
-#include "esp_http_server.h"
+#include "esp_https_server.h"
 #include "esp_log.h"
 
 #include "utils/web_utils.h"
 #include "utils/large_buffer_pool.h"
+#include "utils/ssl_credentials.h"
 #include "aq_main.h"
 
 template <typename T = void>
 class webserver final {
    public:
-    webserver() {
-        httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-        config.stack_size = 4096 * 4;
-        config.uri_match_fn = httpd_uri_match_wildcard;
-        config.max_uri_handlers = 16;
+    webserver() : credentials("/external/app_data/certs/cert.pem", "/external/app_data/certs/key.pem") {
+        httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
+        config.httpd.uri_match_fn = httpd_uri_match_wildcard;
+        config.httpd.max_uri_handlers = 16;
 
-        httpd_start(&m_http_server_handle, &config);
+        if (credentials) {
+            ESP_LOGI("Webserver", "Found SSL credentials trying to start a https server");
+            config.cacert_pem = reinterpret_cast<const uint8_t *>(credentials.cert_begin());
+            config.cacert_len = credentials.cert_len();
+            config.prvtkey_pem = reinterpret_cast<const uint8_t *>(credentials.key_begin());
+            config.prvtkey_len = credentials.key_len();
+            config.httpd.max_open_sockets = 2;
+        } else {
+            ESP_LOGI("Webserver", "SSL credentials weren't found falling back to http server");
+            config.transport_mode = HTTPD_SSL_TRANSPORT_INSECURE;
+        }
 
+        httpd_ssl_start(&m_http_server_handle, &config);
     }
 
     webserver(const webserver &other) = delete;
     webserver(webserver &&other) = delete;
 
-    // TODO: close server
-    ~webserver() {}
+    ~webserver() {
+        httpd_ssl_stop(&m_http_server_handle);
+    }
 
     webserver &operator=(const webserver &other) = delete;
     webserver &operator=(webserver &&other) = delete;
@@ -49,6 +62,7 @@ class webserver final {
     static esp_err_t get_file(httpd_req_t *req);
 
     httpd_handle_t m_http_server_handle = nullptr;
+    ssl_credentials<2048, 2048> credentials;
 };
 
 inline esp_err_t set_content_type_from_file(httpd_req_t *req,
@@ -92,6 +106,7 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
     std::string_view selected_path = "";
     std::string_view request_uri = req->uri;
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_set_hdr(req, "Connection", "keep-alive");
 
     // TODO: Remove trailing /
     if (request_uri == "/") {
@@ -120,6 +135,16 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
         return ESP_FAIL;
     }
 
+    auto buffer = large_buffer_pool_type::get_free_buffer();
+
+    if (!buffer.has_value()) {
+        ESP_LOGE(__PRETTY_FUNCTION__, "Failed to get buffer");
+        /* Respond with 500 Internal Server Error */
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "Failed to read existing file");
+        return ESP_FAIL;
+    }
+
     if (S_ISDIR(tmp_stat.st_mode)) {
         ESP_LOGI(__PRETTY_FUNCTION__, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
         // TODO: maybe add pagination for more results witzh telldir and seekdir
@@ -134,17 +159,6 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed open directory");
-            return ESP_FAIL;
-        }
-
-        auto buffer = large_buffer_pool_type::get_free_buffer();
-
-        if (!buffer.has_value()) {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to get buffer");
-            /* Respond with 500 Internal Server Error */
-            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
-                                "Failed to read existing file");
-            closedir(directory);
             return ESP_FAIL;
         }
 
@@ -194,16 +208,17 @@ esp_err_t webserver<T>::get_file(httpd_req_t *req) {
 
         set_content_type_from_file(req, filepath);
 
-        char chunk[512];
         ssize_t read_bytes;
+        // TODO: make configurable
+        auto max_chunk_size = std::min<size_t>(buffer->size(), 2048);
         do {
             /* Read file in chunks into the scratch buffer */
-            read_bytes = read(fd, chunk, sizeof(chunk));
+            read_bytes = read(fd, buffer->data(), max_chunk_size);
             if (read_bytes == -1) {
                 ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read file : %s", filepath);
             } else if (read_bytes > 0) {
                 /* Send the buffer contents as HTTP response chunk */
-                if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK) {
+                if (httpd_resp_send_chunk(req, buffer->data(), read_bytes) != ESP_OK) {
                     close(fd);
                     ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath);
                     /* Abort sending file */

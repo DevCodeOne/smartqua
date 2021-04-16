@@ -47,6 +47,7 @@ class large_buffer {
         friend PoolType;
 };
 
+// TODO: Add multiple sizes
 template<size_t NumBuffers, size_t BufferSize>
 class large_buffer_pool { 
     public:
