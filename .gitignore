@@ -4,6 +4,7 @@ build/*
 main/build/**
 sdkconfig.old
 main/auth.h
+certs/
 build/*
 **/package-lock.json
 **/.eslintcache
