@@ -26,7 +26,7 @@ class webserver final {
             config.cacert_len = credentials.cert_len();
             config.prvtkey_pem = reinterpret_cast<const uint8_t *>(credentials.key_begin());
             config.prvtkey_len = credentials.key_len();
-            config.httpd.max_open_sockets = 2;
+            config.httpd.max_open_sockets = 1;
         } else {
             ESP_LOGI("Webserver", "SSL credentials weren't found falling back to http server");
             config.transport_mode = HTTPD_SSL_TRANSPORT_INSECURE;
