@@ -34,9 +34,12 @@ void sd_filesystem::initialize() {
         .allocation_unit_size = 16 * 1024
     };
 
+    gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY);
+    gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);
     sdmmc_host_t host = SDMMC_HOST_DEFAULT();
     host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot_config.width = 1;
 
     ESP_LOGI("SD_Filesystem", "Trying to mount sd card");
 

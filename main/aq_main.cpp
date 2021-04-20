@@ -66,85 +66,84 @@ void networkTask(void *pvParameters) {
     logger.install_sd_card_logger();
     global_store.init_values();
 
-    webserver server;
-    server.register_handler({.uri ="/api/v1/timers*",
+    // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues
+    // webserver<security_level::unsecured> app_server("/external/app_data");
+    webserver<security_level::secured> api_server("/external/app_data");
+    api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_GET,
                              .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers*",
+    api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_POST,
                              .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers*",
+    api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_PUT,
                              .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers*",
+    api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_DELETE,
                              .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/timers*",
+    api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_PATCH,
                              .handler = do_timers,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices*",
+    api_server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_GET,
                              .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices*",
+    api_server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_POST,
                              .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices*",
+    api_server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_PUT,
                              .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices*",
+    api_server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_DELETE,
                              .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/devices*",
+    api_server.register_handler({.uri ="/api/v1/devices*",
                              .method = HTTP_PATCH,
                              .handler = do_devices,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/stats*",
+    api_server.register_handler({.uri ="/api/v1/stats*",
                              .method = HTTP_GET,
                              .handler = do_stats,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/stats*",
+    api_server.register_handler({.uri ="/api/v1/stats*",
                              .method = HTTP_POST,
                              .handler = do_stats,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/stats*",
+    api_server.register_handler({.uri ="/api/v1/stats*",
                              .method = HTTP_PUT,
                              .handler = do_stats,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/stats*",
+    api_server.register_handler({.uri ="/api/v1/stats*",
                              .method = HTTP_DELETE,
                              .handler = do_stats,
                              .user_ctx = nullptr});
 
-    server.register_handler({.uri ="/api/v1/stats*",
+    api_server.register_handler({.uri ="/api/v1/stats*",
                              .method = HTTP_PATCH,
                              .handler = do_stats,
                              .user_ctx = nullptr});
     
-
-    server.register_file_handler();
-
     sntp_clock clock;
 
     task_pool<max_task_pool_size>::post_task(single_task{

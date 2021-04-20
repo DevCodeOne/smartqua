@@ -80,7 +80,9 @@ auto large_buffer_pool<NumBuffers, BufferSize>::get_free_buffer() -> std::option
 
         std::call_once(_init_buffers_flag, []() {
             for (auto &current_buffer : _buffers) {
-                current_buffer.reset(reinterpret_cast<char *>(malloc(buffer_size)));
+                // TODO: make configurable
+                // current_buffer.reset(reinterpret_cast<char *>(malloc(buffer_size)));
+                current_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(buffer_size, MALLOC_CAP_SPIRAM)));
             }
         });
 
