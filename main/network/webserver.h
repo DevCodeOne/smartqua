@@ -31,7 +31,7 @@ namespace Detail {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
                 config.max_uri_handlers = 16;
-                config.stack_size = 3 * 4096;
+                config.max_open_sockets = 4;
 
                 return httpd_start(&m_http_server_handle, &config) == ESP_OK;
             }
@@ -202,7 +202,8 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
     std::string_view request_uri = req->uri;
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_hdr(req, "Connection", "Keep-Alive timeout=1, max=1000");
+    httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
+    httpd_resp_set_hdr(req, "Keep-Alive", "timeout=1, max=1000");
 
 
     if (base_path != nullptr) {
@@ -309,15 +310,7 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
                 ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read file : %s", filepath.data());
             } else if (read_bytes > 0) {
                 /* Send the buffer contents as HTTP response chunk */
-                esp_err_t last_result = ESP_FAIL;
-                // TODO: make configurable 
-                for (unsigned int i = 0; i < 2 && last_result != ESP_OK; ++i) {
-                    last_result = httpd_resp_send_chunk(req, buffer->data(), read_bytes);
-
-                    if (last_result != ESP_OK) {
-                        std::this_thread::sleep_for(std::chrono::milliseconds(250));
-                    }
-                }
+                esp_err_t last_result = httpd_resp_send_chunk(req, buffer->data(), read_bytes);
 
                 if (last_result != ESP_OK) {
                     close(fd);

@@ -30,7 +30,7 @@ void sd_filesystem::initialize() {
 
     esp_vfs_fat_sdmmc_mount_config_t mount_config {
         .format_if_mount_failed = true,
-        .max_files = 24,
+        .max_files = 32,
         .allocation_unit_size = 16 * 1024
     };
 
