@@ -13,6 +13,7 @@
 #include "drivers/ds18x20_driver.h"
 #include "drivers/pwm.h"
 #include "drivers/scale.h"
+#include "drivers/setting_types.h"
 
 using device_settings_type = device_settings<max_num_devices, ds18x20_driver, pwm, loadcell>;
 using soft_timer_settings_type = soft_timer_settings<max_num_timers>;
@@ -26,4 +27,4 @@ extern store<
     > global_store;
 
 // TODO: make configurable
-using large_buffer_pool_type = large_buffer_pool<4, 2048>;
+using large_buffer_pool_type = large_buffer_pool<4, 4096>;
