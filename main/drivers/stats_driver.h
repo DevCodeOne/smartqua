@@ -28,6 +28,8 @@ class single_stat final {
 
         single_stat &operator=(const single_stat &other) = delete;
         single_stat &operator=(single_stat &&other);
+
+        static std::optional<single_stat> create(single_stat_settings *stat_settings);
     private:
         single_stat(single_stat_settings *stat_settings);
 
@@ -36,6 +38,11 @@ class single_stat final {
         template<size_t N>
         friend class stats_driver;
 };
+
+template<typename DriverType>
+std::optional<single_stat<DriverType>> single_stat<DriverType>::create(single_stat_settings *stat_settings) {
+    return DriverType::create_stat(stat_settings);
+}
 
 template<typename DriverType>
 single_stat<DriverType>::single_stat(single_stat_settings *stat_settings) : m_stat_settings(stat_settings) { }

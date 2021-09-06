@@ -117,7 +117,7 @@ public:
             write_to_device,
             write_device_options>, trivial_representation, ignored_event>;
 
-    device_settings &operator=(trivial_representation new_value);
+    device_settings &operator=(const trivial_representation &new_value);
     
     // Ignore other read and write events
     template<typename T>
@@ -146,7 +146,7 @@ private:
 
 // TODO: implement
 template<size_t N, typename ... DeviceDrivers>
-device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::operator=(trivial_representation new_value) {
+device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::operator=(const trivial_representation &new_value) {
     data = new_value;
 
     for (unsigned int i = 0; i < data.initialized.size(); ++i) {

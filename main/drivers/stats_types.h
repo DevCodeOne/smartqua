@@ -1,6 +1,7 @@
 #pragma once
 
 #include <limits>
+#include <chrono>
 
 #include "frozen.h"
 
@@ -11,6 +12,8 @@ enum single_stat_operation_result {
 };
 
 struct single_stat_settings {
+    static inline constexpr char StorageName[] = "SingleStatSettings";
+
     std::chrono::minutes stat_interval{5};
     unsigned int device_index{std::numeric_limits<unsigned int>::max()};
 

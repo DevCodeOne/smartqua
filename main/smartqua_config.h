@@ -34,6 +34,10 @@
 #define MAX_STAT_SIZE 8
 #endif
 
+#ifndef MAX_SETTING_SIZE
+#define MAX_SETTING_SIZE 12
+#endif
+
 static inline constexpr uint8_t name_length = NAME_LENGTH;
 
 static inline constexpr uint8_t max_pins_for_device = MAX_PINS_FOR_DEVICE;
@@ -49,3 +53,5 @@ static inline constexpr uint8_t max_action_payload_length = MAX_ACTION_PAYLOAD_L
 static inline constexpr uint8_t max_task_pool_size = MAX_TASK_POOL_SIZE;
 
 static inline constexpr uint8_t max_stat_size = MAX_STAT_SIZE;
+
+static inline constexpr uint8_t max_setting_size = MAX_SETTING_SIZE;
