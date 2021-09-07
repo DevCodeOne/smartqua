@@ -15,7 +15,11 @@
 #include "drivers/device_types.h"
 #include "utils/utils.h"
 
-DacDriver::DacDriver(const device_config *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {}
+DacDriver::DacDriver(const device_config *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
+    if (dacResource) {
+        dac_output_enable(dacResource->channel_num());
+    }
+}
 
 std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
     auto *dacConf = reinterpret_cast<DacDriverData *>(config->device_config.data());
@@ -34,12 +38,11 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
 device_operation_result DacDriver::write_value(const device_values &value) {
     auto *dacConf = reinterpret_cast<DacDriverData *>(m_conf->device_config.data());
 
-
-    if (!value.voltage.has_value()) {
+    if (m_dac == nullptr || !value.voltage.has_value()) {
         return device_operation_result::not_supported;
     }
 
-    const auto targetValue = static_cast<uint8_t>(std::clamp(maxVoltage / *value.voltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
+    const auto targetValue = static_cast<uint8_t>(std::clamp(*value.voltage / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
 
     ESP_LOGI("DacDriver", "Setting new value %d", targetValue);
 
@@ -74,7 +77,7 @@ std::optional<DacDriver> DacDriver::create_driver(const std::string_view input, 
     json_scanf(input.data(), input.size(), "{ channel : %d, value : %d }", &channel, &value);
 
     bool assignResult = true;
-    assignResult &= check_assign(newConf.channel, channel);
+    assignResult &= check_assign(newConf.channel, std::clamp<int>(channel - 1, 0, 1));
     assignResult &= check_assign(newConf.value, value);
 
     if (!assignResult) {

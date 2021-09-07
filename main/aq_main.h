@@ -31,4 +31,4 @@ extern store<
     > global_store;
 
 // TODO: make configurable
-using large_buffer_pool_type = large_buffer_pool<2, 2048>;
+using large_buffer_pool_type = large_buffer_pool<4, 4096>;

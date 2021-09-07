@@ -270,8 +270,6 @@ class sd_card_setting {
         }
 
         esp_err_t store_to_sd_card() {
-            // TODO: remove
-            return ESP_OK;
             if (!m_initialized) {
                 return ESP_FAIL;
             }
@@ -285,7 +283,7 @@ class sd_card_setting {
 
             std::rewind(target_file);
 
-            auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
+            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
             std::fclose(target_file);
             ESP_LOGI("sd_card_setting", "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
 

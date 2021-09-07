@@ -200,9 +200,7 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
         return nullptr;
     }
 
-    if (esp_err_t result = dac_output_enable(channel); result != ESP_OK) {
-        return nullptr;
-    }
+    
 
     gpio_num_t used_pin = gpio_num_t::GPIO_NUM_0;
     esp_err_t result = dac_pad_get_io_num(channel, &used_pin);
