@@ -5,6 +5,7 @@
 #include <limits>
 #include <string_view>
 
+#include "drivers/stats_types.h"
 #include "smartqua_config.h"
 #include "actions/action_types.h"
 #include "drivers/stats_driver.h"
@@ -22,16 +23,8 @@ static inline constexpr size_t stat_uid = 20;
 
 using set_stat = SmartAq::Utils::ArrayActions::SetValue<single_stat_settings, stat_uid>;
 using remove_stat = SmartAq::Utils::ArrayActions::RemoveValue<single_stat_settings, stat_uid>;
+using retrieve_stat_info = SmartAq::Utils::ArrayActions::GetValue<single_stat_settings, stat_uid>;
 using retrieve_stat_overview = SmartAq::Utils::ArrayActions::GetValueOverview<single_stat_settings, stat_uid>;
-
-struct retrieve_stat_info {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
-    std::optional<single_stat_settings> stat_info;
-
-    struct {
-        stat_collection_operation collection_result = stat_collection_operation::failed;
-    } result;
-};
 
 template<size_t N>
 class StatCollection final {
@@ -73,24 +66,23 @@ class StatCollection final {
 
 template<size_t N>
 StatCollection<N> &StatCollection<N>::operator=(trivial_representation new_value) {
-    m_data = new_value;
-
-    // TODO: also do this
-    // for (size_t i = 0; i < data.initialized.size(); ++i) {
-    //     if (data.initialized[i]) {
-    //         m_stats[i] = driver_type::create_stat(&data.stat_settings[i]);
-    //     }
-    // }
+    m_data.initialize(new_value, [](const auto &trivialValue, auto &currentRuntimeData) {
+        currentRuntimeData = driver_type::create_stat(trivialValue);
+        return currentRuntimeData.has_value();
+    });
 
     return *this;
 }
 
 template<size_t N>
 auto StatCollection<N>::dispatch(set_stat &event) -> filter_return_type_t<set_stat> {
-    return m_data.template dispatch(event, [&event](auto &currentStat, auto &currentRuntimeData) {
+    return m_data.dispatch(event, [&event](auto &currentStat, auto &currentRuntimeData, const auto &jsonSettingValue) {
         // First delete timer and then reinitialize it, with old data, patched with new data
         currentStat = std::nullopt;
-        currentStat = driver_type::create_stat(event.jsonSettingValue, currentRuntimeData);
+        currentStat = driver_type::create_stat(jsonSettingValue, currentRuntimeData);
+        if (!currentStat.has_value()) {
+            ESP_LOGW("stats_actions", "Couldn't create stat with data %s", jsonSettingValue.data());
+        }
         return currentStat.has_value();
     });
 }
@@ -102,37 +94,10 @@ auto StatCollection<N>::dispatch(remove_stat &event) -> filter_return_type_t<rem
 
 template<size_t N>
 void StatCollection<N>::dispatch(retrieve_stat_info &event) const {
-    /*
-    if (event.index < N && data.initialized[event.index]) {
-        event.stat_info = data.stat_settings[event.index];
-        event.result.collection_result = stat_collection_operation::ok;
-    } else {
-        event.result.collection_result = stat_collection_operation::index_invalid;
-    }*/
+    m_data.dispatch(event);
 }
 
 template<size_t N>
 void StatCollection<N>::dispatch(retrieve_stat_overview &event) const {
-    /*unsigned int start_index = 0;
-    if (event.index.has_value()) {
-        start_index = *event.index;
-    }
-
-    if (start_index > N) {
-        event.result.collection_result = stat_collection_operation::index_invalid; 
-    }
-
-    const char *format = ", { index : %u, description : %M }";
-    json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
-
-    int written = 0;
-    json_printf(&out, "[");
-    for (unsigned int index = start_index; index < N; ++index) {
-        if (data.initialized[index]) {
-            written += json_printf(&out, format + (written == 0 ? 1 : 0), index, 
-                json_printf_single<std::decay_t<decltype(data.description[index])>>, &data.description[index]);
-        }
-    }
-    json_printf(&out, " ]");
-    event.result.collection_result = stat_collection_operation::ok;*/
+    m_data.dispatch(event);
 }

@@ -4,8 +4,16 @@
 #include <string_view>
 #include <memory>
 
+#include <stdio.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
 #include "esp_https_server.h"
 #include "esp_log.h"
+#include "esp_vfs_fat.h"
 
 #include "utils/web_utils.h"
 #include "utils/large_buffer_pool.h"
@@ -30,8 +38,9 @@ namespace Detail {
             bool init_server() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
+                config.stack_size = 4096 * 8;
                 config.max_uri_handlers = 16;
-                config.max_open_sockets = 4;
+                config.max_open_sockets = 1;
 
                 return httpd_start(&m_http_server_handle, &config) == ESP_OK;
             }
@@ -240,11 +249,13 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
     if (S_ISDIR(tmp_stat.st_mode)) {
         ESP_LOGI(__PRETTY_FUNCTION__, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
         // TODO: maybe add pagination for more results witzh telldir and seekdir
-        // TODO: replace closedir with something else, gsl::finally like
-        DIR *directory = opendir(selected_path.data());
+        auto directory = opendir(selected_path.data());
         dirent *current_entry = nullptr;
         long int entry_offset = 0;
         bool generated_path_directory = false;
+        DoFinally closeOp( [&directory]() {
+            closedir(directory);
+        });
 
         if (directory == nullptr) {
             ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open directory %s", selected_path.data());
@@ -273,8 +284,6 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
 
         int written_bytes = generate_link_list_website(buffer->data(), buffer->size(), gen_link);
 
-        closedir(directory);
-
         if (written_bytes != -1) {
             send_in_chunks(req, buffer->data(), written_bytes);
         } else {
@@ -288,6 +297,10 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
     } else if (S_ISREG(tmp_stat.st_mode)) {
         ESP_LOGI(__PRETTY_FUNCTION__, "Path is a file %s %s", selected_path.data(), request_uri.data());
         int fd = open(selected_path.data(), O_RDONLY, 0);
+
+        DoFinally closeOp( [&fd]() {
+            close(fd);
+        });
 
         if (fd == -1) {
             ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file : %s", filepath.data());
@@ -313,7 +326,6 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
                 esp_err_t last_result = httpd_resp_send_chunk(req, buffer->data(), read_bytes);
 
                 if (last_result != ESP_OK) {
-                    close(fd);
                     ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath.data());
                     /* Abort sending file */
                     httpd_resp_send_chunk(req, nullptr, 0);
@@ -325,8 +337,6 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
                 }
             }
         } while (read_bytes > 0);
-        /* Close file after sending complete */
-        close(fd);
         ESP_LOGI(__PRETTY_FUNCTION__, "File sending complete");
         /* Respond with an empty chunk to signal HTTP response completion */
         httpd_resp_send_chunk(req, nullptr, 0);

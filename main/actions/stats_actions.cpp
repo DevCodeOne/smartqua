@@ -7,27 +7,31 @@ json_action_result get_stats_action(std::optional<unsigned int> index, const cha
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     if (!index.has_value()) {
         std::array<char, 1024> overview_buffer;
-        retrieve_stat_overview overview{};
-        overview.outputDst = overview_buffer.data();
-        overview.outputLen = overview_buffer.size();
+        retrieve_stat_overview overview { 
+            .output_dst = overview_buffer.data(),
+            .output_len = overview_buffer.size()
+        };
 
         global_store.read_event(overview);
 
-        if (overview.Result.collection_result != stat_collection_operation::failed) {
+        if (overview.result.collection_result != stat_collection_operation::failed) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %s }", overview_buffer.data());
             }
             result.result = json_action_result_value::successfull;
         }
     } else {
-        retrieve_stat_info stat_info{ .index = static_cast<size_t>(*index) };
+        retrieve_stat_info stat_info {
+            .index = static_cast<int>(*index)
+        };
+
         global_store.read_event(stat_info);
 
-        if (stat_info.result.collection_result == stat_collection_operation::ok && stat_info.stat_info.has_value()) {
-            auto info = stat_info.stat_info.value();
+        if (stat_info.result.collection_result == stat_collection_operation::ok && stat_info.result.value.has_value()) {
+            auto info = stat_info.result.value.value();
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %M }",
-                    json_printf_single<std::decay_t<decltype(stat_info.stat_info)::value_type>>, &(info));
+                    json_printf_single<std::decay_t<decltype(stat_info.result.value)::value_type>>, &(info));
             }
             result.result = json_action_result_value::successfull;
         } else {
@@ -57,10 +61,11 @@ json_action_result add_stat_action(std::optional<unsigned int> index, const char
         return result;
     }
 
-    set_stat to_add{ };
-    to_add.index = index;
-    to_add.jsonSettingValue = std::string_view(token.ptr, token.len);
-    to_add.settingName = std::string_view(name_token.ptr, std::min(static_cast<int>(name_length), name_token.len));
+    set_stat to_add { 
+        .index = index, 
+        .settingName = std::string_view(name_token.ptr, std::min<int>(name_length, name_token.len)),
+        .jsonSettingValue = std::string_view(token.ptr, token.len),
+    };
 
     global_store.write_event(to_add);
 

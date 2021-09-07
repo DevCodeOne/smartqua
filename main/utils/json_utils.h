@@ -5,9 +5,12 @@
 #include <utility>
 #include <charconv>
 #include <cstring>
+#include <optional>
 
 #include "frozen.h"
 #include "esp_log.h"
+
+#include "utils/stack_string.h"
 
 template<typename T1, typename T2>
 constexpr auto constexpr_pow(T1 n, T2 e) {
@@ -57,6 +60,13 @@ struct print_to_json<std::array<char, Size>> {
         }
 
         return json_printf(out, "%.*Q", len, str.data());
+    }
+};
+
+template<size_t Size>
+struct print_to_json<stack_string<Size>> {
+    static int print(json_out *out, stack_string<Size> &str) {
+        return json_printf(out, "%.*Q", str.len(), str.data());
     }
 };
 

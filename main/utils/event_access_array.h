@@ -7,7 +7,13 @@
 #include <string_view>
 #include <optional>
 
+#include "frozen.h"
+
+#include "actions/action_types.h"
+#include "actions/soft_timer_actions.h"
+#include "smartqua_config.h"
 #include "utils/utils.h"
+#include "utils/stack_string.h"
 #include "storage/store.h"
 
 namespace SmartAq::Utils {
@@ -21,7 +27,7 @@ namespace SmartAq::Utils {
 
             std::array<BaseType, Size> values;
             std::array<bool, Size> initialized;
-            std::array<std::array<char, name_length>, Size> names;
+            std::array<stack_string<name_length>, Size> names;
     };
 
     namespace ArrayActions {
@@ -38,20 +44,20 @@ namespace SmartAq::Utils {
         // settingNames have to unique
         template<typename BaseType, size_t UID>
         struct SetValue {
-            std::optional<unsigned int> index;
-            std::optional<std::string_view> settingName;
-            std::string_view jsonSettingValue;
+            std::optional<unsigned int> index = std::nullopt;
+            std::optional<std::string_view> settingName = "";
+            std::string_view jsonSettingValue = "";
 
             struct {
                 collection_operation_result collection_result = collection_operation_result::failed;
-                std::optional<unsigned int> index;
+                std::optional<unsigned int> index = std::nullopt;
             } result;
         };
 
         template<typename BaseType, size_t UID>
         struct RemoveValue {
-            std::optional<unsigned int> index;
-            std::optional<std::string_view> settingName;
+            std::optional<unsigned int> index = std::nullopt;
+            std::optional<std::string_view> settingName = std::nullopt;
 
             struct {
                 collection_operation_result collection_result = collection_operation_result::failed;
@@ -60,12 +66,12 @@ namespace SmartAq::Utils {
 
         template<typename BaseType, size_t UID>
         struct GetValue {
-            std::optional<unsigned int> index;
-            std::optional<std::string_view> settingName;
+            std::optional<unsigned int> index = std::nullopt;
+            std::optional<std::string_view> settingName = std::nullopt;
 
             struct {
                 collection_operation_result collection_result = collection_operation_result::failed;
-                std::optional<BaseType> value;
+                std::optional<BaseType> value = std::nullopt;
             } result;
         };
 
@@ -73,12 +79,12 @@ namespace SmartAq::Utils {
         template<typename BaseType, size_t UID>
         struct GetValueOverview {
             std::optional<unsigned int> index;
-            char *outputDst = nullptr;
-            size_t outputLen = 0;
+            char *output_dst = nullptr;
+            size_t output_len = 0;
 
             struct {
                 collection_operation_result collection_result = collection_operation_result::failed;
-            } Result;
+            } result;
         };
     }
 
@@ -103,7 +109,8 @@ namespace SmartAq::Utils {
         EventAccessArray() = default;
         ~EventAccessArray() = default;
 
-        EventAccessArray &operator=(const TrivialRepresentationType &newValue);
+        template<typename CreationHook>
+        EventAccessArray &initialize(const TrivialRepresentationType &newValue, const CreationHook &hook);
 
         template<typename T>
         FilterReturnType<T> dispatch(T &) {};
@@ -130,7 +137,7 @@ namespace SmartAq::Utils {
     // TODO: add return value to indicate if it is a newly created value
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise) const {
-        if (!index.has_value() && name.has_value()) {
+        if (!index.has_value() && !name.has_value()) {
             return std::nullopt;
         } else if (index.has_value() && *index >= NumElements) {
             return std::nullopt;
@@ -139,7 +146,7 @@ namespace SmartAq::Utils {
         std::optional<unsigned int> foundIndex = index;
 
         if (!foundIndex.has_value() && name.has_value()) {
-            for (int i = 0; i < NumElements; ++i) {
+            for (unsigned int i = 0; i < NumElements; ++i) {
                 if (*name == data.names[i].data()) {
                     foundIndex = i;
                     break;
@@ -148,7 +155,7 @@ namespace SmartAq::Utils {
         }
 
         if (!foundIndex.has_value() && findFreeSlotOtherwise) {
-            for (int i = 0; i < NumElements; ++i) {
+            for (unsigned int i = 0; i < NumElements; ++i) {
                 if (!data.initialized[i]) {
                     foundIndex = i;
                     break;
@@ -160,22 +167,22 @@ namespace SmartAq::Utils {
     }
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::operator=(const TrivialRepresentationType &newData) -> EventAccessArray & {
-        data = newData;
+    template<typename CreationHook>
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::initialize(const TrivialRepresentationType &newValue, const CreationHook &createRuntime) -> EventAccessArray & {
+        data = newValue;
 
         for (unsigned int i = 0; i < data.initialized.size(); ++i) {
             if (!data.initialized[i]) {
                 continue;
             }
 
-            runtimeData[i] = RuntimeType::create(&data.values[i]);
-
-            if (!runtimeData[i]) {
+            if (!createRuntime(&data.values[i], runtimeData[i])) {
                 // If it fails, we could reset data.initialized ?
             }
         }
 
         return *this;
+
     }
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
@@ -184,39 +191,26 @@ namespace SmartAq::Utils {
         return dispatch<decltype(doNothing)>(event, doNothing);
     }
 
-    // TODO: use hook
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename UpdateHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
         std::optional<unsigned int> foundIndex = findIndex(event.index, event.settingName, true);
 
-        // Set already initialised value
-        if (foundIndex.has_value() && data.initialized[*foundIndex]) {
-            event.index = *foundIndex;
-            // bool successfullySet = runtimeData[*foundIndex].set(event.jsonSettingValue);
-            auto successfullySet = update(runtimeData[*foundIndex], data.values[*foundIndex]);
-            if (successfullySet && event.settingName.has_value()) {
-                std::strncpy(data.names[*foundIndex].data(), event.settingName->data(), data.names[*foundIndex].size());
-            }
-            if (!successfullySet) {
-                event.result.collection_result = collection_operation_result::failed;
-                return data;
-            }
-        } else if (foundIndex.has_value() && !data.initialized[*foundIndex] && event.settingName.has_value()) {
-            // runtimeData[*foundIndex] = RuntimeType::create(event.jsonSettingValue, data.values[*foundIndex]);
-            if (auto successfullyInitialized = update(runtimeData[*foundIndex], data.values[*foundIndex]); successfullyInitialized) {
-                data.initialized[*foundIndex] = true;
-                std::strncpy(data.names[*foundIndex].data(), event.settingName->data(), data.names[*foundIndex].size());
-            } else {
-                event.result.collection_result = collection_operation_result::failed;
-                return data;
-            }
-
-            event.index = *foundIndex;
-           
-        } else if (!foundIndex.has_value() && !event.index.has_value()) {
+        if (!foundIndex.has_value() && !event.index.has_value()) {
             event.result.collection_result = collection_operation_result::collection_full;
             return data;
+        }
+
+        auto successfullySet = update(runtimeData[*foundIndex], data.values[*foundIndex], event.jsonSettingValue);
+        if (successfullySet) {
+            data.initialized[*foundIndex] = true;
+            if (event.settingName) {
+                data.names[*foundIndex] = *event.settingName;
+            }
+            event.result.collection_result = collection_operation_result::ok;
+            event.result.index = foundIndex;
+        } else {
+            event.result.collection_result = collection_operation_result::failed;
         }
 
         return data;
@@ -234,6 +228,7 @@ namespace SmartAq::Utils {
         }
 
         event.index = indexToDelete;
+        event.result.collection_result = collection_operation_result::ok;
         data.values[*indexToDelete] = BaseType{};
         data.names[*indexToDelete][0] = '\0';
         data.initialized[*indexToDelete] = false;
@@ -251,7 +246,8 @@ namespace SmartAq::Utils {
             return data;
         }
 
-        event.result.value = data.data[*foundIndex];
+        event.result.value = data.values[*foundIndex];
+        event.result.collection_result = collection_operation_result::ok;
 
         return data;
     }
@@ -259,5 +255,29 @@ namespace SmartAq::Utils {
     // TODO: implement this
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
+        unsigned int start_index = 0;
+        if (event.index.has_value()) {
+            start_index = *event.index;
+        }
+
+        if (start_index > Size) {
+            event.result.collection_result = collection_operation_result::index_invalid; 
+        }
+
+        const char *format = ", { index : %u, description : %M }";
+        json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
+
+        int written = 0;
+        json_printf(&out, "[");
+        for (unsigned int index = start_index; index < Size; ++index) {
+            if (data.initialized[index]) {
+                written += json_printf(&out, format + (written == 0 ? 1 : 0), index, 
+                    json_printf_single<std::decay_t<decltype(data.names[index])>>, &data.names[index]);
+            }
+        }
+        json_printf(&out, " ]");
+        event.result.collection_result = collection_operation_result::ok;
+
+        return data;
     }
 }

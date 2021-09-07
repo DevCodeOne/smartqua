@@ -122,7 +122,7 @@ std::optional<pwm> pwm::create_driver(const std::string_view input, device_confi
     new_conf.fade = static_cast<bool>(fade);
 
     if (!assign_result) {
-        ESP_LOGI("pwm_driver", "Some value was out of range");
+        ESP_LOGI("pwm_driver", "Some value(s) were out of range");
         return std::nullopt;
     }
 

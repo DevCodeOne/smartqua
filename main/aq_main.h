@@ -14,20 +14,21 @@
 #include "drivers/ds18x20_driver.h"
 #include "drivers/pwm.h"
 #include "drivers/scale.h"
+#include "drivers/dac_driver.h"
 #include "drivers/setting_types.h"
 
-using device_settings_type = device_settings<max_num_devices, ds18x20_driver, pwm, loadcell>;
+using device_settings_type = device_settings<max_num_devices, ds18x20_driver, pwm, loadcell, DacDriver>;
 using soft_timer_settings_type = soft_timer_settings<max_num_timers>;
 using stat_collection_type = StatCollection<max_stat_size>;
-using setting_type = settings<max_setting_size>;
+// using setting_type = settings<max_setting_size>;
 
 // TODO: add settings
 extern store<
     single_store<device_settings_type, sd_card_setting<device_settings_type::trivial_representation> >,
     single_store<soft_timer_settings_type, sd_card_setting<soft_timer_settings_type::trivial_representation> >,
-    single_store<stat_collection_type, sd_card_setting<stat_collection_type::trivial_representation> >,
-    single_store<setting_type, sd_card_setting<setting_type::trivial_representation> >
+    single_store<stat_collection_type, sd_card_setting<stat_collection_type::trivial_representation> >
+    // single_store<setting_type, sd_card_setting<setting_type::trivial_representation> >
     > global_store;
 
 // TODO: make configurable
-using large_buffer_pool_type = large_buffer_pool<8, 4096>;
+using large_buffer_pool_type = large_buffer_pool<2, 2048>;

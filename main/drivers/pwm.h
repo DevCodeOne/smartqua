@@ -41,5 +41,4 @@ class pwm final {
         std::shared_ptr<timer_resource> m_timer = nullptr;
         std::shared_ptr<gpio_resource> m_gpio = nullptr;
         std::shared_ptr<led_channel> m_channel = nullptr;
-        static inline std::shared_mutex _instance_mutex;
 };

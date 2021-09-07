@@ -230,7 +230,10 @@ void stats_driver<N>::stats_driver_task(void *) {
 
             snprintf(out_file.data(), out_file.size(), "%s/device_%d.csv", out_path.data(), current_stat->device_index);
 
-            std::FILE *output = std::fopen(out_file.data(), "a");
+            auto *output = std::fopen(out_file.data(), "a");
+            DoFinally closeOp( [&output]() {
+                std::fclose(output);
+            });
 
             if (output == nullptr) {
                 ESP_LOGE("stats_driver", "Couldn't open file: %s ", out_file.data());
@@ -239,7 +242,6 @@ void stats_driver<N>::stats_driver_task(void *) {
 
             std::fprintf(output, "%u; \"%s\"", static_cast<uint32_t>(minutes_since_midnight.count()), data_out.data());
             std::fputc('\n', output);
-            std::fclose(output);
 
             ESP_LOGI("stats_driver", "Wrote to %s ", out_file.data());
         }

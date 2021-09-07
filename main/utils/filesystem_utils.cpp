@@ -7,6 +7,8 @@
 #include "esp_log.h"
 #include "ctre.hpp"
 
+#include "utils.h"
+
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
 bool ensure_path_exists(const char *path, uint32_t mask) {
@@ -68,6 +70,9 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
 
 int64_t load_file_completly_into_buffer(const char *path, char *dst, size_t dst_len) {
     auto opened_file = std::fopen(path, "rb");
+    DoFinally closeOp( [&opened_file]() {
+        std::fclose(opened_file);
+    });
 
     if (opened_file == nullptr) {
         return -1;
@@ -76,13 +81,11 @@ int64_t load_file_completly_into_buffer(const char *path, char *dst, size_t dst_
     auto file_size = std::ftell(opened_file);
 
     if (file_size > dst_len) {
-        std::fclose(opened_file);
         return -1;
     }
 
     std::rewind(opened_file);
     int64_t read_size = std::fread(dst, 1, file_size, opened_file);
-    std::fclose(opened_file);
 
     return read_size;
 }

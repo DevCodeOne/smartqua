@@ -1,4 +1,7 @@
 #include "device_resource.h"
+#include "driver/dac_common.h"
+#include "hal/dac_types.h"
+#include "hal/gpio_types.h"
 
 #include <algorithm>
 
@@ -130,6 +133,33 @@ led_channel &led_channel::operator=(led_channel &&other) {
     return *this;
 }
 
+dac_resource::dac_resource(dac_channel_t channel, std::shared_ptr<gpio_resource> &pin_resource) : m_channel_num(channel), m_pin_resource(pin_resource) { }
+
+dac_resource::dac_resource(dac_resource &&other) : m_channel_num(other.m_channel_num), m_pin_resource(other.m_pin_resource) {
+    other.m_channel_num = dac_channel_t::DAC_CHANNEL_MAX;
+    other.m_pin_resource = nullptr;
+}
+
+dac_resource &dac_resource::operator=(dac_resource &&other) {
+
+    using std::swap;
+
+    swap(m_channel_num, other.m_channel_num);
+    swap(m_pin_resource, other.m_pin_resource);
+
+    other.m_channel_num = dac_channel_t::DAC_CHANNEL_MAX;
+    other.m_pin_resource = nullptr;
+
+    return *this;
+}
+
+dac_channel_t dac_resource::channel_num() const {
+    return m_channel_num;
+}
+
+// TODO: reset dac
+dac_resource::~dac_resource() { }
+
 std::shared_ptr<gpio_resource> device_resource::get_gpio_resource(gpio_num_t pin, gpio_purpose mode) {
     std::lock_guard instance_guard{_instance_mutex};
 
@@ -150,6 +180,44 @@ std::shared_ptr<gpio_resource> device_resource::get_gpio_resource(gpio_num_t pin
         || (found_resource->second->purpose() == gpio_purpose::gpio && found_resource->second.use_count() > 1)) {
         return nullptr;
     }
+
+    return found_resource->second;
+}
+
+std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t channel)  {
+    std::lock_guard instance_guard{_instance_mutex};
+
+    auto found_resource = std::find_if(_dacs.begin(), _dacs.end(), [channel](auto &current_entry) {
+        return current_entry.first == channel;
+    });
+
+    if (found_resource == _dacs.end()) {
+        return nullptr;
+    }
+
+    // Resource is already in use
+    if (found_resource->second != nullptr) {
+        return nullptr;
+    }
+
+    if (esp_err_t result = dac_output_enable(channel); result != ESP_OK) {
+        return nullptr;
+    }
+
+    gpio_num_t used_pin = gpio_num_t::GPIO_NUM_0;
+    esp_err_t result = dac_pad_get_io_num(channel, &used_pin);
+
+    if (result != ESP_OK && used_pin != gpio_num_t::GPIO_NUM_0) {
+        return nullptr;
+    }
+
+    auto gpio_resource = device_resource::get_gpio_resource(used_pin, gpio_purpose::gpio);
+
+    if (gpio_resource == nullptr) {
+        return nullptr;
+    }
+
+    found_resource->second = std::shared_ptr<dac_resource>(new dac_resource(found_resource->first, gpio_resource));
 
     return found_resource->second;
 }

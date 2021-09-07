@@ -5,6 +5,19 @@
 #include <type_traits>
 #include <limits>
 
+template<typename Callable>
+class DoFinally {
+    public:
+        DoFinally(Callable callable) : mCallable(callable) {}
+        ~DoFinally() { mCallable(); }
+
+    private:
+        Callable mCallable;
+};
+
+template<typename Callable>
+DoFinally(Callable callable) -> DoFinally<Callable>;
+
 template<size_t Index>
 struct constexpr_for {
     template<typename TupleType, typename Callable>

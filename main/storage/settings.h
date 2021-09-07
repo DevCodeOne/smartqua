@@ -13,6 +13,7 @@
 
 #include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
+#include "utils/utils.h"
 #include "smartqua_config.h"
 
 enum struct setting_init { instant, lazy_load };
@@ -131,11 +132,7 @@ class sd_card_setting {
 
         sd_card_setting() { initialize(); }
 
-        ~sd_card_setting() {
-            if (m_initialized) {
-                std::fclose(m_target_file);
-            }
-        }
+        ~sd_card_setting() = default;
 
         void initialize() {
             if (InitType == setting_init::instant) {
@@ -181,7 +178,7 @@ class sd_card_setting {
 
             auto opened_file = std::fopen(filename.data(), "r+");
 
-            if (!opened_file) {
+            if (opened_file == nullptr) {
                 // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
                 opened_file = std::fopen(filename.data(), "w+");
             }
@@ -220,9 +217,12 @@ class sd_card_setting {
                 return ESP_FAIL;
             }
 
-            m_target_file = open_tmp_file();
+            auto target_file = open_tmp_file();
+            DoFinally closeOp( [&target_file]() {
+                std::fclose(target_file);
+            });
 
-            if (!m_target_file) {
+            if (!target_file) {
                 ESP_LOGI("sd_card_setting", "Couldn't open target file");
                 return ESP_FAIL;
             }
@@ -241,10 +241,12 @@ class sd_card_setting {
             std::array<char, 64> filename{'\0'};
             copy_filename_to_buffer(filename);
             auto opened_file = std::fopen(filename.data(), "r+");
+            DoFinally closeOp( [&opened_file]() {
+                std::fclose(opened_file);
+            });
 
             if (!opened_file) {
                 ESP_LOGI("sd_card_setting", "There is no file to read from");
-                std::fclose(opened_file);
                 return ESP_FAIL;
             }
 
@@ -256,29 +258,35 @@ class sd_card_setting {
                     SettingType::name,
                     static_cast<int>(file_size),
                     static_cast<int>(sizeof(setting_type)));
-                std::fclose(opened_file);
                 return ESP_FAIL;
             }
 
-            fseek(opened_file, 0, SEEK_SET);
+            std::fseek(opened_file, 0, SEEK_SET);
             auto read_size = fread(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, opened_file);
 
             ESP_LOGI("sd_card_setting", "Read %d bytes from the sd card", read_size * sizeof(setting_type));
-            std::fclose(opened_file);
 
             return read_size == 1;
         }
 
         esp_err_t store_to_sd_card() {
+            // TODO: remove
+            return ESP_OK;
             if (!m_initialized) {
                 return ESP_FAIL;
             }
 
             ESP_LOGI("sd_card_setting", "Writing to sd card");
-            std::rewind(m_target_file);
 
-            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, m_target_file);
-            std::fclose(m_target_file);
+            auto target_file = open_tmp_file();
+            DoFinally closeOp( [&target_file]() {
+                std::fclose(target_file);
+            });
+
+            std::rewind(target_file);
+
+            auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
+            std::fclose(target_file);
             ESP_LOGI("sd_card_setting", "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
 
             int rename_result = -1;
@@ -298,14 +306,10 @@ class sd_card_setting {
                 ESP_LOGI("sd_card_setting", "Couldn't rename file");
             }
 
-            m_target_file = open_tmp_file();
-
-            
             return written_size == 1 && rename_result >= 0;
         }
     
         bool m_initialized = false;
         std::optional<sd_filesystem> m_filesystem = std::nullopt;
-        FILE *m_target_file = nullptr;
         setting_type m_setting;
 };

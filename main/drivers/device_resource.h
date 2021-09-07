@@ -7,6 +7,8 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "driver/dac.h"
+#include "hal/dac_types.h"
 
 enum struct gpio_purpose {
     bus, gpio
@@ -93,12 +95,34 @@ class led_channel final {
         friend class device_resource;
 };
 
+class dac_resource final {
+    public:
+        dac_resource(const dac_resource &) = delete;
+        dac_resource(dac_resource &&);
+        ~dac_resource();
+
+        dac_resource &operator=(const dac_resource &) = delete;
+        dac_resource &operator=(dac_resource &&);
+
+        void swap(dac_resource &other);
+
+        dac_channel_t channel_num() const;
+    private:
+        dac_resource(dac_channel_t channel, std::shared_ptr<gpio_resource> &pin_resource);
+
+        dac_channel_t m_channel_num;
+        std::shared_ptr<gpio_resource> m_pin_resource;
+
+        friend class device_resource;
+};
+
 void swap(led_channel &lhs, led_channel &rhs);
 
 class device_resource final {
     public:
         static std::shared_ptr<gpio_resource> get_gpio_resource(gpio_num_t pin, gpio_purpose mode);
         static std::shared_ptr<timer_resource> get_timer_resource(const timer_config &config);
+        static std::shared_ptr<dac_resource> get_dac_resource(dac_channel_t channel);
         static std::shared_ptr<led_channel> get_led_channel();
 
     private:
@@ -139,14 +163,19 @@ class device_resource final {
             std::make_pair(gpio_num_t::GPIO_NUM_33, std::shared_ptr<gpio_resource>(nullptr)),
         };
 
-        static inline std::array _timers{
+        static inline std::array _dacs {
+            std::make_pair(dac_channel_t::DAC_CHANNEL_1, std::shared_ptr<dac_resource>(nullptr)),
+            std::make_pair(dac_channel_t::DAC_CHANNEL_2, std::shared_ptr<dac_resource>(nullptr))
+        };
+
+        static inline std::array _timers {
             std::make_pair(ledc_timer_t::LEDC_TIMER_0, std::shared_ptr<timer_resource>(nullptr)),
             std::make_pair(ledc_timer_t::LEDC_TIMER_1, std::shared_ptr<timer_resource>(nullptr)),
             std::make_pair(ledc_timer_t::LEDC_TIMER_2, std::shared_ptr<timer_resource>(nullptr)),
             std::make_pair(ledc_timer_t::LEDC_TIMER_3, std::shared_ptr<timer_resource>(nullptr)),
         };
 
-        static inline std::array _channels{
+        static inline std::array _channels {
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_0, std::shared_ptr<led_channel>(nullptr)),
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_1, std::shared_ptr<led_channel>(nullptr)),
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_2, std::shared_ptr<led_channel>(nullptr)),
@@ -157,5 +186,5 @@ class device_resource final {
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_7, std::shared_ptr<led_channel>(nullptr)),
         };
 
-        static inline std::mutex _instance_mutex;
+        static inline std::recursive_mutex _instance_mutex;
 };
