@@ -84,7 +84,7 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
 
     ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
     std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
-    std::strncpy(device_conf_out.device_driver_name.data(), ds18x20_driver::name, name_length);
+    device_conf_out.device_driver_name =  ds18x20_driver::name;
 
     return std::make_optional<ds18x20_driver>(ds18x20_driver(&device_conf_out, pin));
 }

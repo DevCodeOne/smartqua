@@ -66,7 +66,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, 
             }
 
             ESP_LOGI("Device_Driver", "Found driver %s", driver_name);
-            std::strncpy(device_conf_out.device_driver_name.data(), driver_type::name, name_length - 1);
+            device_conf_out.device_driver_name = driver_type::name;
             auto result = driver_type::create_driver(input, device_conf_out);
             
             // Driver creation wasn't successfull
