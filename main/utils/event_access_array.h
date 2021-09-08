@@ -10,7 +10,6 @@
 #include "frozen.h"
 
 #include "actions/action_types.h"
-#include "actions/soft_timer_actions.h"
 #include "smartqua_config.h"
 #include "utils/utils.h"
 #include "utils/stack_string.h"
@@ -121,11 +120,39 @@ namespace SmartAq::Utils {
         FilterReturnType<ArrayActions::RemoveValue<ElementType, UID>> dispatch(ArrayActions::RemoveValue<ElementType, UID> &);
         FilterReturnType<ArrayActions::GetValue<ElementType, UID>> dispatch(ArrayActions::GetValue<ElementType, UID> &) const;
         FilterReturnType<ArrayActions::GetValueOverview<ElementType, UID>> dispatch(ArrayActions::GetValueOverview<ElementType, UID> &) const;
+        template<typename PrintHook>
+        FilterReturnType<ArrayActions::GetValueOverview<ElementType, UID>> dispatch(ArrayActions::GetValueOverview<ElementType, UID> &, PrintHook hook) const;
 
         template<typename T>
         void dispatch(T &) const {};
 
-        const TrivialRepresentationType &trivial_representation() const;
+        const TrivialRepresentationType &getTrivialRepresentation() const;
+
+        template<typename Callable>
+        void invokeOnRuntimeData(int index, Callable callable) const {
+            if (index >= NumElements) {
+                return;
+            }
+
+            if (!data.initialized[index] || !runtimeData[index].has_value()) {
+                return;
+            }
+
+            callable(*runtimeData[index]);
+        }
+
+        template<typename Callable>
+        void invokeOnRuntimeData(int index, Callable callable) {
+            if (index >= NumElements) {
+                return;
+            }
+
+            if (!data.initialized[index] || !runtimeData[index].has_value()) {
+                return;
+            }
+
+            callable(*runtimeData[index]);
+        }
 
         private:
             std::optional<unsigned int> findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise = false) const;
@@ -252,9 +279,20 @@ namespace SmartAq::Utils {
         return data;
     }
 
-    // TODO: implement this
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
+        auto printLambda = [](auto &out, const auto &name, const auto &, int index) -> int {
+            const bool firstPrint = index > 0;
+            const char *format = ", { index : %u, description : %M }";
+            return json_printf(&out, format + (firstPrint ? 1 : 0), index, json_printf_single<std::decay_t<decltype(name)>>, &name);
+        };
+
+        return dispatch<decltype(printLambda)>(event, printLambda);
+    }
+
+    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<typename PrintHook>
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
         unsigned int start_index = 0;
         if (event.index.has_value()) {
             start_index = *event.index;
@@ -264,20 +302,22 @@ namespace SmartAq::Utils {
             event.result.collection_result = collection_operation_result::index_invalid; 
         }
 
-        const char *format = ", { index : %u, description : %M }";
         json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
 
-        int written = 0;
         json_printf(&out, "[");
         for (unsigned int index = start_index; index < Size; ++index) {
             if (data.initialized[index]) {
-                written += json_printf(&out, format + (written == 0 ? 1 : 0), index, 
-                    json_printf_single<std::decay_t<decltype(data.names[index])>>, &data.names[index]);
+                printHook(out, data.names[index], data.values[index], index);
             }
         }
         json_printf(&out, " ]");
         event.result.collection_result = collection_operation_result::ok;
 
+        return data;
+    }
+
+    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::getTrivialRepresentation() const -> const TrivialRepresentationType & {
         return data;
     }
 }

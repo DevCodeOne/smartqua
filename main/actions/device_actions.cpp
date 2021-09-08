@@ -96,18 +96,16 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
 
     std::memcpy(driver_name.data(), driver_type_token.ptr, std::min(static_cast<int>(name_length), driver_type_token.len));
     
-    add_device to_add {};
+    add_device to_add { };
     to_add.index = index;
     to_add.driver_name = driver_name.data();
-    to_add.json_input = token.ptr;
-    to_add.json_len = token.len;
-
-    std::memcpy(to_add.description.data(), description_token.ptr, std::min(static_cast<int>(name_length), description_token.len));
+    to_add.jsonSettingValue = std::string_view(token.ptr, token.len);
+    to_add.settingName = std::string_view(description_token.ptr, std::min(static_cast<int>(name_length), description_token.len));
 
     global_store.write_event(to_add);
 
-    if (to_add.result.collection_result == device_collection_operation::ok && to_add.result.result_index.has_value()) {
-        result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.result_index, "Ok added device");
+    if (to_add.result.collection_result == device_collection_operation::ok && to_add.result.index.has_value()) {
+        result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.index, "Ok added device");
         result.result = json_action_result_value::successfull;
     } else {
         result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
@@ -126,7 +124,7 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
 
     if (del_device.result.collection_result == device_collection_operation::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
-            result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", del_device.index, "Ok deleted device");
+            result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *del_device.index, "Ok deleted device");
         }
         result.result = json_action_result_value::successfull;
     } else {

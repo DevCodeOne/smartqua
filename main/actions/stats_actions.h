@@ -76,10 +76,10 @@ StatCollection<N> &StatCollection<N>::operator=(trivial_representation new_value
 
 template<size_t N>
 auto StatCollection<N>::dispatch(set_stat &event) -> filter_return_type_t<set_stat> {
-    return m_data.dispatch(event, [&event](auto &currentStat, auto &currentRuntimeData, const auto &jsonSettingValue) {
+    return m_data.dispatch(event, [&event](auto &currentStat, auto &currentTrivialValue, const auto &jsonSettingValue) {
         // First delete timer and then reinitialize it, with old data, patched with new data
         currentStat = std::nullopt;
-        currentStat = driver_type::create_stat(jsonSettingValue, currentRuntimeData);
+        currentStat = driver_type::create_stat(jsonSettingValue, currentTrivialValue);
         if (!currentStat.has_value()) {
             ESP_LOGW("stats_actions", "Couldn't create stat with data %s", jsonSettingValue.data());
         }

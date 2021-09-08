@@ -46,14 +46,13 @@ size_t basic_stack_string<CharT, Size>::capacity() const {
 
 template<typename CharT, size_t Size>
 size_t basic_stack_string<CharT, Size>::len() const {
-    int i = 0;
-    for (; i < Size; ++i) {
+    for (int i = 0; i < Size; ++i) {
         if (this->data()[i] == '\0') {
             return i;
         }
     }
 
-    return i;
+    return Size;
 }
 
 template<size_t Size>

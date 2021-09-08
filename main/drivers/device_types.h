@@ -15,6 +15,8 @@ enum struct device_operation_result {
 };
 
 struct device_config { 
+    static inline constexpr char StorageName[] = "device_config";
+
     std::array<char, name_length> device_driver_name;
     // TODO: add method to write driver conf
     mutable std::array<char, device_config_size> device_config; // Binary data
