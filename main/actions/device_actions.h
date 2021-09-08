@@ -192,8 +192,7 @@ void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event
 
 template<size_t N, typename ... DeviceDrivers>
 void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_overview &event) const {
-    m_data.dispatch(event, [](auto &out, const auto &name, const auto &trivialValue, auto index) -> int {
-        const bool firstPrint = index > 0;
+    m_data.dispatch(event, [](auto &out, const auto &name, const auto &trivialValue, auto index, bool firstPrint) -> int {
         const char *format = ", { index : %u, description : %M, driver_name : %M }";
         return json_printf(&out, format + (firstPrint ? 1 : 0), 
             index,

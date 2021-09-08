@@ -164,7 +164,7 @@ namespace SmartAq::Utils {
     // TODO: add return value to indicate if it is a newly created value
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise) const {
-        if (!index.has_value() && !name.has_value()) {
+        if (!index.has_value() && !name.has_value() && !findFreeSlotOtherwise) {
             return std::nullopt;
         } else if (index.has_value() && *index >= NumElements) {
             return std::nullopt;
@@ -281,7 +281,7 @@ namespace SmartAq::Utils {
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
-        auto printLambda = [](auto &out, const auto &name, const auto &, int index) -> int {
+        auto printLambda = [](auto &out, const auto &name, const auto &, int index, bool) -> int {
             const bool firstPrint = index > 0;
             const char *format = ", { index : %u, description : %M }";
             return json_printf(&out, format + (firstPrint ? 1 : 0), index, json_printf_single<std::decay_t<decltype(name)>>, &name);
@@ -305,9 +305,10 @@ namespace SmartAq::Utils {
         json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
 
         json_printf(&out, "[");
+        int written = 0;
         for (unsigned int index = start_index; index < Size; ++index) {
             if (data.initialized[index]) {
-                printHook(out, data.names[index], data.values[index], index);
+                written += printHook(out, data.names[index], data.values[index], index, written == 0);
             }
         }
         json_printf(&out, " ]");
