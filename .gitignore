@@ -8,3 +8,4 @@ certs/
 build/*
 **/package-lock.json
 **/.eslintcache
+gui_smart_aq
