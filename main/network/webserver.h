@@ -11,7 +11,12 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
+// TODO: configure via esp settings
+#if defined(CONFIG_ESP_HTTPS_SERVER_ENABLE) && CONFIG_ESP_HTTPS_SERVER_ENABLE == y
+#define ENABLE_HTTPS
 #include "esp_https_server.h"
+#endif
+#include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_vfs_fat.h"
 
@@ -21,7 +26,10 @@
 #include "aq_main.h"
 
 enum struct security_level {
-    unsecured, secured
+    unsecured,
+    #ifdef ENABLE_HTTPS
+    secured
+    #endif
 };
 
 namespace Detail {
@@ -55,6 +63,7 @@ namespace Detail {
             httpd_handle_t m_http_server_handle = nullptr;
     };
 
+    #ifdef ENABLE_HTTPS
     template<>
     class webserver_handle<security_level::secured> {
         public:
@@ -101,10 +110,11 @@ namespace Detail {
         httpd_ssl_stop(&m_http_server_handle);
         return true;
     }
+    #endif
 
 }
 
-template <security_level level = security_level::secured>
+template <security_level level = security_level::unsecured>
 class webserver final {
    public:
     static constexpr char file_handler_uri_path[] = "/*";
@@ -141,13 +151,14 @@ class webserver final {
     const char *m_base_path = nullptr;
 };
 
+/*
 template<>
 webserver<security_level::secured>::webserver(const char *base_path) : 
         m_server_handle("/external/app_data/certs/cert.pem", "/external/app_data/certs/key.pem"),
         m_base_path(base_path) {
     m_server_handle.init_server();
     register_file_handler();
-}
+}*/
 
 template<>
 webserver<security_level::unsecured>::webserver(const char *base_path) : 
@@ -191,7 +202,7 @@ template <security_level level>
 esp_err_t webserver<level>::get_file(httpd_req_t *req) {
     // TODO: get credentials from central settings
     // Don't check for credentials when the server runs in unsecure mode to avoid leaking passwords
-    if (level == security_level::secured && !handle_authentication(req, "admin", "admin")) {
+    if (level != security_level::unsecured && !handle_authentication(req, "admin", "admin")) {
         return ESP_OK;
     }
 

@@ -16,8 +16,10 @@
 #include "utils/utils.h"
 
 DacDriver::DacDriver(const device_config *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
-    if (dacResource) {
+    if (dacResource && config != nullptr) {
         dac_output_enable(dacResource->channel_num());
+        const auto *dacConf = reinterpret_cast<DacDriverData *>(config->device_config.data());
+        write_value(device_values{ .voltage = dacConf->value });
     }
 }
 
@@ -30,12 +32,21 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
         return std::nullopt;
     }
 
+    if (dacConf == nullptr)  {
+        ESP_LOGI("DacDriver", "Dacconf isn't available");
+        return std::nullopt;
+    }
+
     ESP_LOGI("DacDriver", "Created dac resource");
 
     return std::make_optional(DacDriver{config, dacResource});
 }
 
 device_operation_result DacDriver::write_value(const device_values &value) {
+    if (m_conf == nullptr) {
+        return device_operation_result::failure;
+    }
+
     auto *dacConf = reinterpret_cast<DacDriverData *>(m_conf->device_config.data());
 
     if (m_dac == nullptr || !value.voltage.has_value()) {
@@ -69,7 +80,7 @@ device_operation_result DacDriver::write_device_options(const char *json_input, 
     return device_operation_result::not_supported;
 }
 
-std::optional<DacDriver> DacDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
     DacDriverData newConf{};
     int channel = static_cast<int>(newConf.channel);
     int value = static_cast<int>(newConf.value);

@@ -52,20 +52,20 @@ private:
 // the correct driver will be found by the device_name
 // device_conf_out will contain the necessary data for the driver to be initialized from storage
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(const char *driver_name, const std::string_view input, device_config &device_conf_out) {
+std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, device_config &device_conf_out) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
-    ESP_LOGI("Device_Driver", "Searching driver %s", driver_name);
+    ESP_LOGI("Device_Driver", "Searching driver %.*s", driver_name.length(), driver_name.data());
 
     constexpr_for_index<sizeof...(DeviceDrivers) - 1>::doCall(
         [input, driver_name, &device_conf_out, &found_device_driver](auto current_index) constexpr {
             using driver_type = std::tuple_element_t<decltype(current_index)::value, std::tuple<DeviceDrivers ...>>;
 
             // Not the driver we are looking for
-            if (std::strncmp(driver_name, driver_type::name, name_length)) {
+            if (driver_name != driver_type::name) {
                 return;
             }
 
-            ESP_LOGI("Device_Driver", "Found driver %s", driver_name);
+             ESP_LOGI("Device_Driver", "Found driver %.*s", driver_name.length(), driver_name.data());
             device_conf_out.device_driver_name = driver_type::name;
             auto result = driver_type::create_driver(input, device_conf_out);
             

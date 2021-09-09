@@ -24,6 +24,7 @@
 #include "utils/utils.h"
 #include "utils/idf-utils.h"
 #include "utils/thread_utils.h"
+#include "utils/stack_string.h"
 
 template<typename DriverType>
 class soft_timer final {
@@ -34,6 +35,8 @@ class soft_timer final {
 
         soft_timer &operator=(const soft_timer &other) = delete;
         soft_timer &operator=(soft_timer &&other);
+
+        const single_timer_settings *get_info() const;
 
     private:
         soft_timer(single_timer_settings *timer);
@@ -61,6 +64,11 @@ soft_timer<DriverType> &soft_timer<DriverType>::operator=(soft_timer &&other) {
     std::swap(m_timer, other.m_timer);
     return *this;
 };
+
+template<typename DriverType>
+const single_timer_settings *soft_timer<DriverType>::get_info() const {
+    return m_timer;
+}
 
 template<size_t N>
 struct soft_timer_driver final {
@@ -160,7 +168,7 @@ void soft_timer_driver<N>::handle_timers(void *) {
 
         time(&now);
         localtime_r(&now, &timeinfo);
-        std::array<char, 64> timebuffer;
+        stack_string<64> timebuffer;
 
         // Reset execution flags at the start of the day
         if (last_day_resetted != timeinfo.tm_yday) {
@@ -235,7 +243,7 @@ void soft_timer_driver<N>::handle_timers(void *) {
 
 template<size_t N>
 auto soft_timer_driver<N>::create_timer(std::string_view input, single_timer_settings &timer_settings) -> std::optional<timer_type> {
-    json_token token{};
+    json_token payload{};
     uint32_t weekday_mask = timer_settings.weekday_mask;
     // %hhu doesn't work
     json_scanf(input.data(), input.size(), "{ time_of_day : %u, enabled : %B, weekday_mask : %u, device_index : %u, payload : %T }", 
@@ -243,17 +251,17 @@ auto soft_timer_driver<N>::create_timer(std::string_view input, single_timer_set
         &timer_settings.enabled,
         &weekday_mask,
         &timer_settings.device_index,
-        &token);
+        &payload);
 
     timer_settings.weekday_mask = static_cast<uint8_t>(weekday_mask);
-    
-    if (token.len + 1 > static_cast<int>(timer_settings.payload.size())) {
-        ESP_LOGI("Soft_timer_driver", "Payload was too large %d : %d", token.len, timer_settings.payload.size());
+
+    // TODO: write payload to filesystem if it is too large instead of failing here
+    if (payload.len + 1 > static_cast<int>(timer_settings.payload.size())) {
+        ESP_LOGI("Soft_timer_driver", "Payload was too large %d : %d", payload.len, timer_settings.payload.size());
         return std::nullopt;
     }
 
-    std::strncpy(timer_settings.payload.data(), token.ptr, token.len);
-    *(timer_settings.payload.data() + token.len) = '\0';
+    timer_settings.payload = std::string_view(payload.ptr, payload.len);
 
     return create_timer(&timer_settings);
 }

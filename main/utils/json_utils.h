@@ -6,9 +6,9 @@
 #include <charconv>
 #include <cstring>
 #include <optional>
+#include <string_view>
 
 #include "frozen.h"
-#include "esp_log.h"
 
 #include "utils/stack_string.h"
 
@@ -33,7 +33,30 @@ std::pair<IntTypes, IntTypes> fixed_decimal_rep(FloatType value) {
 }
 
 template<typename T>
+void json_scanf_single(const char *str, int len, void *user_data);
+
+template<typename T>
+int json_printf_single(json_out *out, va_list *ap);
+
+// TODO: add parse result
+template<typename T>
 struct read_from_json { };
+
+template<size_t Size>
+struct read_from_json<stack_string<Size>> { 
+    static void read(const char *str, int len, stack_string<Size> &user_data) {
+        user_data = std::string_view(str, len);
+    }
+};
+
+template<typename T>
+struct read_from_json<std::optional<T>> {
+    static void read(const char *str, int len, std::optional<T> &user_data) {
+        T to_store{};
+        read_from_json<T>::read(str, len, to_store);
+        user_data = to_store;
+    }
+};
 
 template<typename T>
 struct print_to_json { };
@@ -70,22 +93,32 @@ struct print_to_json<stack_string<Size>> {
     }
 };
 
-// TODO: maybe replace with ref
 template<typename T>
 void json_scanf_single(const char *str, int len, void *user_data) {
     using decayed_type = std::decay_t<T>;
     read_from_json<decayed_type>::read(str, len, 
-        reinterpret_cast<std::add_pointer_t<decayed_type>>(user_data));
+        *reinterpret_cast<std::add_pointer_t<decayed_type>>(user_data));
+}
+
+template<typename ArrayType, typename ValueType = typename ArrayType::value_type, auto Size = std::tuple_size<ArrayType>::value>
+void json_scanf_array(const char *str, int len, void *user_data) {
+    int i;
+    json_token currentElement{};
+    ArrayType *const value = reinterpret_cast<ArrayType *>(user_data);
+
+    for (i = 0; json_scanf_array_elem(str, len, "", i, &currentElement) > 0 && i < Size; ++i) {
+        json_scanf_single<ValueType>(currentElement.ptr, currentElement.len, reinterpret_cast<void *>(&value->data()[i]));
+    }
 }
 
 
 template<typename T>
 int json_printf_single(json_out *out, va_list *ap) {
-    T *value = va_arg(*ap, T*);
+    T *const value = va_arg(*ap, T*);
     return print_to_json<std::remove_pointer_t<T>>::print(out, *value);
 }
 
-template<typename ArrayType>
+template<typename ArrayType, typename ValueType = typename ArrayType::value_type, auto Size = std::tuple_size<ArrayType>::value>
 int json_printf_array(json_out *out, va_list *ap) {
     static std::array<const char *, 2> formats{" %M", ", %M "};
     const auto arr = reinterpret_cast<ArrayType *>(va_arg(*ap, void *));

@@ -24,7 +24,7 @@ class DacDriver final {
         DacDriver &operator=(const DacDriver &other) = delete;
         DacDriver &operator=(DacDriver &&other) = default;
 
-        static std::optional<DacDriver> create_driver(const std::string_view input, device_config &device_conf_out);
+        static std::optional<DacDriver> create_driver(const std::string_view &input, device_config &device_conf_out);
         static std::optional<DacDriver> create_driver(const device_config *config);
 
         device_operation_result write_value(const device_values &value);

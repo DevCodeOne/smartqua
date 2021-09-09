@@ -15,9 +15,10 @@
 #include "drivers/pwm.h"
 #include "drivers/scale.h"
 #include "drivers/dac_driver.h"
+#include "drivers/lamp_driver.h"
 #include "drivers/setting_types.h"
 
-using device_settings_type = device_settings<max_num_devices, ds18x20_driver, pwm, loadcell, DacDriver>;
+using device_settings_type = device_settings<max_num_devices, ds18x20_driver, pwm, loadcell, DacDriver, LampDriver>;
 using soft_timer_settings_type = soft_timer_settings<max_num_timers>;
 using stat_collection_type = StatCollection<max_stat_size>;
 // using setting_type = settings<max_setting_size>;

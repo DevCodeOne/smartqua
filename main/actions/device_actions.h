@@ -23,7 +23,7 @@ using device_collection_operation = collection_operation_result;
 static inline constexpr size_t device_uid = 30;
 
 struct add_device : public SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid> { 
-    const char *driver_name = nullptr;
+    std::string_view driver_name;
 };
 
 using remove_single_device = SmartAq::Utils::ArrayActions::RemoveValue<device_config, device_uid>;
@@ -133,7 +133,7 @@ auto device_settings<N, DeviceDrivers ...>::dispatch(add_device &event) -> filte
             // First delete possible old device and recreate it
             currentDevice = std::nullopt;
             currentDevice = create_device<DeviceDrivers ...>(event.driver_name, jsonSettingValue, currentTrivialValue);
-            return true;
+            return currentDevice.has_value();
         });
 }
 

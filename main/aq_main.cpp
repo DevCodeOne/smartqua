@@ -72,7 +72,7 @@ void networkTask(void *pvParameters) {
 
     // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues
     // webserver<security_level::unsecured> app_server("/external/app_data");
-    webserver<security_level::secured> api_server("");
+    webserver<security_level::unsecured> api_server("");
     api_server.register_handler({.uri ="/api/v1/timers*",
                              .method = HTTP_GET,
                              .handler = do_timers,

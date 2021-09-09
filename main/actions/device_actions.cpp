@@ -75,7 +75,6 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
     json_token token;
     json_token driver_type_token;
     json_token description_token;
-    std::array<char, name_length> driver_name{0};
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
 
     json_scanf(input, input_len, "{ description : %T, driver_type : %T, driver_param : %T }", &description_token, &driver_type_token, &token);
@@ -94,11 +93,9 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
         return result;
     }
 
-    std::memcpy(driver_name.data(), driver_type_token.ptr, std::min(static_cast<int>(name_length), driver_type_token.len));
-    
     add_device to_add { };
     to_add.index = index;
-    to_add.driver_name = driver_name.data();
+    to_add.driver_name = std::string_view(driver_type_token.ptr, std::min(static_cast<int>(name_length), driver_type_token.len));
     to_add.jsonSettingValue = std::string_view(token.ptr, token.len);
     to_add.settingName = std::string_view(description_token.ptr, std::min(static_cast<int>(name_length), description_token.len));
 

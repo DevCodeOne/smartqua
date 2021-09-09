@@ -9,6 +9,11 @@
 template<typename CharT, size_t Size>
 struct basic_stack_string : public std::array<CharT, Size> {
 
+    static inline constexpr size_t ArrayCapacity = Size;
+
+    basic_stack_string() = default;
+    basic_stack_string(const std::string_view &other);
+
     template<size_t OtherSize, typename = std::enable_if_t<OtherSize <= Size>>
     basic_stack_string &operator=(const basic_stack_string<CharT, OtherSize> &other);
     basic_stack_string &operator=(const std::string_view &other);
@@ -18,6 +23,12 @@ struct basic_stack_string : public std::array<CharT, Size> {
 
 };
 
+template<typename CharT, size_t Size>
+basic_stack_string<CharT, Size>::basic_stack_string(const std::string_view &other) {
+    operator=(other);
+}
+
+// TODO: think about this, off by one error possibly, also probably use the other size ?
 template<typename CharT, size_t Size>
 template<size_t OtherSize, typename>
 basic_stack_string<CharT, Size> &basic_stack_string<CharT, Size>::operator=(const basic_stack_string<CharT, OtherSize> &other) {

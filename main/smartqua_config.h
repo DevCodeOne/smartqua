@@ -11,7 +11,7 @@
 #endif
 
 #ifndef MAX_DEVICE_CONFIG_SIZE
-#define MAX_DEVICE_CONFIG_SIZE 32
+#define MAX_DEVICE_CONFIG_SIZE 128
 #endif
 
 #ifndef MAX_NUM_DEVICES
