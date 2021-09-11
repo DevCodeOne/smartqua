@@ -25,6 +25,7 @@
 #include "utils/idf-utils.h"
 #include "utils/thread_utils.h"
 #include "utils/stack_string.h"
+#include "utils/time_utils.h"
 
 template<typename DriverType>
 class soft_timer final {
@@ -155,35 +156,28 @@ bool soft_timer_driver<N>::remove_timer(single_timer_settings *timer) {
 
 template<size_t N>
 void soft_timer_driver<N>::handle_timers(void *) {
-    std::uint16_t last_day_resetted = 0;
     ESP_LOGI("Soft_timer_driver", "Entering handle_timers ...");
 
-    std::time_t now;
-    std::tm timeinfo;
+    wait_for_clock_sync();
 
-    wait_for_clock_sync(&now, &timeinfo);
+    auto last_day_resetted = getDayOfWeek();
+    using namespace std::chrono_literals;
 
     while (true) {
-        auto global_loop_start = std::chrono::steady_clock::now();
-
-        time(&now);
-        localtime_r(&now, &timeinfo);
-        stack_string<64> timebuffer;
+        const auto currentDayOfWeek = getDayOfWeek();
+        auto global_loop_start = std::chrono::system_clock::now();
 
         // Reset execution flags at the start of the day
-        if (last_day_resetted != timeinfo.tm_yday) {
+        if (last_day_resetted != currentDayOfWeek) {
             ESP_LOGI("Soft_timer_driver", "Resetting timer execution flags ... ");
             std::unique_lock instance_guard{_instance_mutex};
             std::fill(_data.timers_executed.begin(), _data.timers_executed.end(), false);
-            last_day_resetted = timeinfo.tm_yday;
+            last_day_resetted = currentDayOfWeek;
         }
 
-        strftime(timebuffer.data(), timebuffer.size(), "%c", &timeinfo);
-        ESP_LOGI("Soft_timer_driver", "Searching for timers, which trigger at : %s", timebuffer.data());
         unsigned int current_index = 0;
 
-        using namespace std::chrono;
-        seconds current_time_in_seconds = seconds(timeinfo.tm_sec) + minutes(timeinfo.tm_min) + hours(timeinfo.tm_hour);
+        auto current_time_in_seconds = getTimeOfDay<std::chrono::seconds>();
 
         single_timer_settings local_copy;
         for (; current_index < _data.timers.size(); ++current_index) {
@@ -207,12 +201,12 @@ void soft_timer_driver<N>::handle_timers(void *) {
                 }
 
                 // Is not active on this weekday
-                if (!(_data.timers[current_index]->weekday_mask & 1 << timeinfo.tm_wday)) {
+                if (!(_data.timers[current_index]->weekday_mask & 1 << static_cast<int>(currentDayOfWeek))) {
                     // ESP_LOGI("Soft_timer_driver", "Not active on this day");
                     continue;
                 }
 
-                if (static_cast<uint32_t>(current_time_in_seconds.count()) < _data.timers[current_index]->time_of_day) {
+                if (current_time_in_seconds < std::chrono::seconds(_data.timers[current_index]->time_of_day)) {
                     ESP_LOGI("Soft_timer_driver", "Not the time to trigger this timer %u %u", 
                         static_cast<uint32_t>(current_time_in_seconds.count()),
                         _data.timers[current_index]->time_of_day);
@@ -233,11 +227,11 @@ void soft_timer_driver<N>::handle_timers(void *) {
                 ESP_LOGI("Soft_timer_driver", "Execution of timer wasn't successfull, retrying later");
             }
 
-            std::this_thread::sleep_until(loop_start + std::chrono::seconds(2));
+            std::this_thread::sleep_until(loop_start + 2s);
         }
 
         // The execution of this loop as a hole, should take at least five seconds
-        std::this_thread::sleep_until(global_loop_start + std::chrono::seconds(8));
+        std::this_thread::sleep_until(global_loop_start + 8s);
     }
 }
 

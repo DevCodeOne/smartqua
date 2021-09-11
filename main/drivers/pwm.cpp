@@ -40,6 +40,10 @@ device_operation_result pwm::write_device_options(const char *json_input, size_t
     return device_operation_result::ok;
 }
 
+device_operation_result pwm::update_runtime_data() {
+    return device_operation_result::ok;
+}
+
 device_operation_result pwm::get_info(char *output_buffer, size_t output_buffer_len) const {
     json_out out = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_printf(&out, "{}");

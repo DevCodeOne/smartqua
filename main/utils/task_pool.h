@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <algorithm>
 #include <cstdint> 
 #include <limits>
 #include <memory>
@@ -8,10 +9,54 @@
 #include <shared_mutex>
 #include <optional>
 #include <thread>
+#include <chrono>
 
 #include "utils/thread_utils.h"
 
 using task_func_type = void(*)(void *);
+
+enum struct task_id : uint64_t {
+    invalid = std::numeric_limits<uint64_t>::max()
+};
+
+template<typename PoolType>
+class task_resource_tracker {
+    public:
+        task_resource_tracker(void *resource = nullptr, task_id id = task_id::invalid) : m_resource(resource), m_id(id) { }
+
+        task_resource_tracker(const task_resource_tracker &other) = delete;
+        task_resource_tracker(task_resource_tracker &&other) : m_resource(other.m_resource), m_id(other.m_id) { 
+            other.m_resource = nullptr;
+            other.m_id = task_id::invalid; 
+        }
+
+        ~task_resource_tracker() { PoolType::remove_task(m_id); };
+
+        task_resource_tracker &operator=(const task_resource_tracker &other) = delete;
+        task_resource_tracker &operator=(task_resource_tracker &&other) {
+            using std::swap;
+
+            swap(m_resource, other.m_resource);
+            swap(m_id, other.m_id);
+
+            return *this;
+        }
+
+        void swap(task_resource_tracker &other) {
+            using std::swap;
+
+            swap(m_resource, other.m_resource);
+            swap(m_id, other.m_id);
+        }
+
+        const void *resource() const { return m_resource; }
+
+        task_id id() const { return m_id; }
+
+    private:
+        const void* m_resource = nullptr;
+        task_id m_id;
+};
 
 struct single_task {
     bool single_shot = true;
@@ -21,15 +66,13 @@ struct single_task {
     std::chrono::seconds last_executed = std::chrono::seconds{0};
 };
 
-enum struct task_id : uint64_t {
-    invalid = std::numeric_limits<uint64_t>::max()
-};
-
 // TODO: maybe use multiple threads
 template<size_t TaskPoolSize>
 class task_pool {
     public:
-        static task_id post_task(single_task task);
+        using resource_type = task_resource_tracker<task_pool>;
+
+        static resource_type post_task(single_task task);
         static bool remove_task(task_id id);
     private:
         static void task_pool_thread(void *ptr);
@@ -46,7 +89,6 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *ptr) {
     size_t index = 0;
 
     using last_executed_type = decltype(std::declval<single_task>().last_executed);
-
 
     while (1) {
         {
@@ -89,8 +131,9 @@ void task_pool<TaskPoolSize>::init_thread() {
     });
 }
 
+// TODO: maybe use std::optional as return type
 template<size_t TaskPoolSize>
-task_id task_pool<TaskPoolSize>::post_task(single_task task) {
+auto task_pool<TaskPoolSize>::post_task(single_task task) -> resource_type {
     init_thread();
 
     std::unique_lock instance_guard{_instance_mutex};
@@ -100,7 +143,7 @@ task_id task_pool<TaskPoolSize>::post_task(single_task task) {
     });
 
     if (result == _tasks.end()) {
-        return task_id::invalid;
+        return resource_type(task.argument, task_id::invalid);
     }
 
     result->first = _next_id;
@@ -110,24 +153,30 @@ task_id task_pool<TaskPoolSize>::post_task(single_task task) {
 
     _next_id = static_cast<decltype(_next_id)>(task_id_integral(_next_id) + task_id_integral(1));
 
-    return result->first;
+    return resource_type(task.argument, result->first);
 }
 
 template<size_t TaskPoolSize>
 bool task_pool<TaskPoolSize>::remove_task(task_id id) {
     init_thread();
 
-    std::unique_lock instance_guard{_instance_mutex};
-
-    auto result = std::find_if(_tasks.begin(), _tasks.end(), [id](auto &current_task_pair) {
-        return current_task_pair.first == id;
-    });
-
-    if (result == _tasks.end()) {
+    if (id == task_id::invalid) {
         return false;
     }
 
-    result->second = std::nullopt;
+    {
+        std::unique_lock instance_guard{_instance_mutex};
+
+        auto result = std::find_if(_tasks.begin(), _tasks.end(), [id](auto &current_task_pair) {
+            return current_task_pair.first == id;
+        });
+
+        if (result == _tasks.end()) {
+            return false;
+        }
+
+        result->second = std::nullopt;
+    }
 
     return true;
 }

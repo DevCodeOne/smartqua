@@ -1,11 +1,30 @@
 #pragma once
 
+#include <array>
 #include <optional>
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
 #include "utils/stack_string.h"
+#include "utils/schedule.h"
+#include "utils/time_utils.h"
 #include "smartqua_config.h"
+
+// TODO: make configurable
+static inline constexpr auto NumChannels = 4;
+static inline constexpr auto MaxChannelNameLength = 10;
+static inline constexpr auto TimePointsPerDay = 12;
+
+struct LampDriverData final {
+    std::array<std::optional<stack_string<MaxChannelNameLength>>, NumChannels> channelNames;
+    stack_string<name_length> scheduleName;
+};
+
+// TODO: Create percentage class
+struct ScheduleTimePoint {
+    std::chrono::seconds secondsThatDay;
+    std::array<std::optional<uint8_t>, NumChannels> percentages;
+};
 
 /*
 
@@ -15,22 +34,17 @@ payload : {
 
 payload: {
     // Will only be used on this specific day
+    "monday" : 
     {
-    day: 0
-    schedule: "10-00:r=10,b=5;11-00:r=10,b=10;12-00:r=50,b=40;14-00:r=70,b=70;19-00-r=30,b=50;20-00-r=10,b=20;"
+    "schedule": "10-00:r=10,b=5;11-00:r=10,b=10;12-00:r=50,b=40;14-00:r=70,b=70;19-00-r=30,b=50;20-00-r=10,b=20;"
     }
-    Without day will be repeated
+    "repeating" :
     {
     schedule: "10-00:r=10,b=5;11-00 r=10,b=10;12:00 r=50,b=40;14:00 r=70,b=70;19:00 r=30,b=50;20:00 r=10,b=20;"
     }
 ]
 
 */
-
-struct LampDriverData final {
-    std::array<std::optional<stack_string<10>>, 5> channelNames;
-    stack_string<name_length> scheduleName;
-};
 
 class LampDriver final {
     public:
@@ -52,7 +66,14 @@ class LampDriver final {
         device_operation_result read_value(device_values &value) const;
         device_operation_result get_info(char *output, size_t output_buffer_len) const;
         device_operation_result write_device_options(const char *json_input, size_t input_len);
+        device_operation_result update_runtime_data();
 
     private:
+        bool write_schedule(const std::string_view &payload);
+        bool read_todays_schedule(weekday currentDay);
+
         LampDriver(const device_config *conf);
+
+        const device_config *mConf;
+        WeekSchedule<ScheduleTimePoint, 12> schedule;
 };

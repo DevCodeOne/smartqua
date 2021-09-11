@@ -145,6 +145,10 @@ device_operation_result ds18x20_driver::write_device_options(const char *json_in
     return device_operation_result::ok;
 }
 
+device_operation_result ds18x20_driver::update_runtime_data() {
+    return device_operation_result::ok;
+}
+
 bool ds18x20_driver::add_address(ds18x20_addr_t address) {
     std::unique_lock instance_guard{_instance_mutex};
 

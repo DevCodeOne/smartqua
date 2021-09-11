@@ -41,6 +41,7 @@ public:
     device_operation_result write_value(const device_values &value);
     // To calibrate something or execute actions
     device_operation_result write_options(const std::string_view &jsonSettingValue);
+    device_operation_result update_runtime_data();
     device_operation_result read_value(device_values &value) const;
     device_operation_result get_info(char *output_buffer, size_t output_buffer_len) const;
 
@@ -140,5 +141,14 @@ device_operation_result device<DeviceDrivers ...>::write_options(const std::stri
         [&jsonSettingValue](const auto &current_driver) { 
             ESP_LOGI("Device_Driver", "Delegating to driver");
             return current_driver.write_options(jsonSettingValue.data(), jsonSettingValue.length()); 
+        }, m_driver);
+}
+
+template<typename ... DeviceDrivers>
+device_operation_result device<DeviceDrivers ...>::update_runtime_data() {
+    return std::visit(
+        [](auto &current_driver) { 
+            ESP_LOGI("Device_Driver", "Delegating to driver");
+            return current_driver.update_runtime_data(); 
         }, m_driver);
 }

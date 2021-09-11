@@ -8,6 +8,7 @@
 #include <thread>
 #include <utility>
 #include <functional>
+#include <optional>
 
 #include "esp_log.h"
 #include "hx711.h"
@@ -106,6 +107,7 @@ class loadcell {
     device_operation_result read_value(device_values &out) const;
     device_operation_result write_device_options(const char *json_input, size_t input_len);
     device_operation_result get_info(char *output, size_t output_buffer_len) const;
+    device_operation_result update_runtime_data();
 
    private:
     loadcell(const device_config *config);

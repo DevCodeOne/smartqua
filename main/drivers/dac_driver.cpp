@@ -80,6 +80,10 @@ device_operation_result DacDriver::write_device_options(const char *json_input, 
     return device_operation_result::not_supported;
 }
 
+device_operation_result DacDriver::update_runtime_data() {
+    return device_operation_result::ok;
+}
+
 std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
     DacDriverData newConf{};
     int channel = static_cast<int>(newConf.channel);

@@ -3,6 +3,7 @@
 #include <array>
 #include <optional>
 #include <string_view>
+#include <mutex>
 
 #include "smartqua_config.h"
 #include "actions/action_types.h"
@@ -10,6 +11,7 @@
 #include "drivers/devices.h"
 #include "utils/utils.h"
 #include "utils/event_access_array.h"
+#include "utils/task_pool.h"
 #include "storage/store.h"
 
 json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
@@ -75,6 +77,7 @@ class device_settings final {
 public:
     static inline constexpr size_t num_devices = N;
 
+    // TODO: handle registering and unregistering maybe with special resource class
     device_settings() = default;
     ~device_settings() = default;
 
@@ -111,8 +114,14 @@ public:
     void dispatch(retrieve_device_info &event) const;
 
     void dispatch(retrieve_device_overview &event) const;
+
+    static void updateDeviceRuntime(void *instance);
 private:
+    void initializeUpdater();
+
     event_access_array_type m_data;
+    task_pool<max_task_pool_size>::resource_type m_task_resource;
+    std::once_flag initialized_updater_flag;
 };
 
 template<size_t N, typename ... DeviceDrivers>
@@ -121,8 +130,37 @@ device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::op
         currentRuntimeData = create_device<DeviceDrivers ...>(trivialValue);
         return currentRuntimeData.has_value();
     });
+    initializeUpdater();
 
     return *this;
+}
+
+// TODO: this should be done in the constructor, also in the destructor, where the pointers are registered and deregistered
+// add helper function for that in the task_pool e.g. unregister_resource
+template<size_t N, typename ... DeviceDrivers>
+void device_settings<N, DeviceDrivers ...>::initializeUpdater() {
+    std::call_once(initialized_updater_flag, [this]() {
+        this->m_task_resource = task_pool<max_task_pool_size>::post_task(single_task{
+            .single_shot = false,
+            .func_ptr = &updateDeviceRuntime,
+            .interval = std::chrono::seconds(10),
+            .argument = reinterpret_cast<void *>(this),
+        });
+    });
+}
+
+template<size_t N, typename ... DeviceDrivers>
+void device_settings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
+    auto typeInstance = reinterpret_cast<device_settings<N, DeviceDrivers ...> *>(instance);
+
+    if (typeInstance == nullptr) {
+        return;
+    }
+
+    ESP_LOGI("Device_Settings", "Updating runtimedata");
+    typeInstance->m_data.invokeOnAllRuntimeData([](auto &currentRuntimeData) {
+        currentRuntimeData.update_runtime_data();
+    });
 }
 
 template<size_t N, typename ... DeviceDrivers>

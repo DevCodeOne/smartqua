@@ -14,6 +14,7 @@
 #include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
+#include "utils/stack_string.h"
 #include "smartqua_config.h"
 
 enum struct setting_init { instant, lazy_load };
@@ -198,7 +199,7 @@ class sd_card_setting {
             }
 
             if (!m_filesystem.value()) {
-                ESP_LOGI("sd_card_setting", "Filesystem is not valid");
+                ESP_LOGE("sd_card_setting", "Filesystem is not valid");
                 return ESP_FAIL;
             }
 
@@ -206,14 +207,14 @@ class sd_card_setting {
             auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", sd_filesystem::mount_point, folder_name);
 
             if (result < 0) {
-                ESP_LOGI("sd_card_setting", "Couldn't write folder path");
+                ESP_LOGE("sd_card_setting", "Couldn't write folder path");
                 return ESP_FAIL;
             }
 
             bool out_folder_exists = ensure_path_exists(out_path.data());
 
             if (!out_folder_exists) {
-                ESP_LOGI("sd_card_setting", "Couldn't create folder structure");
+                ESP_LOGE("sd_card_setting", "Couldn't create folder structure");
                 return ESP_FAIL;
             }
 
@@ -223,7 +224,7 @@ class sd_card_setting {
             });
 
             if (!target_file) {
-                ESP_LOGI("sd_card_setting", "Couldn't open target file");
+                ESP_LOGE("sd_card_setting", "Couldn't open target file");
                 return ESP_FAIL;
             }
 
@@ -246,7 +247,7 @@ class sd_card_setting {
             });
 
             if (!opened_file) {
-                ESP_LOGI("sd_card_setting", "There is no file to read from");
+                ESP_LOGW("sd_card_setting", "There is no file to read from");
                 return ESP_FAIL;
             }
 
@@ -254,7 +255,7 @@ class sd_card_setting {
             auto file_size = std::ftell(opened_file);
 
             if (file_size != sizeof(setting_type)) {
-                ESP_LOGI("sd_card_setting", "File size of %s is %d and that isn't the correct size %d", 
+                ESP_LOGW("sd_card_setting", "File size of %s is %d and that isn't the correct size %d", 
                     SettingType::name,
                     static_cast<int>(file_size),
                     static_cast<int>(sizeof(setting_type)));
@@ -289,19 +290,20 @@ class sd_card_setting {
 
             int rename_result = -1;
             if (written_size == 1) {
-                std::array<char, 64> tmp_filename{'\0'};
-                std::array<char, 64> filename{'\0'};
+                stack_string<64> tmp_filename;
+                stack_string<64> filename;
+                // TODO: check results of both methods
                 copy_tmp_filename_to_buffer(tmp_filename);
                 copy_filename_to_buffer(filename);
                 std::remove(filename.data());
                 ESP_LOGI("sd_card_setting", "Renaming %s to %s", tmp_filename.data(), filename.data());
                 rename_result = std::rename(tmp_filename.data(), filename.data());
             } else {
-                ESP_LOGI("sd_card_setting", "Setting couldn't be written skipping renaming to real file to avoid issues");
+                ESP_LOGE("sd_card_setting", "Setting couldn't be written skipping renaming to real file to avoid issues");
             }
 
             if (rename_result < 0) {
-                ESP_LOGI("sd_card_setting", "Couldn't rename file");
+                ESP_LOGE("sd_card_setting", "Couldn't rename file");
             }
 
             return written_size == 1 && rename_result >= 0;
