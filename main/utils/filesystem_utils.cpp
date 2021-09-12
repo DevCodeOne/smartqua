@@ -3,6 +3,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <string_view>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "esp_vfs.h"
 #include "esp_log.h"
@@ -14,6 +16,7 @@
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
+// TODO: again replace with std::string_view, optimizie, first check if folder already exists
 bool ensure_path_exists(const char *path, uint32_t mask) {
     stack_string<name_length * 2> pathCopy = path;
 
@@ -21,14 +24,24 @@ bool ensure_path_exists(const char *path, uint32_t mask) {
         return false;
     }
 
+    if (int result = mkdir(pathCopy.data(), mask); result == EEXIST) {
+        return true;
+    }
+
+    // Clear pathCopy to start concatenating the folder names
+    pathCopy[0] = '\0';
+
+    // Only use return codes of mkdir, stat is wayy to slow
     bool path_exists = true;
     for (auto directory : ctre::range<directory_pattern>(path)) {
         std::string_view directoryView(directory.get<0>());
-        struct stat tmp_stat{0};
+        struct stat tmp_stat{};
 
         std::strncat(pathCopy.data(), directoryView.data(), directoryView.size());
-        if (stat(pathCopy.data(), &tmp_stat) == -1) {
-            path_exists &= mkdir(pathCopy.data(), mask) == 0;
+        int result = mkdir(pathCopy.data(), mask);
+
+        if (result == ENOTDIR) {
+            path_exists = false;
         }
     }
 
@@ -74,15 +87,17 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
 
 int64_t load_file_completly_into_buffer(std::string_view path, char *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
-    stack_string<name_length> pathCopy = path;
+    stack_string<name_length * 4> pathCopy = path;
     auto opened_file = std::fopen(pathCopy.data(), "rb");
     DoFinally closeOp( [&opened_file]() {
         std::fclose(opened_file);
     });
 
     if (opened_file == nullptr) {
+        ESP_LOGW("load_file_completely_into_buffer", "Couldn't open file %s", pathCopy.data());
         return -1;
     }
+
     std::fseek(opened_file, 0, SEEK_END);
     auto file_size = std::ftell(opened_file);
 
@@ -94,4 +109,44 @@ int64_t load_file_completly_into_buffer(std::string_view path, char *dst, size_t
     int64_t read_size = std::fread(dst, 1, file_size, opened_file);
 
     return read_size;
+}
+
+bool safe_write_to_file(std::string_view path, std::string_view tmpExtension, std::string_view input) {
+    stack_string<name_length * 4> tmpPathCopy;
+    copy_parent_directory(path.data(), tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity);
+    auto pathExists = ensure_path_exists(tmpPathCopy.data());
+
+    if (!pathExists) {
+        ESP_LOGW("save_write_to_file", "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
+        return false;
+    }
+
+    stack_string<name_length * 4> pathCopy = path;
+
+    snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
+        path.length(), path.data(), tmpExtension.length(), tmpExtension.data());
+    FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "w");
+
+    if (tmpTargetFile == nullptr) {
+        ESP_LOGW("save_write_to_file", "Couldn't open file : %s", tmpPathCopy.data());
+        return false;
+    }
+
+    {
+        DoFinally closeOp([&tmpTargetFile]() {
+            std::fclose(tmpTargetFile);
+        });
+
+        const auto written = std::fwrite(reinterpret_cast<const void *>(input.data()), 1, input.length(), tmpTargetFile);
+
+        if (written != input.length()) {
+            ESP_LOGI("save_write_to_file", "Didn't write enough bytes %d, %d", written, (int) input.length());
+            return false;
+        }
+    }
+
+    std::remove(pathCopy.data());
+    auto rename_result = std::rename(tmpPathCopy.data(), pathCopy.data());
+
+    return rename_result >= 0;
 }

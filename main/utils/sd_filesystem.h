@@ -19,7 +19,7 @@ class sd_filesystem {
         // TODO: incorperate somehow
         static void deinit();
 
-        static inline std::shared_mutex _instance_mutex;
+        static inline std::once_flag initializeFlag;
         static inline bool _is_initialized = false;
         static inline struct {
             sdmmc_card_t *card;

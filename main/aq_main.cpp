@@ -16,7 +16,7 @@
 #include "rest/stats_rest.h"
 #include "rest/devices_rest.h"
 #include "rest/soft_timers_rest.h"
-#include "utils/idf-utils.h"
+#include "utils/idf_utils.h"
 #include "utils/sd_filesystem.h"
 #include "utils/sd_card_logger.h"
 #include "aq_main.h"
@@ -28,8 +28,6 @@
 static constexpr char log_tag[] = "Aq_main";
 
 decltype(global_store) global_store;
-
-httpd_handle_t http_server_handle = nullptr;
 
 void init_timezone() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", true);
@@ -65,6 +63,9 @@ void networkTask(void *pvParameters) {
     wifi.await_connection();
 
     init_timezone();
+    wait_for_clock_sync();
+
+    esp_log_level_set("*", ESP_LOG_WARN); 
 
     sd_card_logger logger;
     logger.install_sd_card_logger();
@@ -150,7 +151,7 @@ void networkTask(void *pvParameters) {
     
     sntp_clock clock;
 
-    task_pool<max_task_pool_size>::post_task(single_task{
+    auto resource = task_pool<max_task_pool_size>::post_task(single_task{
         .single_shot = false,
         .func_ptr = print_time,
         .argument = nullptr
@@ -158,7 +159,7 @@ void networkTask(void *pvParameters) {
 
     while (1) {
         // std::this_thread::yield();
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 }
 

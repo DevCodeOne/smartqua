@@ -22,7 +22,7 @@
 #include "actions/device_actions.h"
 #include "drivers/soft_timer_types.h"
 #include "utils/utils.h"
-#include "utils/idf-utils.h"
+#include "utils/idf_utils.h"
 #include "utils/thread_utils.h"
 #include "utils/stack_string.h"
 #include "utils/time_utils.h"

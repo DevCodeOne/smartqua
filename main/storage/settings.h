@@ -203,7 +203,7 @@ class sd_card_setting {
                 return ESP_FAIL;
             }
 
-            std::array<char, 32> out_path{'\0'};
+            std::array<char, name_length> out_path{'\0'};
             auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", sd_filesystem::mount_point, folder_name);
 
             if (result < 0) {

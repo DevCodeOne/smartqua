@@ -11,6 +11,8 @@
 #include "esp_http_server.h"
 #include "esp_log.h"
 
+#include "utils/stack_string.h"
+
 std::optional<unsigned int> extract_index_from_uri(const char *uri);
 
 inline esp_err_t send_in_chunks(httpd_req *req, char *chunk, int32_t num_bytes_to_send) {
@@ -58,8 +60,8 @@ int generate_link_list_website(char *dst, size_t dst_size, GeneratorFunction &ge
     
     offset += tmp_offset;
 
-    std::array<char, 512> link;
-    std::array<char, 256> name;
+    stack_string<512> link;
+    stack_string<256> name;
 
     while (gen_func(link, name)) {
         tmp_offset = snprintf(dst + offset, dst_size - offset,

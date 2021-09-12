@@ -40,11 +40,26 @@ int json_printf_single(json_out *out, va_list *ap);
 
 // TODO: add parse result
 template<typename T>
-struct read_from_json { };
+struct read_from_json;
+
+template<>
+struct read_from_json<int> { 
+    static void read(const char *str, int len, int &user_data) {
+        std::from_chars(str, str + len, user_data);
+    }
+};
 
 template<size_t Size>
 struct read_from_json<stack_string<Size>> { 
     static void read(const char *str, int len, stack_string<Size> &user_data) {
+        user_data = std::string_view(str, len);
+    }
+};
+
+// This will only be valid, as long as the buffer isn't changed, still usefull
+template<>
+struct read_from_json<std::string_view> { 
+    static void read(const char *str, int len, std::string_view &user_data) {
         user_data = std::string_view(str, len);
     }
 };
@@ -59,7 +74,7 @@ struct read_from_json<std::optional<T>> {
 };
 
 template<typename T>
-struct print_to_json { };
+struct print_to_json;
 
 template<typename T>
 struct print_to_json<std::optional<T>> {
@@ -90,6 +105,13 @@ template<size_t Size>
 struct print_to_json<stack_string<Size>> {
     static int print(json_out *out, stack_string<Size> &str) {
         return json_printf(out, "%.*Q", str.len(), str.data());
+    }
+};
+
+template<>
+struct print_to_json<std::string_view> {
+    static int print(json_out *out, std::string_view &str) {
+        return json_printf(out, "%.*Q", str.length(), str.data());
     }
 };
 

@@ -13,16 +13,16 @@ weekday getDayOfWeek() {
 }
 
 weekday getPreviousDay(weekday ofThisDay) {
-    if (ofThisDay == weekday::monday) {
-        return weekday::sunday;
+    if (ofThisDay == weekday::sunday) {
+        return weekday::saturday;
     }
 
     return static_cast<weekday>(static_cast<std::underlying_type_t<weekday>>(ofThisDay) - 1);
 }
 
 weekday getNextDay(weekday ofThisDay) {
-    if (ofThisDay == weekday::sunday) {
-        return weekday::monday;
+    if (ofThisDay == weekday::saturday) {
+        return weekday::sunday;
     }
 
     return static_cast<weekday>(static_cast<std::underlying_type_t<weekday>>(ofThisDay) + 1);

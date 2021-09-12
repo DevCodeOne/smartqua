@@ -12,7 +12,6 @@ class ssl_credentials {
     public:
 
         ssl_credentials(const char *path_cert, const char *path_key) {
-            sd_filesystem filesystem;
             // Terminating \0 is needed, therefore size + 1
             m_cert_len = load_file_completly_into_buffer(path_cert, m_cert.data(), m_cert.size() - 1);
             m_key_len = load_file_completly_into_buffer(path_key, m_key.data(), m_key.size() - 1);

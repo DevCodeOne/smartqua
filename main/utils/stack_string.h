@@ -7,7 +7,8 @@
 #include <type_traits>
 
 // TODO: maybe put this function in an own file
-inline size_t safe_strlen(const char *data, size_t maxLength) {
+template<typename CharT>
+size_t safe_strlen(const CharT *data, size_t maxLength) {
     for (int i = 0; i < maxLength; ++i) {
         if (data[i] == '\0') {
             return i;
@@ -17,6 +18,7 @@ inline size_t safe_strlen(const char *data, size_t maxLength) {
     return maxLength;
 }
 
+// TODO: rename len to length
 template<typename CharT, size_t Size>
 struct basic_stack_string : public std::array<CharT, Size> {
 
@@ -30,11 +32,18 @@ struct basic_stack_string : public std::array<CharT, Size> {
     basic_stack_string &operator=(const basic_stack_string<CharT, OtherSize> &other);
     basic_stack_string &operator=(const std::string_view &other);
     basic_stack_string &operator=(const char *other);
+    template<size_t OtherSize, typename = std::enable_if_t<OtherSize <= Size>>
+    basic_stack_string &operator+=(const basic_stack_string<CharT, OtherSize> &other);
+    basic_stack_string &operator+=(const std::string_view &other);
+    basic_stack_string &operator+=(const char *other);
+
 
     size_t capacity() const;
     size_t len() const;
+    size_t length() const;
 
     std::string_view getStringView() const;
+    operator std::string_view() const;
 
 };
 
@@ -87,9 +96,20 @@ size_t basic_stack_string<CharT, Size>::len() const {
     return safe_strlen(this->data(), Size);
 }
 
+
+template<typename CharT, size_t Size>
+size_t basic_stack_string<CharT, Size>::length() const {
+    return safe_strlen(this->data(), Size);
+}
+
 template<typename CharT, size_t Size>
 std::string_view basic_stack_string<CharT, Size>::getStringView() const {
     return std::string_view(this->data(), this->len());
+}
+
+template<typename CharT, size_t Size>
+basic_stack_string<CharT, Size>::operator std::string_view() const {
+    return getStringView();
 }
 
 template<size_t Size>
