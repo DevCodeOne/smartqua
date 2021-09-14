@@ -32,4 +32,4 @@ extern store<
     > global_store;
 
 // TODO: make configurable
-using large_buffer_pool_type = large_buffer_pool<4, 4096>;
+using large_buffer_pool_type = large_buffer_pool<4, 2048, buffer_location::heap>;

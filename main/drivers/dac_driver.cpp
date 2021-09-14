@@ -43,17 +43,24 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
 }
 
 device_operation_result DacDriver::write_value(const device_values &value) {
-    if (m_conf == nullptr) {
+    if (m_conf == nullptr || m_dac == nullptr) {
         return device_operation_result::failure;
     }
 
     auto *dacConf = reinterpret_cast<DacDriverData *>(m_conf->device_config.data());
+    decltype(value.voltage) voltageValue = value.voltage;
 
-    if (m_dac == nullptr || !value.voltage.has_value()) {
+    if (!voltageValue.has_value() && value.percentage.has_value()) {
+        static constexpr auto MaxPercentageValue = 100;
+        const auto clampedPercentage = std::clamp<decltype(value.percentage)::value_type>(*value.percentage, 0, MaxPercentageValue);
+        voltageValue = static_cast<decltype(value.voltage)::value_type>((maxVoltage / MaxPercentageValue) * (clampedPercentage));
+    }
+
+    if (!voltageValue.has_value()) {
         return device_operation_result::not_supported;
     }
 
-    const auto targetValue = static_cast<uint8_t>(std::clamp(*value.voltage / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
+    const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
 
     ESP_LOGI("DacDriver", "Setting new value %d", targetValue);
 

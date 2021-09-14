@@ -1,5 +1,6 @@
 #pragma once
 
+#include "esp_err.h"
 #include <cstdio>
 #include <string_view>
 #include <memory>
@@ -50,7 +51,22 @@ namespace Detail {
                 config.max_uri_handlers = 16;
                 config.max_open_sockets = 1;
 
-                return httpd_start(&m_http_server_handle, &config) == ESP_OK;
+                esp_err_t serverStart;
+                if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {
+                    switch (serverStart) {
+                        case ESP_ERR_INVALID_ARG:
+                            ESP_LOGW("Webserver", "Couldn't start webserver (invalid arguments)");
+                            break;
+                        case ESP_ERR_HTTPD_ALLOC_MEM:
+                            ESP_LOGW("Webserver", "Couldn't start webserver (couldn't alloc mem)");
+                            break;
+                        case ESP_ERR_HTTPD_TASK:
+                            ESP_LOGW("Webserver", "Couldn't start webserver (couldn't launch server task)");
+                            break;
+                    }
+                }
+
+                return serverStart == ESP_OK;
             }
 
             bool stop_server() {

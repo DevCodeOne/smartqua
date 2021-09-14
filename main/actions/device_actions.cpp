@@ -135,12 +135,19 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
 }
 
 json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {  
+    device_values value;
+
+    json_scanf(input, input_len, "%M", json_scanf_single<decltype(value)>, &value);
+
+    return set_device_action(index, value, output_buffer, output_buffer_len);
+}
+
+json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len) {  
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
     write_to_device to_write {};
     to_write.index = static_cast<size_t>(index);
-
-    json_scanf(input, input_len, "%M", json_scanf_single<decltype(to_write.write_value)>, &to_write.write_value);
+    to_write.write_value = value;
 
     global_store.write_event(to_write);
 

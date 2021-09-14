@@ -16,8 +16,11 @@ namespace Detail {
         public:
         static void handle(StoreType &current_store, SaveType &save_type, EventType &event) {
             // TODO: maybe check if value has changed first ?
+            std::unique_lock instanceGuard{instanceMutex};
             save_type.set_value(current_store.dispatch(event));
         }
+
+        static inline std::mutex instanceMutex;
     };
 
     template<typename StoreType, typename SaveType, typename EventType>
@@ -40,10 +43,8 @@ class store {
     public:
         template<typename T>
         void write_event(T &event) {
-            init_values();
-
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
-            std::unique_lock instance_guard{_instance_mutex};
+            init_values();
 
             constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](auto &current_store){
                 using result_type = decltype(std::declval<decltype(current_store.sstore)>().dispatch(event));
@@ -56,10 +57,8 @@ class store {
 
         template<typename T>
         void read_event(T &event) {
-            init_values();
-
             ESP_LOGI(__PRETTY_FUNCTION__, "event");
-            std::shared_lock instance_guard{_instance_mutex};
+            init_values();
 
             constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](const auto &currentStore){
                 currentStore.sstore.dispatch(event);
@@ -78,7 +77,6 @@ class store {
 
     private:
         static inline std::tuple<StoreTypes ...> _stores;
-        static inline std::shared_mutex _instance_mutex;
         static inline std::once_flag _init_flag;
 };
 

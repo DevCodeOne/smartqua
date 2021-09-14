@@ -14,6 +14,7 @@ device_operation_result pwm::write_value(const device_values &values) {
     auto *pwm_conf = reinterpret_cast<pwm_config *>(m_conf->device_config.data());
     esp_err_t result = ESP_FAIL;
 
+    // TODO: incorperate percentage value
     if (!values.generic_pwm.has_value()) {
         return device_operation_result::not_supported;
     }

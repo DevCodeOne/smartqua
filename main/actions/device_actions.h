@@ -19,6 +19,7 @@ json_action_result get_device_info(unsigned int index, const char *input, size_t
 json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len);
 
 using device_collection_operation = collection_operation_result;
 
@@ -122,6 +123,8 @@ private:
     event_access_array_type m_data;
     task_pool<max_task_pool_size>::resource_type m_task_resource;
     std::once_flag initialized_updater_flag;
+
+    // TODO: secure with recursive_mutex
 };
 
 template<size_t N, typename ... DeviceDrivers>

@@ -12,8 +12,8 @@ sd_filesystem::sd_filesystem() {
 
         esp_vfs_fat_sdmmc_mount_config_t mount_config {
             .format_if_mount_failed = true,
-            .max_files = 32,
-            .allocation_unit_size = 16 * 1024
+            .max_files = 8,
+            .allocation_unit_size = 8 * 1024
         };
 
         gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY);
@@ -21,7 +21,7 @@ sd_filesystem::sd_filesystem() {
         sdmmc_host_t host = SDMMC_HOST_DEFAULT();
         host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
         sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-        slot_config.width = 1;
+        // slot_config.width = 1;
 
         ESP_LOGI("SD_Filesystem", "Trying to mount sd card");
 

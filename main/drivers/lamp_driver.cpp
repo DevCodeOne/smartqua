@@ -6,6 +6,7 @@
 
 #include "drivers/device_types.h"
 #include "actions/device_actions.h"
+#include "frozen.h"
 #include "utils/filesystem_utils.h"
 #include "utils/sd_filesystem.h"
 #include "utils/idf_utils.h"
@@ -233,6 +234,9 @@ device_operation_result LampDriver::update_runtime_data() {
                 ESP_LOGI("LampDriver", "%.*s(%d)=%f , interpFactor=%f",
                     (int) lampDriverConf->channelNames[i]->len(), lampDriverConf->channelNames[i]->data(), *currentDeviceIndex,
                     newValue, interpolationFactor);
+
+                auto result = set_device_action(*currentDeviceIndex, device_values{.percentage = newValue}, nullptr, 0);
+                // TODO: handle result
             }
         }
     }

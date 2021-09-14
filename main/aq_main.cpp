@@ -166,6 +166,6 @@ void networkTask(void *pvParameters) {
 extern "C" {
 
 void app_main() {
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 12, nullptr, 5, nullptr, 1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 4, nullptr, 5, nullptr, 1);
 }
 }
