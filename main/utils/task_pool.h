@@ -74,24 +74,25 @@ class task_pool {
 
         static resource_type post_task(single_task task);
         static bool remove_task(task_id id);
+        static void do_work();
     private:
         static void task_pool_thread(void *ptr);
-        static void init_thread();
 
         static inline std::array<std::pair<task_id, std::optional<single_task>>, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
         static inline task_id _next_id = task_id(0);
-        static inline std::once_flag _thread_init;
 };
 
 template<size_t TaskPoolSize>
-void task_pool<TaskPoolSize>::task_pool_thread(void *ptr) {
+void task_pool<TaskPoolSize>::task_pool_thread(void *) {
     size_t index = 0;
 
     using last_executed_type = decltype(std::declval<single_task>().last_executed);
 
     while (1) {
+        bool sleepThisRound = false;
         {
+            ESP_LOGI(__PRETTY_FUNCTION__, "Loop");
             auto seconds_since_epoch = 
             std::chrono::duration_cast<last_executed_type>(std::chrono::steady_clock::now().time_since_epoch());
 
@@ -116,26 +117,25 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *ptr) {
 
             }
             index = (index + 1) % _tasks.size();
-            if (current_task || index == 0) {
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-            }
+            sleepThisRound = index == 0 || !current_task.has_value();
+        }
+
+        if (sleepThisRound) {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1s);
         }
 
     }
 }
 
 template<size_t TaskPoolSize>
-void task_pool<TaskPoolSize>::init_thread() {
-    std::call_once(_thread_init, []() {
-        thread_creator::create_thread(task_pool::task_pool_thread, "task_pool_thread");
-    });
+void task_pool<TaskPoolSize>::do_work() {
+    task_pool::task_pool_thread(nullptr);
 }
 
 // TODO: maybe use std::optional as return type
 template<size_t TaskPoolSize>
 auto task_pool<TaskPoolSize>::post_task(single_task task) -> resource_type {
-    init_thread();
-
     std::unique_lock instance_guard{_instance_mutex};
 
     auto result = std::find_if(_tasks.begin(), _tasks.end(), [](auto &current_task_pair) {
@@ -158,8 +158,6 @@ auto task_pool<TaskPoolSize>::post_task(single_task task) -> resource_type {
 
 template<size_t TaskPoolSize>
 bool task_pool<TaskPoolSize>::remove_task(task_id id) {
-    init_thread();
-
     if (id == task_id::invalid) {
         return false;
     }

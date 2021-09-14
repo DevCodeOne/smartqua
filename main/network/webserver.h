@@ -26,7 +26,7 @@
 #include "utils/ssl_credentials.h"
 #include "aq_main.h"
 
-enum struct security_level {
+enum struct WebServerSecurityLevel {
     unsecured,
     #ifdef ENABLE_HTTPS
     secured
@@ -34,22 +34,22 @@ enum struct security_level {
 };
 
 namespace Detail {
-    template<security_level level>
-    class webserver_handle;
+    template<WebServerSecurityLevel level>
+    class WebServerHandle;
 
     template<>
-    class webserver_handle<security_level::unsecured> {
+    class WebServerHandle<WebServerSecurityLevel::unsecured> {
         public:
-            webserver_handle() = default;
-            ~webserver_handle() { stop_server(); }
+            WebServerHandle() = default;
+            ~WebServerHandle() { stopServer(); }
             operator httpd_handle_t() const { return m_http_server_handle; }
 
-            bool init_server() {
+            bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
                 config.stack_size = 4096 * 8;
                 config.max_uri_handlers = 16;
-                config.max_open_sockets = 1;
+                config.max_open_sockets = 2;
 
                 esp_err_t serverStart;
                 if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {
@@ -69,7 +69,7 @@ namespace Detail {
                 return serverStart == ESP_OK;
             }
 
-            bool stop_server() {
+            bool stopServer() {
                 httpd_stop(m_http_server_handle);
 
                 return true;
@@ -130,40 +130,40 @@ namespace Detail {
 
 }
 
-template <security_level level = security_level::unsecured>
-class webserver final {
+template <WebServerSecurityLevel level = WebServerSecurityLevel::unsecured>
+class WebServer final {
    public:
     static constexpr char file_handler_uri_path[] = "/*";
 
-    webserver(const char *base_path = "/");
-    webserver(const webserver &other) = delete;
-    webserver(webserver &&other) = delete;
-    ~webserver() = default;
+    WebServer(const char *base_path = "/");
+    WebServer(const WebServer &other) = delete;
+    WebServer(WebServer &&other) = delete;
+    ~WebServer() = default;
 
-    webserver &operator=(const webserver &other) = delete;
-    webserver &operator=(webserver &&other) = delete;
+    WebServer &operator=(const WebServer &other) = delete;
+    WebServer &operator=(WebServer &&other) = delete;
 
-    void register_handler(httpd_uri_t handler) {
+    void registerHandler(httpd_uri_t handler) {
         httpd_unregister_uri_handler(m_server_handle, file_handler_uri_path, HTTP_GET);
 
         httpd_register_uri_handler(m_server_handle, &handler);
         // File handler always has to be registered last
-        register_file_handler();
+        registerFileHandler();
     }
 
    private:
-    void register_file_handler() {
+    void registerFileHandler() {
         httpd_uri_t file_handler = {
             .uri = file_handler_uri_path,
             .method = HTTP_GET,
-            .handler = webserver::get_file,
+            .handler = WebServer::getFile,
             .user_ctx = reinterpret_cast<void*>(this)};
         httpd_register_uri_handler(m_server_handle, &file_handler);
     }
 
-    static esp_err_t get_file(httpd_req_t *req);
+    static esp_err_t getFile(httpd_req_t *req);
 
-    Detail::webserver_handle<level> m_server_handle{};
+    Detail::WebServerHandle<level> m_server_handle{};
     const char *m_base_path = nullptr;
 };
 
@@ -177,15 +177,15 @@ webserver<security_level::secured>::webserver(const char *base_path) :
 }*/
 
 template<>
-webserver<security_level::unsecured>::webserver(const char *base_path) : 
+WebServer<WebServerSecurityLevel::unsecured>::WebServer(const char *base_path) : 
         m_server_handle(),
         m_base_path(base_path) {
-    m_server_handle.init_server();
-    register_file_handler();
+    m_server_handle.initServer();
+    registerFileHandler();
 }
 
 // TODO: maybe replace with regex
-inline esp_err_t set_content_type_from_file(httpd_req_t *req,
+inline esp_err_t setContentTypeFromFile(httpd_req_t *req,
                                             const char *filepath) {
     auto ends_with = [](std::string_view current_view, std::string_view ending) {
         const auto view_len = current_view.length();
@@ -214,15 +214,15 @@ inline esp_err_t set_content_type_from_file(httpd_req_t *req,
     return httpd_resp_set_type(req, type);
 }
 
-template <security_level level>
-esp_err_t webserver<level>::get_file(httpd_req_t *req) {
+template <WebServerSecurityLevel level>
+esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     // TODO: get credentials from central settings
     // Don't check for credentials when the server runs in unsecure mode to avoid leaking passwords
-    if (level != security_level::unsecured && !handle_authentication(req, "admin", "admin")) {
+    if (level != WebServerSecurityLevel::unsecured && !handle_authentication(req, "admin", "admin")) {
         return ESP_OK;
     }
 
-    const char *base_path = static_cast<webserver *>(req->user_ctx)->m_base_path;
+    const char *base_path = static_cast<WebServer *>(req->user_ctx)->m_base_path;
 
     if (base_path == nullptr) {
         ESP_LOGE(__PRETTY_FUNCTION__, "Basepath isn't configured");
@@ -233,7 +233,7 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
     }
 
     struct stat tmp_stat{};
-    std::array<char, 256> filepath;
+    std::array<char, 516> filepath;
     std::string_view selected_path = "";
     std::string_view request_uri = req->uri;
 
@@ -243,7 +243,7 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
 
 
     if (base_path != nullptr) {
-        std::strncpy(filepath.data(), base_path, filepath.size());
+        std::strncpy(filepath.data(), base_path, filepath.size() - 1);
     }
 
     // TODO: Remove trailing /
@@ -263,7 +263,7 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
 
     selected_path = filepath.data();
 
-    auto buffer = large_buffer_pool_type::get_free_buffer();
+    auto buffer = LargeBufferPoolType::get_free_buffer();
 
     if (!buffer.has_value()) {
         ESP_LOGE(__PRETTY_FUNCTION__, "Failed to get buffer");
@@ -338,7 +338,7 @@ esp_err_t webserver<level>::get_file(httpd_req_t *req) {
         }
 
 
-        set_content_type_from_file(req, filepath.data());
+        setContentTypeFromFile(req, filepath.data());
 
         ssize_t read_bytes;
         // TODO: make configurable

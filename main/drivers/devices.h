@@ -38,12 +38,12 @@ public:
     device &operator=(const device &other) = default;
     device &operator=(device &&other) = default;
 
-    device_operation_result write_value(const device_values &value);
+    DeviceOperationResult write_value(const device_values &value);
     // To calibrate something or execute actions
-    device_operation_result write_options(const std::string_view &jsonSettingValue);
-    device_operation_result update_runtime_data();
-    device_operation_result read_value(device_values &value) const;
-    device_operation_result get_info(char *output_buffer, size_t output_buffer_len) const;
+    DeviceOperationResult write_options(const std::string_view &jsonSettingValue);
+    DeviceOperationResult update_runtime_data();
+    DeviceOperationResult read_value(device_values &value) const;
+    DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
 
 private:
     std::variant<DeviceDrivers ...> m_driver = nullptr;
@@ -89,11 +89,11 @@ std::optional<device<DeviceDrivers ...>> create_device(const device_config *devi
         using driver_type = std::tuple_element_t<current_index, std::tuple<DeviceDrivers ...>>;
 
         if (std::strncmp(device_conf->device_driver_name.data(), driver_type::name, name_length) == 0) {
-            ESP_LOGI("Device_Driver", "Found driver %s", device_conf->device_driver_name.data());
+            ESP_LOGW("Device_Driver", "Found driver %s", device_conf->device_driver_name.data());
             auto result = driver_type::create_driver(device_conf);
 
             if (!result.has_value()) {
-                ESP_LOGI("Device_Driver", "Failed to create device with driver %s", device_conf->device_driver_name.data());
+                ESP_LOGE("Device_Driver", "Failed to create device with driver %s", device_conf->device_driver_name.data());
                 return;
             }
 
@@ -110,7 +110,7 @@ template<typename DriverType>
 device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver)) {}
 
 template<typename ... DeviceDrivers>
-device_operation_result device<DeviceDrivers ...>::write_value(const device_values &value) {
+DeviceOperationResult device<DeviceDrivers ...>::write_value(const device_values &value) {
     return std::visit(
         [&value](auto &current_driver) { 
             return current_driver.write_value(value); 
@@ -118,37 +118,37 @@ device_operation_result device<DeviceDrivers ...>::write_value(const device_valu
 }
 
 template<typename ... DeviceDrivers>
-device_operation_result device<DeviceDrivers ...>::read_value(device_values &value) const {
+DeviceOperationResult device<DeviceDrivers ...>::read_value(device_values &value) const {
     return std::visit(
         [&value](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating to driver");
+            ESP_LOGI("Device_Driver", "Delegating read_value to driver");
             return current_driver.read_value(value); 
         }, m_driver);
 }
 
 template<typename ... DeviceDrivers>
-device_operation_result device<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
+DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
     return std::visit(
         [output_buffer, output_buffer_len](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating to driver");
+            ESP_LOGI("Device_Driver", "Delegating get_info to driver");
             return current_driver.get_info(output_buffer, output_buffer_len); 
         }, m_driver);
 }
 
 template<typename ... DeviceDrivers>
-device_operation_result device<DeviceDrivers ...>::write_options(const std::string_view &jsonSettingValue) {
+DeviceOperationResult device<DeviceDrivers ...>::write_options(const std::string_view &jsonSettingValue) {
     return std::visit(
         [&jsonSettingValue](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating to driver");
+            ESP_LOGI("Device_Driver", "Delegating write_options to driver");
             return current_driver.write_options(jsonSettingValue.data(), jsonSettingValue.length()); 
         }, m_driver);
 }
 
 template<typename ... DeviceDrivers>
-device_operation_result device<DeviceDrivers ...>::update_runtime_data() {
+DeviceOperationResult device<DeviceDrivers ...>::update_runtime_data() {
     return std::visit(
         [](auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating to driver");
+            ESP_LOGI("Device_Driver", "Delegating update_runtime_data to driver");
             return current_driver.update_runtime_data(); 
         }, m_driver);
 }

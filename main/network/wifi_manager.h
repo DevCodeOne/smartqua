@@ -106,8 +106,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
                 static_cast<uint32_t>(thiz->m_config.reconnect_tries)) {
                 esp_wifi_connect();
                 thiz->retry_num++;
-                ESP_LOGI(__PRETTY_FUNCTION__, "retry to connect to the AP");
-                ESP_LOGI(__PRETTY_FUNCTION__, "connection to the AP failed");
+                ESP_LOGW(__PRETTY_FUNCTION__, "Connection to the AP failed");
             } else {
                 xEventGroupSetBits(thiz->m_wifi_event_group, wifi_fail_bit);
             }

@@ -10,7 +10,7 @@
 #include "driver/gpio.h"
 #include "utils/json_utils.h"
 
-enum struct device_operation_result {
+enum struct DeviceOperationResult {
     ok, not_supported, failure
 };
 

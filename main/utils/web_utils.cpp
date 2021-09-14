@@ -55,7 +55,7 @@ bool handle_authentication(httpd_req *req, std::string_view user, std::string_vi
     ESP_LOGI(__PRETTY_FUNCTION__, "Try to log in using %s %s", credential_string_encoded.data(), auth_string_encoded.data());
 
     if (auth_string_encoded != credential_string_encoded_view) {
-        ESP_LOGI(__PRETTY_FUNCTION__, "Authentication wasn't successfull");
+        ESP_LOGW(__PRETTY_FUNCTION__, "Authentication wasn't successfull");
         send_auth_failure();
         return false;
     }

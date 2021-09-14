@@ -69,7 +69,7 @@ class nvs_setting {
         m_flash = nvs_flash{};
 
         if (!*m_flash) {
-            ESP_LOGI("Setting", "Nvs flash isn't initialized");
+            ESP_LOGE("Setting", "Nvs flash isn't initialized");
             return ESP_FAIL;
         }
 
@@ -77,7 +77,7 @@ class nvs_setting {
             nvs_open(SettingType::name, NVS_READWRITE, &m_nvs_handle);
 
         m_initialized = err == ESP_OK;
-        ESP_LOGI("Setting", "Couldn't initialize nvs setting");
+        ESP_LOGW("Setting", "Couldn't initialize nvs setting");
         if (err != ESP_OK) {
             return err;
         }

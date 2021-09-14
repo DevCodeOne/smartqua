@@ -14,9 +14,9 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
         overview.output_dst = overview_buffer.data();
         overview.output_len = overview_buffer.size();
 
-        global_store.read_event(overview);
+        global_store.readEvent(overview);
 
-        if (overview.result.collection_result != device_collection_operation::failed) {
+        if (overview.result.collection_result != DeviceCollectionOperation::failed) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %s }", overview_buffer.data());
             }
@@ -24,10 +24,10 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
         }
     } else {
         read_from_device single_device_value{ .index = static_cast<size_t>(*index) };
-        global_store.read_event(single_device_value);
+        global_store.readEvent(single_device_value);
 
-        if (single_device_value.result.collection_result == device_collection_operation::ok &&
-                single_device_value.result.op_result == device_operation_result::ok ) {
+        if (single_device_value.result.collection_result == DeviceCollectionOperation::ok &&
+                single_device_value.result.op_result == DeviceOperationResult::ok ) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %M }",
                     json_printf_single<std::decay_t<decltype(single_device_value.read_value)>>, &single_device_value.read_value);
@@ -53,9 +53,9 @@ json_action_result get_device_info(unsigned int index, const char *input, size_t
     info.output_dst = info_buffer.data();
     info.output_len = info_buffer.size();
 
-    global_store.read_event(info);
+    global_store.readEvent(info);
 
-    if (info.result.collection_result == device_collection_operation::ok && info.result.op_result == device_operation_result::ok) {
+    if (info.result.collection_result == DeviceCollectionOperation::ok && info.result.op_result == DeviceOperationResult::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer.data());
         }
@@ -99,9 +99,9 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
     to_add.jsonSettingValue = std::string_view(token.ptr, token.len);
     to_add.settingName = std::string_view(description_token.ptr, std::min(static_cast<int>(name_length), description_token.len));
 
-    global_store.write_event(to_add);
+    global_store.writeEvent(to_add);
 
-    if (to_add.result.collection_result == device_collection_operation::ok && to_add.result.index.has_value()) {
+    if (to_add.result.collection_result == DeviceCollectionOperation::ok && to_add.result.index.has_value()) {
         result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.index, "Ok added device");
         result.result = json_action_result_value::successfull;
     } else {
@@ -117,9 +117,9 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
     remove_single_device del_device{ .index = static_cast<size_t>(index) };
     // TODO: json_action_result
-    global_store.write_event(del_device);
+    global_store.writeEvent(del_device);
 
-    if (del_device.result.collection_result == device_collection_operation::ok) {
+    if (del_device.result.collection_result == DeviceCollectionOperation::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *del_device.index, "Ok deleted device");
         }
@@ -149,9 +149,9 @@ json_action_result set_device_action(unsigned int index, const device_values &va
     to_write.index = static_cast<size_t>(index);
     to_write.write_value = value;
 
-    global_store.write_event(to_write);
+    global_store.writeEvent(to_write);
 
-    if (to_write.result.op_result == device_operation_result::ok) {
+    if (to_write.result.op_result == DeviceOperationResult::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q}", "Ok wrote value to device");
         }

@@ -62,7 +62,7 @@ std::optional<LampDriver::ScheduleType::DayScheduleType> parseDaySchedule(const 
             generatedSchedule.insertTimePoint(std::make_pair(timeOfDay, timePointData));
         } else {
             const auto varsView = timePointMatch.get<vars_name>().to_view();
-            ESP_LOGI("LampDriver", "%.*s didn't cointain any parseable data", 
+            ESP_LOGW("LampDriver", "%.*s didn't cointain any parseable data", 
                 varsView.length(), varsView.data());
         }
 
@@ -81,7 +81,6 @@ std::optional<LampDriver> LampDriver::create_driver(const std::string_view &inpu
     {
         LampDriverData newConf{};
 
-        // TODO: also parse device_indices
         json_scanf(input.data(), input.size(), "{ channel_names : %M, devices : %M }", 
         json_scanf_array<decltype(newConf.channelNames)>, &newConf.channelNames,
         json_scanf_array<decltype(newConf.deviceIndices)>, &newConf.deviceIndices);
@@ -128,13 +127,13 @@ std::optional<LampDriver> LampDriver::create_driver(const device_config *device_
     }
 
     auto createdConf = reinterpret_cast<LampDriverData *>(device_conf_out->device_config.data());
-    auto buffer = large_buffer_pool_type::get_free_buffer();
+    auto buffer = LargeBufferPoolType::get_free_buffer();
 
     if (!buffer.has_value()) {
         return std::nullopt;
     }
 
-    auto result = load_file_completly_into_buffer(createdConf->scheduleName, buffer->data(), buffer->size());
+    auto result = loadFileCompletelyIntoBuffer(createdConf->scheduleName, buffer->data(), buffer->size());
 
     if (result == -1) {
         ESP_LOGW("LampDriver", "Couldn't open schedule file %s", createdConf->scheduleName.data());
@@ -158,7 +157,7 @@ bool LampDriver::loadAndUpdateSchedule(const std::string_view &input) {
     json_scanf(input.data(), input.size(), "{ schedule : %M }", json_scanf_single<LampDriver>, this);
     ESP_LOGI("LampDriver", "Writing schedule to %s", createdConf->scheduleName.data());
 
-    if (!safe_write_to_file(createdConf->scheduleName, ".tmp", input)) {
+    if (!safeWriteToFile(createdConf->scheduleName, ".tmp", input)) {
         ESP_LOGE("LampDriver", "Failed to write schedule");
         return false;
     }
@@ -186,25 +185,25 @@ std::optional<uint8_t> LampDriver::channelIndex(std::string_view channelName) co
 
 LampDriver::LampDriver(const device_config *conf) : mConf(conf) {}
 
-device_operation_result LampDriver::write_value(const device_values &value) {
-    return device_operation_result::not_supported;
+DeviceOperationResult LampDriver::write_value(const device_values &value) {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result LampDriver::read_value(device_values &value) const {
-    return device_operation_result::not_supported;
+DeviceOperationResult LampDriver::read_value(device_values &value) const {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result LampDriver::get_info(char *output, size_t output_buffer_len) const {
-    return device_operation_result::not_supported;
+DeviceOperationResult LampDriver::get_info(char *output, size_t output_buffer_len) const {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result LampDriver::write_device_options(const char *json_input, size_t input_len) {
-    return device_operation_result::not_supported;
+DeviceOperationResult LampDriver::write_device_options(const char *json_input, size_t input_len) {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result LampDriver::update_runtime_data() {
+DeviceOperationResult LampDriver::update_runtime_data() {
     if (mConf == nullptr) {
-        return device_operation_result::failure;
+        return DeviceOperationResult::failure;
     }
 
     auto lampDriverConf = reinterpret_cast<const LampDriverData *>(mConf->device_config.data());
@@ -240,5 +239,5 @@ device_operation_result LampDriver::update_runtime_data() {
             }
         }
     }
-    return device_operation_result::ok;
+    return DeviceOperationResult::ok;
 }

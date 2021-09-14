@@ -103,11 +103,11 @@ class loadcell {
     static std::optional<loadcell> create_driver(const std::string_view input, device_config &device_conf_out);
     static std::optional<loadcell> create_driver(const device_config *config);
 
-    device_operation_result write_value(const device_values &value);
-    device_operation_result read_value(device_values &out) const;
-    device_operation_result write_device_options(const char *json_input, size_t input_len);
-    device_operation_result get_info(char *output, size_t output_buffer_len) const;
-    device_operation_result update_runtime_data();
+    DeviceOperationResult write_value(const device_values &value);
+    DeviceOperationResult read_value(device_values &out) const;
+    DeviceOperationResult write_device_options(const char *json_input, size_t input_len);
+    DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
+    DeviceOperationResult update_runtime_data();
 
    private:
     loadcell(const device_config *config);

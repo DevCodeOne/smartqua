@@ -111,7 +111,7 @@ bool soft_timer_driver<N>::add_timer(single_timer_settings *timer) {
     bool is_already_in_use = std::find(_data.timers.cbegin(), _data.timers.cend(), timer) != _data.timers.cend();
 
     if (is_already_in_use) {
-        ESP_LOGI("Soft_timer_driver", "Address already in use");
+        ESP_LOGW("Soft_timer_driver", "Address already in use");
         return false;
     }
 
@@ -125,7 +125,7 @@ bool soft_timer_driver<N>::add_timer(single_timer_settings *timer) {
     }
 
     if (first_empty_space == _data.timers.size()) {
-        ESP_LOGI("Soft_timer_driver", "No space left");
+        ESP_LOGW("Soft_timer_driver", "No space left");
         return false;
     }
 
@@ -224,7 +224,7 @@ void soft_timer_driver<N>::handle_timers(void *) {
                 _data.timers_executed[current_index] = true;
                 ESP_LOGI("Soft_timer_driver", "Executed action");
             } else {
-                ESP_LOGI("Soft_timer_driver", "Execution of timer wasn't successfull, retrying later");
+                ESP_LOGW("Soft_timer_driver", "Execution of timer wasn't successfull, retrying later");
             }
 
             std::this_thread::sleep_until(loop_start + 2s);
@@ -251,7 +251,7 @@ auto soft_timer_driver<N>::create_timer(std::string_view input, single_timer_set
 
     // TODO: write payload to filesystem if it is too large instead of failing here
     if (payload.len + 1 > static_cast<int>(timer_settings.payload.size())) {
-        ESP_LOGI("Soft_timer_driver", "Payload was too large %d : %d", payload.len, timer_settings.payload.size());
+        ESP_LOGW("Soft_timer_driver", "Payload was too large %d : %d", payload.len, timer_settings.payload.size());
         return std::nullopt;
     }
 

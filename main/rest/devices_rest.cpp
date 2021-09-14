@@ -14,7 +14,7 @@ static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9
 
 esp_err_t do_devices(httpd_req *req) {
     ESP_LOGI("Devices_Rest", "Handle uri %s", req->uri);
-    auto buffer = large_buffer_pool_type::get_free_buffer();
+    auto buffer = LargeBufferPoolType::get_free_buffer();
 
     if (!buffer) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
@@ -29,8 +29,10 @@ esp_err_t do_devices(httpd_req *req) {
         return ESP_OK;
     }
 
+    ESP_LOGE(__PRETTY_FUNCTION__, "Receiving");
     httpd_req_recv(req, buffer->data(), req->content_len);
 
+    ESP_LOGE(__PRETTY_FUNCTION__, "Executing action");
     if (index) {
         auto index_value = std::atoi(index.to_view().data());
         
@@ -54,6 +56,7 @@ esp_err_t do_devices(httpd_req *req) {
         }
     }
 
+    ESP_LOGE(__PRETTY_FUNCTION__, "Sending response");
     if (result.answer_len) {
         send_in_chunks(req, buffer->data(), result.answer_len);
     } else {

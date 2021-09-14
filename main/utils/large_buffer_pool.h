@@ -17,28 +17,28 @@ struct custom_delete {
     }
 };
 
-enum struct buffer_location {
+enum struct BufferLocation {
     stack, heap
 };
 
-enum struct buffer_status {
+enum struct BufferStatus {
     borrowed, available
 };
 
 template<typename PoolType>
-class large_buffer {
+class LargeBufferBorrower {
     public:
 
-        large_buffer(const large_buffer &other) = delete;
-        large_buffer(large_buffer &&other) : m_buffer_ptr(other.m_buffer_ptr), m_length(other.m_length) { 
+        LargeBufferBorrower(const LargeBufferBorrower &other) = delete;
+        LargeBufferBorrower(LargeBufferBorrower &&other) : m_buffer_ptr(other.m_buffer_ptr), m_length(other.m_length) { 
             other.m_buffer_ptr = nullptr;
             other.m_length = 0;
         }
 
-        ~large_buffer() { PoolType::return_buffer(m_buffer_ptr); }
+        ~LargeBufferBorrower() { PoolType::return_buffer(m_buffer_ptr); }
 
-        large_buffer &operator=(const large_buffer &other) = delete;
-        large_buffer &operator=(large_buffer &&other) {
+        LargeBufferBorrower &operator=(const LargeBufferBorrower &other) = delete;
+        LargeBufferBorrower &operator=(LargeBufferBorrower &&other) {
             using std::swap;
 
             swap(m_buffer_ptr, other.m_buffer_ptr);
@@ -53,7 +53,7 @@ class large_buffer {
 
         size_t size() const { return m_length; }
     private:
-        large_buffer(char *buffer_ptr, size_t length) : m_buffer_ptr(buffer_ptr), m_length(length) { }
+        LargeBufferBorrower(char *buffer_ptr, size_t length) : m_buffer_ptr(buffer_ptr), m_length(length) { }
 
         char *m_buffer_ptr = nullptr;
         size_t m_length = 0;
@@ -61,16 +61,16 @@ class large_buffer {
         friend PoolType;
 };
 
-template<size_t BufferSize, buffer_location BufferType>
-class allocated_buffer;
+template<size_t BufferSize, BufferLocation BufferType>
+class AllocatedBuffer;
 
 template<size_t BufferSize>
-class allocated_buffer<BufferSize, buffer_location::heap> {
+class AllocatedBuffer<BufferSize, BufferLocation::heap> {
     public:
     using buffer_type = std::unique_ptr<char, custom_delete>;
 
     // TODO: specify malloc method later on heap_caps_malloc vs malloc
-    allocated_buffer() {
+    AllocatedBuffer() {
         // m_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(BufferSize, MALLOC_CAP_SPIRAM)));
         m_buffer.reset(reinterpret_cast<char *>(malloc(BufferSize)));
     }
@@ -82,7 +82,7 @@ class allocated_buffer<BufferSize, buffer_location::heap> {
     constexpr auto data() { return m_buffer.get(); }
 
     bool isAvailable() const {
-        return m_status == buffer_status::available;
+        return m_status == BufferStatus::available;
     }
 
     bool giveBack(char *ptr) {
@@ -90,7 +90,7 @@ class allocated_buffer<BufferSize, buffer_location::heap> {
             return false;
         }
 
-        m_status = buffer_status::available;
+        m_status = BufferStatus::available;
         return true;
     }
 
@@ -100,21 +100,21 @@ class allocated_buffer<BufferSize, buffer_location::heap> {
             return std::nullopt;
         }
 
-        m_status = buffer_status::borrowed;
+        m_status = BufferStatus::borrowed;
         return create(m_buffer.get(), BufferSize);
     }
 
 private:
     std::unique_ptr<char, custom_delete> m_buffer = nullptr;
-    buffer_status m_status = buffer_status::available;
+    BufferStatus m_status = BufferStatus::available;
 };
 
 template<size_t BufferSize>
-class allocated_buffer<BufferSize, buffer_location::stack> {
+class AllocatedBuffer<BufferSize, BufferLocation::stack> {
     public:
     using buffer_type = std::array<char, BufferSize>;
 
-    allocated_buffer() { }
+    AllocatedBuffer() { }
 
     constexpr auto size() const { return BufferSize; }
 
@@ -123,7 +123,7 @@ class allocated_buffer<BufferSize, buffer_location::stack> {
     constexpr auto data() { return m_buffer.data(); }
 
     bool isAvailable() const {
-        return m_status == buffer_status::available;
+        return m_status == BufferStatus::available;
     }
 
     bool giveBack(char *ptr) {
@@ -131,7 +131,7 @@ class allocated_buffer<BufferSize, buffer_location::stack> {
             return false;
         }
 
-        m_status = buffer_status::available;
+        m_status = BufferStatus::available;
         return true;
     }
 
@@ -141,47 +141,47 @@ class allocated_buffer<BufferSize, buffer_location::stack> {
             return std::nullopt;
         }
 
-        m_status = buffer_status::borrowed;
+        m_status = BufferStatus::borrowed;
         return create(m_buffer.data(), BufferSize);
     }
 
     private:
     std::array<char, BufferSize> m_buffer{};
-    buffer_status m_status = buffer_status::available;
+    BufferStatus m_status = BufferStatus::available;
 };
 
 // TODO: Add multiple sizes
-template<size_t NumBuffers, size_t BufferSize, buffer_location location = buffer_location::heap>
-class large_buffer_pool { 
+template<size_t NumBuffers, size_t BufferSize, BufferLocation location = BufferLocation::heap>
+class LargeBufferPool { 
     public:
-        using buffer_type = allocated_buffer<BufferSize, location>;
-        using large_buffer_type = large_buffer<large_buffer_pool<NumBuffers, BufferSize, location>>;
+        using AllocatedBufferType = AllocatedBuffer<BufferSize, location>;
+        using LargeBufferBorrowerType = LargeBufferBorrower<LargeBufferPool<NumBuffers, BufferSize, location>>;
         
-        large_buffer_pool();
+        LargeBufferPool();
 
-        static std::optional<large_buffer_type> get_free_buffer();
+        static std::optional<LargeBufferBorrowerType> get_free_buffer();
         // TODO: implement
-        static std::optional<large_buffer_type> wait_for_free_buffer(std::chrono::milliseconds ms);
+        static std::optional<LargeBufferBorrowerType> wait_for_free_buffer(std::chrono::milliseconds ms);
     private:
         static bool return_buffer(char *ptr);
         static void initialize_buffers();
 
-        static inline std::array<buffer_type, NumBuffers> _buffers{};
+        static inline std::array<AllocatedBufferType, NumBuffers> _buffers{};
         static inline std::shared_mutex _instance_mutex{};
 
-        friend large_buffer_type;
+        friend LargeBufferBorrowerType;
 };
 
-template<size_t NumBuffers, size_t BufferSize, buffer_location location>
-auto large_buffer_pool<NumBuffers, BufferSize, location>::get_free_buffer() -> std::optional<large_buffer_type> {
+template<size_t NumBuffers, size_t BufferSize, BufferLocation location>
+auto LargeBufferPool<NumBuffers, BufferSize, location>::get_free_buffer() -> std::optional<LargeBufferBorrowerType> {
     // Leave this in, otherwise the destructor of large_buffer 
     // (move constructor because of the variable this will be moved in) will lead to a dead-lock
     std::unique_lock instance_guard{_instance_mutex};
-    std::optional<large_buffer_type> foundBuffer = std::nullopt;
+    std::optional<LargeBufferBorrowerType> foundBuffer = std::nullopt;
 
     std::any_of(_buffers.begin(), _buffers.end(), [&foundBuffer](auto &current_buffer) {
         foundBuffer = current_buffer.borrowBuffer([](char *buffer, size_t size) {
-            return large_buffer_type(buffer, size);
+            return LargeBufferBorrowerType(buffer, size);
         });
         return foundBuffer.has_value();
     });
@@ -195,8 +195,8 @@ auto large_buffer_pool<NumBuffers, BufferSize, location>::get_free_buffer() -> s
     return foundBuffer;
 }
 
-template<size_t NumBuffers, size_t BufferSize, buffer_location location>
-bool large_buffer_pool<NumBuffers, BufferSize, location>::return_buffer(char *ptr) {
+template<size_t NumBuffers, size_t BufferSize, BufferLocation location>
+bool LargeBufferPool<NumBuffers, BufferSize, location>::return_buffer(char *ptr) {
     if (ptr == nullptr) {
         return false;
     }
@@ -207,7 +207,7 @@ bool large_buffer_pool<NumBuffers, BufferSize, location>::return_buffer(char *pt
     });
 
     if (!gaveBackBuffer) {
-        ESP_LOGI("large_buffer_pool", "Couldn't give back buffer %p", ptr);
+        ESP_LOGE("large_buffer_pool", "Couldn't give back buffer %p", ptr);
         return false;
     }
 

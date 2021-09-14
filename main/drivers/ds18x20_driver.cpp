@@ -14,7 +14,7 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config 
     auto pin = device_resource::get_gpio_resource(driver_data->gpio, gpio_purpose::bus);
 
     if (!pin) {
-        ESP_LOGI("ds18x20_driver", "GPIO pin couldn't be reserved");
+        ESP_LOGW("ds18x20_driver", "GPIO pin couldn't be reserved");
         return std::nullopt;
     }
 
@@ -35,7 +35,7 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const device_config 
     }*/
 
     if (!add_address(driver_data->addr)) {
-        ESP_LOGI("ds18x20_driver", "The device is already in use");
+        ESP_LOGW("ds18x20_driver", "The device is already in use");
         return std::nullopt;
     }
     
@@ -49,21 +49,21 @@ std::optional<ds18x20_driver> ds18x20_driver::create_driver(const std::string_vi
     ESP_LOGI("ds18x20_driver", "gpio_num : %d", gpio_num);
 
     if (gpio_num == -1) {
-        ESP_LOGI("ds18x20_driver", "Invalid gpio num : %d", gpio_num);
+        ESP_LOGW("ds18x20_driver", "Invalid gpio num : %d", gpio_num);
         return std::nullopt;
     }
 
     auto pin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), gpio_purpose::bus);
 
     if (!pin) {
-        ESP_LOGI("ds18x20_driver", "GPIO pin couldn't be reserved");
+        ESP_LOGW("ds18x20_driver", "GPIO pin couldn't be reserved");
         return std::nullopt;
     }
 
     auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices);
 
     if (detected_sensors < 1) {
-        ESP_LOGI("ds18x20_driver", "Didn't find any devices on port : %d", gpio_num);
+        ESP_LOGW("ds18x20_driver", "Didn't find any devices on port : %d", gpio_num);
         return std::nullopt;
     }
 
@@ -111,11 +111,11 @@ ds18x20_driver::~ds18x20_driver() {
     }
 }
 
-device_operation_result ds18x20_driver::write_value(const device_values &value) { 
-    return device_operation_result::not_supported;
+DeviceOperationResult ds18x20_driver::write_value(const device_values &value) { 
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result ds18x20_driver::read_value(device_values &value) const {
+DeviceOperationResult ds18x20_driver::read_value(device_values &value) const {
     const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
     float temperature = 0.0f;
     ESP_LOGI("ds18x20_driver", "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
@@ -127,26 +127,26 @@ device_operation_result ds18x20_driver::read_value(device_values &value) const {
     ESP_LOGI("ds18x20_driver", "Read temperature : %d", static_cast<int>(temperature * 1000));
 
     if (result != ESP_OK) {
-        return device_operation_result::failure;
+        return DeviceOperationResult::failure;
     }
 
     value.temperature = temperature;
-    return device_operation_result::ok;
+    return DeviceOperationResult::ok;
 }
 
 // TODO: implement both
-device_operation_result ds18x20_driver::get_info(char *output_buffer, size_t output_buffer_len) const {
+DeviceOperationResult ds18x20_driver::get_info(char *output_buffer, size_t output_buffer_len) const {
     json_out out = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_printf(&out, "{}");
-    return device_operation_result::ok;
+    return DeviceOperationResult::ok;
 }
 
-device_operation_result ds18x20_driver::write_device_options(const char *json_input, size_t input_len) {
-    return device_operation_result::ok;
+DeviceOperationResult ds18x20_driver::write_device_options(const char *json_input, size_t input_len) {
+    return DeviceOperationResult::ok;
 }
 
-device_operation_result ds18x20_driver::update_runtime_data() {
-    return device_operation_result::ok;
+DeviceOperationResult ds18x20_driver::update_runtime_data() {
+    return DeviceOperationResult::ok;
 }
 
 bool ds18x20_driver::add_address(ds18x20_addr_t address) {
@@ -158,7 +158,7 @@ bool ds18x20_driver::add_address(ds18x20_addr_t address) {
         });
 
     if (adress_already_exists) {
-        ESP_LOGI("ds18x20_driver", "No new address, don't add this address");
+        ESP_LOGW("ds18x20_driver", "No new address, don't add this address");
         return false;
     }
 

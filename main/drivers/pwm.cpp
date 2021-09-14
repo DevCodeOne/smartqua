@@ -10,13 +10,13 @@
 pwm::pwm(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
-device_operation_result pwm::write_value(const device_values &values) {
+DeviceOperationResult pwm::write_value(const device_values &values) {
     auto *pwm_conf = reinterpret_cast<pwm_config *>(m_conf->device_config.data());
     esp_err_t result = ESP_FAIL;
 
     // TODO: incorperate percentage value
     if (!values.generic_pwm.has_value()) {
-        return device_operation_result::not_supported;
+        return DeviceOperationResult::not_supported;
     }
 
     pwm_conf->current_value = *values.generic_pwm;
@@ -29,26 +29,26 @@ device_operation_result pwm::write_value(const device_values &values) {
         result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
     }
 
-    return result == ESP_OK ? device_operation_result::ok : device_operation_result::failure;
+    return result == ESP_OK ? DeviceOperationResult::ok : DeviceOperationResult::failure;
 }
 
 // TODO: implement both
-device_operation_result pwm::read_value(device_values &values) const {
-    return device_operation_result::not_supported;
+DeviceOperationResult pwm::read_value(device_values &values) const {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result pwm::write_device_options(const char *json_input, size_t input_len) {
-    return device_operation_result::ok;
+DeviceOperationResult pwm::write_device_options(const char *json_input, size_t input_len) {
+    return DeviceOperationResult::ok;
 }
 
-device_operation_result pwm::update_runtime_data() {
-    return device_operation_result::ok;
+DeviceOperationResult pwm::update_runtime_data() {
+    return DeviceOperationResult::ok;
 }
 
-device_operation_result pwm::get_info(char *output_buffer, size_t output_buffer_len) const {
+DeviceOperationResult pwm::get_info(char *output_buffer, size_t output_buffer_len) const {
     json_out out = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_printf(&out, "{}");
-    return device_operation_result::ok;
+    return DeviceOperationResult::ok;
 }
 
 std::optional<pwm> pwm::create_driver(const device_config *config) {
@@ -62,21 +62,21 @@ std::optional<pwm> pwm::create_driver(const device_config *config) {
     auto timer = device_resource::get_timer_resource(pwm_conf->timer_conf);
 
     if (timer == nullptr || !timer->is_valid()) {
-        ESP_LOGI("pwm_driver", "Couldn't create ledc driver or timer wasn't valid");
+        ESP_LOGW("pwm_driver", "Couldn't create ledc driver or timer wasn't valid");
         return std::nullopt;
     }
 
     auto channel = device_resource::get_led_channel();
 
     if (channel == nullptr) {
-        ESP_LOGI("pwm_driver", "Couldn't create channel");
+        ESP_LOGW("pwm_driver", "Couldn't create channel");
         return std::nullopt;
     }
 
     auto gpio = device_resource::get_gpio_resource(static_cast<gpio_num_t>(pwm_conf->gpio_num), gpio_purpose::gpio);
 
     if (gpio == nullptr) {
-        ESP_LOGI("pwm_driver", "Couldn't get gpio pin");
+        ESP_LOGW("pwm_driver", "Couldn't get gpio pin");
         return std::nullopt;
     }
 
@@ -93,7 +93,7 @@ std::optional<pwm> pwm::create_driver(const device_config *config) {
     auto result = ledc_channel_config(&ledc_channel);
 
     if (result != ESP_OK) {
-        ESP_LOGI("pwm_driver", "Couldn't create ledc driver");
+        ESP_LOGW("pwm_driver", "Couldn't create ledc driver");
         return std::nullopt;
     }
 
@@ -127,7 +127,7 @@ std::optional<pwm> pwm::create_driver(const std::string_view input, device_confi
     new_conf.fade = static_cast<bool>(fade);
 
     if (!assign_result) {
-        ESP_LOGI("pwm_driver", "Some value(s) were out of range");
+        ESP_LOGW("pwm_driver", "Some value(s) were out of range");
         return std::nullopt;
     }
 

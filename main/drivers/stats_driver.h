@@ -105,14 +105,14 @@ bool stats_driver<N>::add_stat(single_stat_settings *settings) {
     }) != _data.stat_settings.end();
 
     if (is_already_in_use) {
-        ESP_LOGI("Soft_timer_driver", "Address already in use");
+        ESP_LOGW("Soft_timer_driver", "Address already in use");
         return false; 
     }
 
     auto first_empty_space = std::find(_data.stat_settings.begin(), _data.stat_settings.end(), nullptr);
 
     if (first_empty_space == _data.stat_settings.end()) {
-        ESP_LOGI("stats_driver", "No space left");
+        ESP_LOGW("stats_driver", "No space left");
         return false;
     }
 
@@ -160,7 +160,7 @@ auto stats_driver<N>::create_stat(std::string_view description, single_stat_sett
 template<size_t N>
 auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::optional<stat_type> {
     if (!stats_driver::add_stat(stat_settings)) {
-        ESP_LOGI("stats_driver", "Stat is already created");
+        ESP_LOGW("stats_driver", "Stat is already created");
         return std::nullopt;
     }
 
@@ -203,7 +203,7 @@ void stats_driver<N>::stats_driver_task(void *) {
     if (output_folder_exists) {
         ESP_LOGI("stats_driver", "Writing stats to folder : %s", out_path.data());
     } else {
-        ESP_LOGI("stats_driver", "Folder : %s to write stats to couldn't be created", out_path.data());
+        ESP_LOGE("stats_driver", "Folder : %s to write stats to couldn't be created", out_path.data());
     }
 
     for (auto &current_stat : _data.stat_settings) {

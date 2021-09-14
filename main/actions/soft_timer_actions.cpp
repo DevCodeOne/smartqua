@@ -12,7 +12,7 @@ json_action_result get_timers_action(std::optional<unsigned int> index, const ch
         overview.output_dst = overview_buffer.data();
         overview.output_len = overview_buffer.size();
 
-        global_store.read_event(overview);
+        global_store.readEvent(overview);
 
         if (overview.result.collection_result != timer_collection_operation::failed) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -22,7 +22,7 @@ json_action_result get_timers_action(std::optional<unsigned int> index, const ch
         }
     } else {
         retrieve_timer_info timer_info{ .index = static_cast<size_t>(*index) };
-        global_store.read_event(timer_info);
+        global_store.readEvent(timer_info);
 
         if (timer_info.result.collection_result == timer_collection_operation::ok && timer_info.result.timer_info.has_value()) {
             auto info = timer_info.result.timer_info.value();
@@ -63,7 +63,7 @@ json_action_result add_timer_action(std::optional<unsigned int> index, const cha
     to_add.settingName = std::string_view(name_token.ptr, std::min<int>(name_length, name_token.len));
     to_add.jsonSettingValue = std::string_view(token.ptr, token.len);
 
-    global_store.write_event(to_add);
+    global_store.writeEvent(to_add);
 
     if (to_add.result.collection_result == timer_collection_operation::ok && to_add.result.index.has_value()) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -85,7 +85,7 @@ json_action_result remove_timer_action(unsigned int index, const char *input, si
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
     remove_timer del_timer{ .index = static_cast<size_t>(index) };
 
-    global_store.write_event(del_timer);
+    global_store.writeEvent(del_timer);
 
     if (del_timer.result.collection_result == timer_collection_operation::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -116,7 +116,7 @@ json_action_result set_timer_action(unsigned int index, const char *input, size_
     }
 
     to_update.jsonSettingValue = std::string_view(update_description.ptr, update_description.len);
-    global_store.write_event(to_update);
+    global_store.writeEvent(to_update);
 
     if (to_update.result.collection_result == collection_operation_result::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {

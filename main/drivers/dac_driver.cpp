@@ -28,12 +28,12 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
     auto dacResource = device_resource::get_dac_resource(dacConf->channel);
 
     if (dacResource == nullptr) {
-        ESP_LOGI("DacDriver", "Couldn't get dac resource");
+        ESP_LOGW("DacDriver", "Couldn't get dac resource");
         return std::nullopt;
     }
 
     if (dacConf == nullptr)  {
-        ESP_LOGI("DacDriver", "Dacconf isn't available");
+        ESP_LOGW("DacDriver", "Dacconf isn't available");
         return std::nullopt;
     }
 
@@ -42,9 +42,9 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
     return std::make_optional(DacDriver{config, dacResource});
 }
 
-device_operation_result DacDriver::write_value(const device_values &value) {
+DeviceOperationResult DacDriver::write_value(const device_values &value) {
     if (m_conf == nullptr || m_dac == nullptr) {
-        return device_operation_result::failure;
+        return DeviceOperationResult::failure;
     }
 
     auto *dacConf = reinterpret_cast<DacDriverData *>(m_conf->device_config.data());
@@ -57,7 +57,7 @@ device_operation_result DacDriver::write_value(const device_values &value) {
     }
 
     if (!voltageValue.has_value()) {
-        return device_operation_result::not_supported;
+        return DeviceOperationResult::not_supported;
     }
 
     const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
@@ -67,28 +67,28 @@ device_operation_result DacDriver::write_value(const device_values &value) {
     esp_err_t result = dac_output_voltage(m_dac->channel_num(), targetValue);
 
     if (result != ESP_OK) {
-        return device_operation_result::failure;
+        return DeviceOperationResult::failure;
     }
 
     dacConf->value = targetValue;
 
-    return device_operation_result::ok;
+    return DeviceOperationResult::ok;
 }
 
-device_operation_result DacDriver::read_value(device_values &value) const {
-    return device_operation_result::not_supported;
+DeviceOperationResult DacDriver::read_value(device_values &value) const {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result DacDriver::get_info(char *output, size_t output_buffer_len) const {
-    return device_operation_result::not_supported;
+DeviceOperationResult DacDriver::get_info(char *output, size_t output_buffer_len) const {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result DacDriver::write_device_options(const char *json_input, size_t input_len) {
-    return device_operation_result::not_supported;
+DeviceOperationResult DacDriver::write_device_options(const char *json_input, size_t input_len) {
+    return DeviceOperationResult::not_supported;
 }
 
-device_operation_result DacDriver::update_runtime_data() {
-    return device_operation_result::ok;
+DeviceOperationResult DacDriver::update_runtime_data() {
+    return DeviceOperationResult::ok;
 }
 
 std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
@@ -103,7 +103,7 @@ std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input,
     assignResult &= check_assign(newConf.value, value);
 
     if (!assignResult) {
-        ESP_LOGI("DacDriver", "Some value(s) were out of range");
+        ESP_LOGW("DacDriver", "Some value(s) were out of range");
         return std::nullopt;
     }
     

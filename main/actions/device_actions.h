@@ -21,7 +21,7 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
 json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len);
 
-using device_collection_operation = collection_operation_result;
+using DeviceCollectionOperation = collection_operation_result;
 
 static inline constexpr size_t device_uid = 30;
 
@@ -38,8 +38,8 @@ struct read_from_device {
     device_values read_value;
     
     struct {
-        device_operation_result op_result = device_operation_result::failure;
-        device_collection_operation collection_result = device_collection_operation::failed;
+        DeviceOperationResult op_result = DeviceOperationResult::failure;
+        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
     } result;
  };
 
@@ -48,8 +48,8 @@ struct write_to_device {
     device_values write_value;
     
     struct {
-        device_operation_result op_result = device_operation_result::failure;
-        device_collection_operation collection_result = device_collection_operation::failed;
+        DeviceOperationResult op_result = DeviceOperationResult::failure;
+        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
     } result;
 };
 
@@ -58,8 +58,8 @@ struct write_device_options {
     std::string_view jsonSettingValue;
 
     struct {
-        device_operation_result op_result = device_operation_result::failure;
-        device_collection_operation collection_result = device_collection_operation::failed;
+        DeviceOperationResult op_result = DeviceOperationResult::failure;
+        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
     } result;
 };
 
@@ -69,46 +69,46 @@ struct retrieve_device_info {
     size_t output_len = 0;
     
     struct {
-        device_operation_result op_result = device_operation_result::failure;
-        device_collection_operation collection_result = device_collection_operation::failed;
+        DeviceOperationResult op_result = DeviceOperationResult::failure;
+        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
     } result;
 };
 template<size_t N, typename ... DeviceDrivers>
-class device_settings final {
+class DeviceSettings final {
 public:
     static inline constexpr size_t num_devices = N;
 
     // TODO: handle registering and unregistering maybe with special resource class
-    device_settings() = default;
-    ~device_settings() = default;
+    DeviceSettings() = default;
+    ~DeviceSettings() = default;
 
-    using event_access_array_type = SmartAq::Utils::EventAccessArray<device_config, device<DeviceDrivers ...>, N, device_uid>;
-    using trivial_representation = typename event_access_array_type::TrivialRepresentationType;
+    using EventAccessArrayType = SmartAq::Utils::EventAccessArray<device_config, device<DeviceDrivers ...>, N, device_uid>;
+    using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
     template<typename T>
-    using filter_return_type = std::conditional_t<!
+    using FilterReturnType = std::conditional_t<!
         all_unique_v<T,
             add_device,
             remove_single_device,
             write_to_device,
-            write_device_options>, trivial_representation, ignored_event>;
+            write_device_options>, TrivialRepresentationType, ignored_event>;
 
-    device_settings &operator=(const trivial_representation &new_value);
+    DeviceSettings &operator=(const TrivialRepresentationType &new_value);
     
     // Ignore other read and write events
     template<typename T>
-    filter_return_type<T> dispatch(T &event) {}
+    FilterReturnType<T> dispatch(T &event) {}
 
     template<typename T>
     void dispatch(T &event) const {}
 
-    filter_return_type<add_device> dispatch(add_device &event);
+    FilterReturnType<add_device> dispatch(add_device &event);
 
-    filter_return_type<remove_single_device> dispatch(remove_single_device &event);
+    FilterReturnType<remove_single_device> dispatch(remove_single_device &event);
 
-    filter_return_type<write_to_device> dispatch(write_to_device &event);
+    FilterReturnType<write_to_device> dispatch(write_to_device &event);
 
-    filter_return_type<write_device_options> dispatch(write_device_options &event);
+    FilterReturnType<write_device_options> dispatch(write_device_options &event);
 
     void dispatch(read_from_device &event) const;
 
@@ -120,7 +120,7 @@ public:
 private:
     void initializeUpdater();
 
-    event_access_array_type m_data;
+    EventAccessArrayType m_data;
     task_pool<max_task_pool_size>::resource_type m_task_resource;
     std::once_flag initialized_updater_flag;
 
@@ -128,7 +128,7 @@ private:
 };
 
 template<size_t N, typename ... DeviceDrivers>
-device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::operator=(const trivial_representation &new_value) {
+DeviceSettings<N, DeviceDrivers ...> &DeviceSettings<N, DeviceDrivers ...>::operator=(const TrivialRepresentationType &new_value) {
     m_data.initialize(new_value, [](const auto &trivialValue, auto &currentRuntimeData) {
         currentRuntimeData = create_device<DeviceDrivers ...>(trivialValue);
         return currentRuntimeData.has_value();
@@ -141,7 +141,7 @@ device_settings<N, DeviceDrivers ...> &device_settings<N, DeviceDrivers ...>::op
 // TODO: this should be done in the constructor, also in the destructor, where the pointers are registered and deregistered
 // add helper function for that in the task_pool e.g. unregister_resource
 template<size_t N, typename ... DeviceDrivers>
-void device_settings<N, DeviceDrivers ...>::initializeUpdater() {
+void DeviceSettings<N, DeviceDrivers ...>::initializeUpdater() {
     std::call_once(initialized_updater_flag, [this]() {
         this->m_task_resource = task_pool<max_task_pool_size>::post_task(single_task{
             .single_shot = false,
@@ -153,8 +153,8 @@ void device_settings<N, DeviceDrivers ...>::initializeUpdater() {
 }
 
 template<size_t N, typename ... DeviceDrivers>
-void device_settings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
-    auto typeInstance = reinterpret_cast<device_settings<N, DeviceDrivers ...> *>(instance);
+void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
+    auto typeInstance = reinterpret_cast<DeviceSettings<N, DeviceDrivers ...> *>(instance);
 
     if (typeInstance == nullptr) {
         return;
@@ -167,7 +167,7 @@ void device_settings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) 
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto device_settings<N, DeviceDrivers ...>::dispatch(add_device &event) -> filter_return_type<add_device> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(add_device &event) -> FilterReturnType<add_device> {
     using ArrayEventType = SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid>;
     return m_data.dispatch(static_cast<ArrayEventType &>(event), 
         [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
@@ -179,60 +179,60 @@ auto device_settings<N, DeviceDrivers ...>::dispatch(add_device &event) -> filte
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto device_settings<N, DeviceDrivers ...>::dispatch(remove_single_device &event) -> filter_return_type<remove_single_device> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(remove_single_device &event) -> FilterReturnType<remove_single_device> {
     return m_data.dispatch(event);
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto device_settings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> filter_return_type<write_to_device> {
-    event.result.collection_result = device_collection_operation::index_invalid;
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> FilterReturnType<write_to_device> {
+    event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
         event.result.op_result = currentDevice.write_value(event.write_value);
-        event.result.collection_result = device_collection_operation::ok;
+        event.result.collection_result = DeviceCollectionOperation::ok;
     });
 
     return m_data.getTrivialRepresentation();
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto device_settings<N, DeviceDrivers ...>::dispatch(write_device_options &event) -> filter_return_type<write_to_device> {
-    event.result.collection_result = device_collection_operation::index_invalid;
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_device_options &event) -> FilterReturnType<write_to_device> {
+    event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         ESP_LOGI("Device_Settings", "Writing to device ...");
         event.result.op_result = currentDevice.write_options(event.jsonSettingValue);
-        event.result.collection_result = device_collection_operation::ok;
+        event.result.collection_result = DeviceCollectionOperation::ok;
     });
 
     return m_data.getTrivialRepresentation();
 }
 
 template<size_t N, typename ... DeviceDrivers>
-void device_settings<N, DeviceDrivers ...>::dispatch(read_from_device &event) const {
-    event.result.collection_result = device_collection_operation::index_invalid;
+void DeviceSettings<N, DeviceDrivers ...>::dispatch(read_from_device &event) const {
+    event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
         event.result.op_result = currentDevice.read_value(event.read_value);
-        event.result.collection_result = device_collection_operation::ok;
+        event.result.collection_result = DeviceCollectionOperation::ok;
     });
 }
 
 template<size_t N, typename ... DeviceDrivers>
-void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event) const {
-    event.result.collection_result = device_collection_operation::index_invalid;
+void DeviceSettings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event) const {
+    event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         ESP_LOGI("Device_Settings", "Reading from device ...");
         event.result.op_result = currentDevice.get_info(event.output_dst, event.output_len);
-        event.result.collection_result = device_collection_operation::ok;
+        event.result.collection_result = DeviceCollectionOperation::ok;
     });
 }
 
 template<size_t N, typename ... DeviceDrivers>
-void device_settings<N, DeviceDrivers ...>::dispatch(retrieve_device_overview &event) const {
+void DeviceSettings<N, DeviceDrivers ...>::dispatch(retrieve_device_overview &event) const {
     m_data.dispatch(event, [](auto &out, const auto &name, const auto &trivialValue, auto index, bool firstPrint) -> int {
         const char *format = ", { index : %u, description : %M, driver_name : %M }";
         return json_printf(&out, format + (firstPrint ? 1 : 0), 

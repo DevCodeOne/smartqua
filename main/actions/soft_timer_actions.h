@@ -96,12 +96,12 @@ auto soft_timer_settings<N>::dispatch(remove_timer &event) -> filter_return_type
 
 template<size_t N>
 void soft_timer_settings<N>::dispatch(retrieve_timer_info &event) const {
-    event.result.collection_result = device_collection_operation::index_invalid;
+    event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentTimer) {
         if (currentTimer.get_info()) {
             event.result.timer_info = *currentTimer.get_info();
-            event.result.collection_result = device_collection_operation::ok;
+            event.result.collection_result = DeviceCollectionOperation::ok;
         }
     });
 }

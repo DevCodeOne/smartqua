@@ -5,24 +5,24 @@
 loadcell::loadcell(const device_config *conf) : m_conf(conf), m_loadcell_resource(reinterpret_cast<loadcell_config *>(&m_conf->device_config)) {}
 
 // TODO: implement
-device_operation_result loadcell::write_value(const device_values &value) {
-    return device_operation_result::failure;
+DeviceOperationResult loadcell::write_value(const device_values &value) {
+    return DeviceOperationResult::failure;
 }
 
-device_operation_result loadcell::read_value(device_values &out) const {
-    return device_operation_result::failure;
+DeviceOperationResult loadcell::read_value(device_values &out) const {
+    return DeviceOperationResult::failure;
 }
 
-device_operation_result loadcell::write_device_options(const char *json_input, size_t input_len) {
-    return device_operation_result::failure;
+DeviceOperationResult loadcell::write_device_options(const char *json_input, size_t input_len) {
+    return DeviceOperationResult::failure;
 }
 
-device_operation_result loadcell::get_info(char *output, size_t output_buffer_len) const {
-    return device_operation_result::failure;
+DeviceOperationResult loadcell::get_info(char *output, size_t output_buffer_len) const {
+    return DeviceOperationResult::failure;
 }
 
-device_operation_result loadcell::update_runtime_data() {
-    return device_operation_result::ok;
+DeviceOperationResult loadcell::update_runtime_data() {
+    return DeviceOperationResult::ok;
 }
 
 std::optional<loadcell> loadcell::create_driver(const std::string_view input, device_config &device_conf_out) {

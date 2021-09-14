@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "esp_vfs.h"
 #include "esp_log.h"
 #include "ctre.hpp"
 
@@ -85,7 +84,7 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
     return true;
 }
 
-int64_t load_file_completly_into_buffer(std::string_view path, char *dst, size_t dst_len) {
+int64_t loadFileCompletelyIntoBuffer(std::string_view path, char *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
     stack_string<name_length * 4> pathCopy = path;
     auto opened_file = std::fopen(pathCopy.data(), "rb");
@@ -99,19 +98,23 @@ int64_t load_file_completly_into_buffer(std::string_view path, char *dst, size_t
     }
 
     std::fseek(opened_file, 0, SEEK_END);
-    auto file_size = std::ftell(opened_file);
+    const auto file_size = std::ftell(opened_file);
 
     if (file_size > dst_len) {
         return -1;
     }
 
     std::rewind(opened_file);
-    int64_t read_size = std::fread(dst, 1, file_size, opened_file);
+    const int64_t read_size = std::fread(dst, 1, file_size, opened_file);
+
+    if (read_size < dst_len && read_size > 0) {
+        dst[read_size] = '\0';
+    }
 
     return read_size;
 }
 
-bool safe_write_to_file(std::string_view path, std::string_view tmpExtension, std::string_view input) {
+bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::string_view input) {
     stack_string<name_length * 4> tmpPathCopy;
     copy_parent_directory(path.data(), tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity);
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
@@ -140,7 +143,7 @@ bool safe_write_to_file(std::string_view path, std::string_view tmpExtension, st
         const auto written = std::fwrite(reinterpret_cast<const void *>(input.data()), 1, input.length(), tmpTargetFile);
 
         if (written != input.length()) {
-            ESP_LOGI("save_write_to_file", "Didn't write enough bytes %d, %d", written, (int) input.length());
+            ESP_LOGW("save_write_to_file", "Didn't write enough bytes %d, %d", written, (int) input.length());
             return false;
         }
     }
