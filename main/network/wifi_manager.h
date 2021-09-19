@@ -73,6 +73,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         esp_wifi_set_mode(WIFI_MODE_STA);
         esp_wifi_set_config(wifi_interface_t::WIFI_IF_STA, &m_wifi_conf);
         esp_wifi_start();
+        esp_wifi_set_ps(wifi_ps_type_t::WIFI_PS_NONE);
     }
 
     ~wifi_manager() {

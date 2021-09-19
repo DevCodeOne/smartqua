@@ -196,7 +196,7 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
     }
 
     // Resource is already in use
-    if (found_resource->second != nullptr) {
+    if (found_resource->second != nullptr && found_resource->second.use_count() > 1) {
         return nullptr;
     }
 
@@ -220,6 +220,7 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
     return found_resource->second;
 }
 
+// TODO: fix search for free resources
 std::shared_ptr<timer_resource> device_resource::get_timer_resource(const timer_config &config) {
     std::lock_guard instance_guard{_instance_mutex};
 

@@ -148,6 +148,7 @@ void DeviceSettings<N, DeviceDrivers ...>::initializeUpdater() {
             .func_ptr = &updateDeviceRuntime,
             .interval = std::chrono::seconds(10),
             .argument = reinterpret_cast<void *>(this),
+            .description = "Device Updater thread"
         });
     });
 }

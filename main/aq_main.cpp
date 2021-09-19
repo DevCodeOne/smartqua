@@ -3,6 +3,7 @@
 #include "esp_spi_flash.h"
 #include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/portable.h"
 #include "freertos/task.h"
 #include "frozen.h"
 #include "nvs.h"
@@ -35,7 +36,9 @@ void init_timezone() {
     tzset();
 }
 
-void print_time(void *) {
+void print_health(void *) {
+    static auto earlierHeapUsage = decltype(xPortGetFreeHeapSize()){};
+
     std::time_t now;
     std::tm timeinfo;
     std::array<char, 64> timeout;
@@ -43,10 +46,14 @@ void print_time(void *) {
     localtime_r(&now, &timeinfo);
     strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
 
-    ESP_LOGI(log_tag, "Main Loop current time %s", timeout.data());
+    const auto currentFreeHeap = xPortGetFreeHeapSize();
+    ESP_LOGW(log_tag, "Current free heap space is %d, free heap down by %d bytes, time is %s", 
+        currentFreeHeap, currentFreeHeap - earlierHeapUsage, timeout.data());
+    earlierHeapUsage = currentFreeHeap;
 }
 
 void networkTask(void *pvParameters) {
+    ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
 
     sd_card_logger logger;
     logger.install_sd_card_logger();
@@ -154,8 +161,9 @@ void networkTask(void *pvParameters) {
 
     auto resource = task_pool<max_task_pool_size>::post_task(single_task{
         .single_shot = false,
-        .func_ptr = print_time,
-        .argument = nullptr
+        .func_ptr = print_health,
+        .argument = nullptr,
+        .description = "Heartbeat Thread"
     });
 
     task_pool<max_task_pool_size>::do_work();
@@ -164,6 +172,6 @@ void networkTask(void *pvParameters) {
 extern "C" {
 
 void app_main() {
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 12, nullptr, 5, nullptr, 1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 10, nullptr, 5, nullptr, 1);
 }
 }

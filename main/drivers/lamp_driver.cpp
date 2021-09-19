@@ -81,6 +81,7 @@ std::optional<LampDriver> LampDriver::create_driver(const std::string_view &inpu
     {
         LampDriverData newConf{};
 
+        // TODO: Channel names should be equivalent to the actual device_names
         json_scanf(input.data(), input.size(), "{ channel_names : %M, devices : %M }", 
         json_scanf_array<decltype(newConf.channelNames)>, &newConf.channelNames,
         json_scanf_array<decltype(newConf.deviceIndices)>, &newConf.deviceIndices);
@@ -157,9 +158,10 @@ bool LampDriver::loadAndUpdateSchedule(const std::string_view &input) {
     json_scanf(input.data(), input.size(), "{ schedule : %M }", json_scanf_single<LampDriver>, this);
     ESP_LOGI("LampDriver", "Writing schedule to %s", createdConf->scheduleName.data());
 
+    // TODO: maybe add Workaround for this
     if (!safeWriteToFile(createdConf->scheduleName, ".tmp", input)) {
         ESP_LOGE("LampDriver", "Failed to write schedule");
-        return false;
+        return true;
     }
     return true;
 }

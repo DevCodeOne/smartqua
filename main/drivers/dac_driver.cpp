@@ -61,6 +61,7 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     }
 
     const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
+    dacConf->value = targetValue;
 
     ESP_LOGI("DacDriver", "Setting new value %d", targetValue);
 
@@ -70,7 +71,6 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
         return DeviceOperationResult::failure;
     }
 
-    dacConf->value = targetValue;
 
     return DeviceOperationResult::ok;
 }

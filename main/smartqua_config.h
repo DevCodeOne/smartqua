@@ -38,6 +38,10 @@
 #define MAX_SETTING_SIZE 12
 #endif
 
+#ifndef REMOTE_SETTING_HOST
+#define REMOTE_SETTING_HOST "chris-pc.fritz.box"
+#endif
+
 static inline constexpr uint8_t name_length = NAME_LENGTH;
 
 static inline constexpr uint8_t max_pins_for_device = MAX_PINS_FOR_DEVICE;
@@ -55,3 +59,5 @@ static inline constexpr uint8_t max_task_pool_size = MAX_TASK_POOL_SIZE;
 static inline constexpr uint8_t max_stat_size = MAX_STAT_SIZE;
 
 static inline constexpr uint8_t max_setting_size = MAX_SETTING_SIZE;
+
+static inline constexpr char remote_setting_host [] = REMOTE_SETTING_HOST;

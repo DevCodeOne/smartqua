@@ -49,7 +49,7 @@ namespace Detail {
                 config.uri_match_fn = httpd_uri_match_wildcard;
                 config.stack_size = 4096 * 8;
                 config.max_uri_handlers = 16;
-                config.max_open_sockets = 2;
+                config.max_open_sockets = 1;
 
                 esp_err_t serverStart;
                 if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {

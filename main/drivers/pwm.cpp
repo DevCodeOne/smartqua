@@ -7,10 +7,10 @@
 #include "esp_log.h"
 #include "utils/utils.h"
 
-pwm::pwm(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
+PwmDriver::PwmDriver(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
-DeviceOperationResult pwm::write_value(const device_values &values) {
+DeviceOperationResult PwmDriver::write_value(const device_values &values) {
     auto *pwm_conf = reinterpret_cast<pwm_config *>(m_conf->device_config.data());
     esp_err_t result = ESP_FAIL;
 
@@ -33,25 +33,25 @@ DeviceOperationResult pwm::write_value(const device_values &values) {
 }
 
 // TODO: implement both
-DeviceOperationResult pwm::read_value(device_values &values) const {
+DeviceOperationResult PwmDriver::read_value(device_values &values) const {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult pwm::write_device_options(const char *json_input, size_t input_len) {
+DeviceOperationResult PwmDriver::write_device_options(const char *json_input, size_t input_len) {
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult pwm::update_runtime_data() {
+DeviceOperationResult PwmDriver::update_runtime_data() {
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult pwm::get_info(char *output_buffer, size_t output_buffer_len) const {
+DeviceOperationResult PwmDriver::get_info(char *output_buffer, size_t output_buffer_len) const {
     json_out out = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_printf(&out, "{}");
     return DeviceOperationResult::ok;
 }
 
-std::optional<pwm> pwm::create_driver(const device_config *config) {
+std::optional<PwmDriver> PwmDriver::create_driver(const device_config *config) {
     static std::once_flag init_fading{};
     std::call_once(init_fading, [](){ 
         ESP_LOGI("pwm_driver", "Initialized fading");
@@ -99,10 +99,10 @@ std::optional<pwm> pwm::create_driver(const device_config *config) {
 
     ESP_LOGI("pwm_driver", "create_driver added new device");
 
-    return std::make_optional(pwm{config, timer, gpio, channel});
+    return std::make_optional(PwmDriver{config, timer, gpio, channel});
 }
 
-std::optional<pwm> pwm::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<PwmDriver> PwmDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
     // Only prepare device_conf_out in this method and pass it along
     pwm_config new_conf{};
     int frequency = new_conf.timer_conf.frequency;

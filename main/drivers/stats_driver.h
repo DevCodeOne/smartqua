@@ -175,7 +175,8 @@ void stats_driver<N>::init_task() {
             .single_shot = false,
             .func_ptr = stats_driver<N>::stats_driver_task,
             .interval = std::chrono::minutes{1},
-            .argument = nullptr
+            .argument = nullptr,
+            .description = "Stats updater thread"
         });
     });
 }

@@ -63,6 +63,7 @@ struct single_task {
     task_func_type func_ptr = nullptr;
     std::chrono::seconds interval = std::chrono::seconds{5};
     void *argument = nullptr;
+    const char *description = "No Description";
     std::chrono::seconds last_executed = std::chrono::seconds{0};
 };
 
@@ -92,7 +93,9 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
     while (1) {
         bool sleepThisRound = false;
         {
-            ESP_LOGI(__PRETTY_FUNCTION__, "Loop");
+            if (index == 0) {
+                ESP_LOGI("TaskPool", "Iterated all threads starting at the front");
+            }
             auto seconds_since_epoch = 
             std::chrono::duration_cast<last_executed_type>(std::chrono::steady_clock::now().time_since_epoch());
 
@@ -102,11 +105,13 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
 
                 if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
 
-                    ESP_LOGI("task_pool", "Executing this task now");
+                    ESP_LOGI("task_pool", "=====================================[ In :%s ]======================================", current_task->description);
 
                     if (current_task->func_ptr != nullptr) {
                         current_task->func_ptr(current_task->argument);
                     }
+
+                    ESP_LOGI("task_pool", "=====================================[ Out : %s ] =====================================", current_task->description);
 
                     if (current_task->single_shot) {
                         current_task = std::nullopt;
@@ -117,12 +122,13 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
 
             }
             index = (index + 1) % _tasks.size();
-            sleepThisRound = index == 0 || !current_task.has_value();
+            // sleepThisRound = index == 0 || !current_task.has_value();
+            sleepThisRound = true;
         }
 
         if (sleepThisRound) {
             using namespace std::chrono_literals;
-            std::this_thread::sleep_for(1s);
+            std::this_thread::sleep_for(500ms);
         }
 
     }

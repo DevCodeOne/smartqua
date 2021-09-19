@@ -4,9 +4,11 @@
 #include <optional>
 #include <shared_mutex>
 #include <type_traits>
+#include <charconv>
 #include <cstdio>
 
 #include "esp_log.h"
+#include "esp_http_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "nvs_flash_utils.h"
@@ -15,36 +17,35 @@
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
 #include "utils/stack_string.h"
+#include "storage/rest_storage.h"
 #include "smartqua_config.h"
 
-enum struct setting_init { instant, lazy_load };
+enum struct SettingInitType { instant, lazy_load };
 
-using nvs_init = setting_init;
-
-template<typename SettingType, nvs_init InitType = nvs_init::lazy_load>
-class nvs_setting {
+template<typename SettingType, auto InitType = SettingInitType::lazy_load>
+class NvsSetting {
    public:
     static_assert(std::is_standard_layout_v<SettingType>,
         "SettingType has to conform to the standard layout concept");
 
     using setting_type = SettingType;
 
-    nvs_setting() { initialize(); }
+    NvsSetting() { initialize(); }
 
-    ~nvs_setting() {
+    ~NvsSetting() {
         if (m_initialized) {
             nvs_close(m_nvs_handle);
         }
     }
 
     void initialize() {
-        if (InitType == nvs_init::instant) {
+        if (InitType == SettingInitType::instant) {
             init_nvs();
         }
     }
 
     template <typename T>
-    nvs_setting &set_value(T new_value) {
+    NvsSetting &set_value(T new_value) {
         init_nvs();
 
         m_setting = new_value;
@@ -121,8 +122,8 @@ class nvs_setting {
     nvs_handle_t m_nvs_handle;
 };
 
-template<typename SettingType, setting_init InitType = setting_init::lazy_load>
-class sd_card_setting {
+template<typename SettingType, auto InitType = SettingInitType::lazy_load>
+class FilesystemSetting {
     public:
         static inline constexpr char folder_name [] = "binary_data";
 
@@ -131,18 +132,18 @@ class sd_card_setting {
 
         using setting_type = SettingType;
 
-        sd_card_setting() { initialize(); }
+        FilesystemSetting() { initialize(); }
 
-        ~sd_card_setting() = default;
+        ~FilesystemSetting() = default;
 
         void initialize() {
-            if (InitType == setting_init::instant) {
+            if (InitType == SettingInitType::instant) {
                 init_sd_card();
             }
         }
 
         template<typename T>
-        sd_card_setting &set_value(T new_value) {
+        FilesystemSetting &set_value(T new_value) {
             init_sd_card();
 
             m_setting = new_value;
@@ -174,7 +175,7 @@ class sd_card_setting {
         }
 
         FILE *open_tmp_file() {
-            std::array<char, 64> filename{'\0'};
+            stack_string<64> filename;
             copy_tmp_filename_to_buffer(filename);
 
             auto opened_file = std::fopen(filename.data(), "r+");
@@ -188,12 +189,11 @@ class sd_card_setting {
         }
 
         esp_err_t init_sd_card() {
-            ESP_LOGI("sd_card_setting", "Initializing sd card");
-
             if (m_initialized) {
                 return ESP_OK;
             }
 
+            ESP_LOGI("sd_card_setting", "Initializing sd card");
             if (!m_filesystem) {
                 m_filesystem = sd_filesystem{};
             }
@@ -278,14 +278,10 @@ class sd_card_setting {
             ESP_LOGI("sd_card_setting", "Writing to sd card");
 
             auto target_file = open_tmp_file();
-            DoFinally closeOp( [&target_file]() {
-                std::fclose(target_file);
-            });
+            rewind(target_file);
 
-            std::rewind(target_file);
-
-            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
-            std::fclose(target_file);
+            auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
+            fclose(target_file);
             ESP_LOGI("sd_card_setting", "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
 
             int rename_result = -1;
@@ -312,4 +308,66 @@ class sd_card_setting {
         bool m_initialized = false;
         std::optional<sd_filesystem> m_filesystem = std::nullopt;
         setting_type m_setting;
+};
+
+template<typename SettingType, typename EndPointSetting, typename NonRemoteSetting, SettingInitType InitType = SettingInitType::lazy_load>
+class RestRemoteSetting {
+    static_assert(std::is_standard_layout_v<SettingType>,
+        "SettingType has to conform to the standard layout concept");
+
+    RestRemoteSetting() {
+        if (InitType == SettingInitType::instant) {
+            retrieveInitialValue();
+        }
+    }
+
+    ~RestRemoteSetting() {
+    }
+
+    template<typename T>
+    RestRemoteSetting &set_value(const T &new_value) {
+        mValue = new_value;
+        restStorage.writeBinaryData(reinterpret_cast<const char *>(mValue), sizeof(mValue));
+
+        return *this;
+    }
+
+    template<typename T>
+    const auto &get_value(T new_value) {
+        retrieveInitialValue();
+
+        return mValue;
+    }
+
+    operator bool() const {
+        return isValid();
+    }
+
+    bool isValid() const {
+        return true;
+    }
+
+    template<size_t ArraySize>
+    static bool generateRestTarget(std::array<char, ArraySize> &dst) {
+        std::array<uint8_t, 6> mac;
+        esp_efuse_mac_get_default(mac.data());
+        snprintf(dst.data(), dst.size(), "%s/%02x-%02x-%02x-%02x-%02x-%02x-%s", 
+            remote_setting_host,
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+            SettingType::name);
+
+        // TODO: check return value
+        return true;
+    }
+
+    private:
+
+    void retrieveInitialValue() {
+        restStorage.retrieveBinaryData(reinterpret_cast<char *>(mValue), sizeof(mValue));
+    }
+
+    RestStorage<SettingType, RestDataType::Binary> restStorage;
+    SettingType mValue{};
+    std::array<char, 256> restTarget{};
+    bool initialized = false;
 };

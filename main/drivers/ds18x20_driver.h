@@ -17,19 +17,19 @@ struct ds18x20_driver_data final {
     ds18x20_addr_t addr;
 };
 
-class ds18x20_driver final {
+class Ds18x20Driver final {
     public:
         static inline constexpr char name[] = "ds18x20_driver";
 
-        ds18x20_driver(const ds18x20_driver &other) = delete;
-        ds18x20_driver(ds18x20_driver &&other);
-        ~ds18x20_driver();
+        Ds18x20Driver(const Ds18x20Driver &other) = delete;
+        Ds18x20Driver(Ds18x20Driver &&other);
+        ~Ds18x20Driver();
 
-        ds18x20_driver &operator=(const ds18x20_driver &other) = delete;
-        ds18x20_driver &operator=(ds18x20_driver &&other);
+        Ds18x20Driver &operator=(const Ds18x20Driver &other) = delete;
+        Ds18x20Driver &operator=(Ds18x20Driver &&other);
 
-        static std::optional<ds18x20_driver> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<ds18x20_driver> create_driver(const device_config *config);
+        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, device_config &device_conf_out);
+        static std::optional<Ds18x20Driver> create_driver(const device_config *config);
 
         DeviceOperationResult write_value(const device_values &value);
         DeviceOperationResult read_value(device_values &value) const;
@@ -37,7 +37,7 @@ class ds18x20_driver final {
         DeviceOperationResult write_device_options(const char *json_input, size_t input_len);
         DeviceOperationResult update_runtime_data();
     private:
-        ds18x20_driver(const device_config *conf, std::shared_ptr<gpio_resource> pin);
+        Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin);
 
         static bool add_address(ds18x20_addr_t address);
         static bool remove_address(ds18x20_addr_t address);

@@ -21,14 +21,14 @@ struct pwm_config {
     bool fade = false;
 };
 
-class pwm final {
+class PwmDriver final {
     public:
         static inline constexpr char name[] = "pwm_driver";
 
-        ~pwm() = default;
+        ~PwmDriver() = default;
 
-        static std::optional<pwm> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<pwm> create_driver(const device_config *config);
+        static std::optional<PwmDriver> create_driver(const std::string_view input, device_config &device_conf_out);
+        static std::optional<PwmDriver> create_driver(const device_config *config);
 
         DeviceOperationResult write_value(const device_values &value);
         DeviceOperationResult read_value(device_values &value) const;
@@ -36,7 +36,7 @@ class pwm final {
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult update_runtime_data();
     private:
-        pwm(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel);
+        PwmDriver(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel);
 
         const device_config *m_conf = nullptr;
         std::shared_ptr<timer_resource> m_timer = nullptr;

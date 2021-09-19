@@ -5,8 +5,8 @@
 #include "aq_main.h"
 
 json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
-    json_action_result result{ 0, json_action_result_value::failed };
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
+    json_action_result result{ 0, json_action_result_value::failed };
 
     if (!index.has_value()) {
         std::array<char, 1024> overview_buffer;
@@ -45,8 +45,8 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
 }
 
 json_action_result get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
-    json_action_result result{ 0, json_action_result_value::failed };
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
+    json_action_result result{ 0, json_action_result_value::failed };
 
     std::array<char, 1024> info_buffer;
     retrieve_device_info info{ .index = static_cast<unsigned int>(index) };
@@ -71,11 +71,11 @@ json_action_result get_device_info(unsigned int index, const char *input, size_t
 }
 
 json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+    json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result{ 0, json_action_result_value::failed };
     json_token token;
     json_token driver_type_token;
     json_token description_token;
-    json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
 
     json_scanf(input, input_len, "{ description : %T, driver_type : %T, driver_param : %T }", &description_token, &driver_type_token, &token);
 
@@ -102,10 +102,14 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
     global_store.writeEvent(to_add);
 
     if (to_add.result.collection_result == DeviceCollectionOperation::ok && to_add.result.index.has_value()) {
-        result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.index, "Ok added device");
+        if (output_buffer != nullptr && output_buffer_len != 0) {
+            result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.index, "Ok added device");
+        }
         result.result = json_action_result_value::successfull;
     } else {
-        result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
+        if (output_buffer != nullptr && output_buffer_len != 0) {
+            result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
+        }
         result.result = json_action_result_value::failed;
     }
 
@@ -143,8 +147,8 @@ json_action_result set_device_action(unsigned int index, char *input, size_t inp
 }
 
 json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len) {  
-    json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
+    json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     write_to_device to_write {};
     to_write.index = static_cast<size_t>(index);
     to_write.write_value = value;

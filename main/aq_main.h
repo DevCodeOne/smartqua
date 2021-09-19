@@ -18,18 +18,21 @@
 #include "drivers/lamp_driver.h"
 #include "drivers/setting_types.h"
 
-using device_settings_type = DeviceSettings<max_num_devices, ds18x20_driver, pwm, loadcell, DacDriver, LampDriver>;
-using soft_timer_settings_type = soft_timer_settings<max_num_timers>;
-using stat_collection_type = StatCollection<max_stat_size>;
-// using setting_type = settings<max_setting_size>;
+template<typename SettingType>
+using DefaultSaveType = FilesystemSetting<SettingType>;
+
+using DeviceSettingsType = DeviceSettings<max_num_devices, Ds18x20Driver, PwmDriver, loadcell, DacDriver, LampDriver>;
+using SoftTimerSettingsType = soft_timer_settings<max_num_timers>;
+using StatCollectionType = StatCollection<max_stat_size>;
+// using SettingType = settings<max_setting_size>;
 
 // TODO: add settings
 extern Store<
-    single_store<device_settings_type, sd_card_setting<device_settings_type::TrivialRepresentationType> >,
-    single_store<soft_timer_settings_type, sd_card_setting<soft_timer_settings_type::trivial_representation> >,
-    single_store<stat_collection_type, sd_card_setting<stat_collection_type::trivial_representation> >
-    // single_store<setting_type, sd_card_setting<setting_type::trivial_representation> >
+    SingleSetting<DeviceSettingsType, DefaultSaveType<DeviceSettingsType::TrivialRepresentationType> >,
+    SingleSetting<SoftTimerSettingsType, DefaultSaveType<SoftTimerSettingsType::trivial_representation> >,
+    SingleSetting<StatCollectionType, DefaultSaveType<StatCollectionType::trivial_representation> >
+    // SingleSetting<SettingType, DefaultSafeType<SettingType::trivial_representation> >
     > global_store;
 
 // TODO: make configurable
-using LargeBufferPoolType = LargeBufferPool<8, 4096, BufferLocation::stack>;
+using LargeBufferPoolType = LargeBufferPool<4, 4096, BufferLocation::stack>;
