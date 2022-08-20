@@ -41,7 +41,7 @@ void swap(gpio_resource &lhs, gpio_resource &rhs);
 
 struct timer_config {
     ledc_mode_t speed_mode = ledc_mode_t::LEDC_HIGH_SPEED_MODE;
-    ledc_timer_bit_t resolution = ledc_timer_bit_t::LEDC_TIMER_13_BIT;
+    ledc_timer_bit_t resolution = ledc_timer_bit_t::LEDC_TIMER_10_BIT;
     uint16_t frequency = 1000;
 };
 

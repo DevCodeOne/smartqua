@@ -1,5 +1,4 @@
 #include "esp_http_server.h"
-#include "esp_log.h"
 #include "esp_spi_flash.h"
 #include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
@@ -20,7 +19,7 @@
 #include "smartqua_config.h"
 #include "utils/idf_utils.h"
 #include "utils/sd_filesystem.h"
-#include "utils/sd_card_logger.h"
+#include "utils/logger.h"
 #include "aq_main.h"
 
 #include <chrono>
@@ -47,16 +46,18 @@ void print_health(void *) {
     strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
 
     const auto currentFreeHeap = xPortGetFreeHeapSize();
-    ESP_LOGW(log_tag, "Current free heap space is %d, free heap down by %d bytes, time is %s", 
-        currentFreeHeap, currentFreeHeap - earlierHeapUsage, timeout.data());
+    Logger::log(LogLevel::Warning, "Current free heap space is %d, free heap down by %d bytes, time is %s", 
+        currentFreeHeap,
+        currentFreeHeap - earlierHeapUsage,
+        timeout.data());
     earlierHeapUsage = currentFreeHeap;
 }
 
 void networkTask(void *pvParameters) {
+    // TODO: This first log should consider the device we are running this on (don't use esp-idf here)
     ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
 
-    sd_card_logger logger;
-    logger.install_sd_card_logger();
+    Logger::log(LogLevel::Info, "Installed general logger");
 
     wifi_config<WIFI_MODE_STA> config{
             .creds{
@@ -75,7 +76,7 @@ void networkTask(void *pvParameters) {
     init_timezone();
     wait_for_clock_sync();
 
-    // esp_log_level_set("*", ESP_LOG_WARN); 
+    // Logger::ignoreLogsBelow(LogLevel::Warning);
 
     global_store.initValues();
 
@@ -172,6 +173,6 @@ void networkTask(void *pvParameters) {
 extern "C" {
 
 void app_main() {
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 10, nullptr, 5, nullptr, 1);
+    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 8, nullptr, 5, nullptr, 1);
 }
 }

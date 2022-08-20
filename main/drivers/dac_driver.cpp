@@ -7,7 +7,6 @@
 #include <limits>
 #include <algorithm>
 
-#include "esp_log.h"
 #include "driver/dac.h"
 #include "frozen.h"
 
@@ -28,16 +27,16 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
     auto dacResource = device_resource::get_dac_resource(dacConf->channel);
 
     if (dacResource == nullptr) {
-        ESP_LOGW("DacDriver", "Couldn't get dac resource");
+        Logger::log(LogLevel::Warning, "Couldn't get dac resource");
         return std::nullopt;
     }
 
     if (dacConf == nullptr)  {
-        ESP_LOGW("DacDriver", "Dacconf isn't available");
+        Logger::log(LogLevel::Warning, "Dacconf isn't available");
         return std::nullopt;
     }
 
-    ESP_LOGI("DacDriver", "Created dac resource");
+    Logger::log(LogLevel::Info, "Created dac resource");
 
     return std::make_optional(DacDriver{config, dacResource});
 }
@@ -53,7 +52,7 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     if (!voltageValue.has_value() && value.percentage.has_value()) {
         static constexpr auto MaxPercentageValue = 100;
         const auto clampedPercentage = std::clamp<decltype(value.percentage)::value_type>(*value.percentage, 0, MaxPercentageValue);
-        voltageValue = static_cast<decltype(value.voltage)::value_type>((maxVoltage / MaxPercentageValue) * (clampedPercentage));
+        voltageValue = static_cast<decltype(value.voltage)::value_type>((maxVoltage / MaxPercentageValue) * clampedPercentage);
     }
 
     if (!voltageValue.has_value()) {
@@ -63,7 +62,7 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
     dacConf->value = targetValue;
 
-    ESP_LOGI("DacDriver", "Setting new value %d", targetValue);
+    Logger::log(LogLevel::Info, "Setting new value %d", targetValue);
 
     esp_err_t result = dac_output_voltage(m_dac->channel_num(), targetValue);
 
@@ -103,7 +102,7 @@ std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input,
     assignResult &= check_assign(newConf.value, value);
 
     if (!assignResult) {
-        ESP_LOGW("DacDriver", "Some value(s) were out of range");
+        Logger::log(LogLevel::Warning, "Some value(s) were out of range");
         return std::nullopt;
     }
     

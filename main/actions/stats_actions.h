@@ -81,7 +81,7 @@ auto StatCollection<N>::dispatch(set_stat &event) -> filter_return_type_t<set_st
         currentStat = std::nullopt;
         currentStat = driver_type::create_stat(jsonSettingValue, currentTrivialValue);
         if (!currentStat.has_value()) {
-            ESP_LOGW("stats_actions", "Couldn't create stat with data %s", jsonSettingValue.data());
+            Logger::log(LogLevel::Warning, "Couldn't create stat with data %s", jsonSettingValue.data());
         }
         return currentStat.has_value();
     });

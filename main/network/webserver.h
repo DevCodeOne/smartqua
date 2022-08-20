@@ -18,12 +18,12 @@
 #include "esp_https_server.h"
 #endif
 #include "esp_http_server.h"
-#include "esp_log.h"
 #include "esp_vfs_fat.h"
 
 #include "utils/web_utils.h"
 #include "utils/large_buffer_pool.h"
 #include "utils/ssl_credentials.h"
+#include "utils/logger.h"
 #include "aq_main.h"
 
 enum struct WebServerSecurityLevel {
@@ -55,13 +55,13 @@ namespace Detail {
                 if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {
                     switch (serverStart) {
                         case ESP_ERR_INVALID_ARG:
-                            ESP_LOGW("Webserver", "Couldn't start webserver (invalid arguments)");
+                            Logger::log(LogLevel::Error, "Couldn't start webserver (invalid arguments)");
                             break;
                         case ESP_ERR_HTTPD_ALLOC_MEM:
-                            ESP_LOGW("Webserver", "Couldn't start webserver (couldn't alloc mem)");
+                            Logger::log(LogLevel::Error, "Couldn't start webserver (couldn't alloc mem)");
                             break;
                         case ESP_ERR_HTTPD_TASK:
-                            ESP_LOGW("Webserver", "Couldn't start webserver (couldn't launch server task)");
+                            Logger::log(LogLevel::Error, "Couldn't start webserver (couldn't launch server task)");
                             break;
                     }
                 }
@@ -108,14 +108,14 @@ namespace Detail {
         config.httpd.ctrl_port = 1024;
 
         if (m_credentials) {
-            ESP_LOGI("Webserver", "Found SSL credentials trying to start a https server");
+            Logger::log(LogLevel::Info, "Found SSL credentials trying to start a https server");
             config.cacert_pem = reinterpret_cast<const uint8_t *>(m_credentials.cert_begin());
             config.cacert_len = m_credentials.cert_len();
             config.prvtkey_pem = reinterpret_cast<const uint8_t *>(m_credentials.key_begin());
             config.prvtkey_len = m_credentials.key_len();
             config.httpd.max_open_sockets = 1;
         } else {
-            ESP_LOGI("Webserver", "SSL credentials weren't found falling back to http server");
+            Logger::log(LogLevel::Info, "SSL credentials weren't found falling back to http server");
             config.transport_mode = HTTPD_SSL_TRANSPORT_INSECURE;
         }
 
@@ -225,7 +225,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     const char *base_path = static_cast<WebServer *>(req->user_ctx)->m_base_path;
 
     if (base_path == nullptr) {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Basepath isn't configured");
+        Logger::log(LogLevel::Error, "Basepath isn't configured");
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                             "Basepath isn't configured");
@@ -254,7 +254,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     }
 
     if (stat(filepath.data(), &tmp_stat) < 0) {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file or directory : %s", filepath.data());
+        Logger::log(LogLevel::Error, "Failed to open file or directory : %s", filepath.data());
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                             "Path doesn't exist");
@@ -266,7 +266,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     auto buffer = LargeBufferPoolType::get_free_buffer();
 
     if (!buffer.has_value()) {
-        ESP_LOGE(__PRETTY_FUNCTION__, "Failed to get buffer");
+        Logger::log(LogLevel::Error, "Failed to get buffer");
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                             "Failed to read existing file");
@@ -274,7 +274,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     }
 
     if (S_ISDIR(tmp_stat.st_mode)) {
-        ESP_LOGI(__PRETTY_FUNCTION__, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
+        Logger::log(LogLevel::Error, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
         // TODO: maybe add pagination for more results witzh telldir and seekdir
         auto directory = opendir(selected_path.data());
         dirent *current_entry = nullptr;
@@ -285,7 +285,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
         });
 
         if (directory == nullptr) {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open directory %s", selected_path.data());
+            Logger::log(LogLevel::Error, "Failed to open directory %s", selected_path.data());
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed open directory");
@@ -314,7 +314,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
         if (written_bytes != -1) {
             send_in_chunks(req, buffer->data(), written_bytes);
         } else {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Buffer was too small for website");
+            Logger::log(LogLevel::Error, "Buffer was too small for website");
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Buffer was too small for website");
@@ -322,7 +322,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
         }
         
     } else if (S_ISREG(tmp_stat.st_mode)) {
-        ESP_LOGI(__PRETTY_FUNCTION__, "Path is a file %s %s", selected_path.data(), request_uri.data());
+        Logger::log(LogLevel::Info, "Path is a file %s %s", selected_path.data(), request_uri.data());
         int fd = open(selected_path.data(), O_RDONLY, 0);
 
         DoFinally closeOp( [&fd]() {
@@ -330,13 +330,12 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
         });
 
         if (fd == -1) {
-            ESP_LOGE(__PRETTY_FUNCTION__, "Failed to open file : %s", filepath.data());
+            Logger::log(LogLevel::Warning, "Failed to open file : %s", filepath.data());
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed to read existing file");
             return ESP_FAIL;
         }
-
 
         setContentTypeFromFile(req, filepath.data());
 
@@ -347,13 +346,13 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
             /* Read file in chunks into the scratch buffer */
             read_bytes = read(fd, buffer->data(), max_chunk_size);
             if (read_bytes == -1) {
-                ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read file : %s", filepath.data());
+                Logger::log(LogLevel::Warning, "Failed to read file : %s", filepath.data());
             } else if (read_bytes > 0) {
                 /* Send the buffer contents as HTTP response chunk */
                 esp_err_t last_result = httpd_resp_send_chunk(req, buffer->data(), read_bytes);
 
                 if (last_result != ESP_OK) {
-                    ESP_LOGE(__PRETTY_FUNCTION__, "File sending failed! %s", filepath.data());
+                    Logger::log(LogLevel::Warning, "File sending failed! %s", filepath.data());
                     /* Abort sending file */
                     httpd_resp_send_chunk(req, nullptr, 0);
                     /* Respond with 500 Internal Server Error */
@@ -364,7 +363,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
                 }
             }
         } while (read_bytes > 0);
-        ESP_LOGI(__PRETTY_FUNCTION__, "File sending complete");
+        Logger::log(LogLevel::Info, "File sending complete");
         /* Respond with an empty chunk to signal HTTP response completion */
         httpd_resp_send_chunk(req, nullptr, 0);
     }

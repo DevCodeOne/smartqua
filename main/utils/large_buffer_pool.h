@@ -9,7 +9,8 @@
 #include <utility>
 #include <limits>
 
-#include "esp_log.h"
+#include "smartqua_config.h"
+#include "utils/logger.h"
 
 struct custom_delete {
     void operator()(void *ptr) { 
@@ -187,11 +188,11 @@ auto LargeBufferPool<NumBuffers, BufferSize, location>::get_free_buffer() -> std
     });
 
     if (!foundBuffer.has_value()) {
-        ESP_LOGW("large_buffer_pool", "Couldn't find free buffer");
+        Logger::log(LogLevel::Warning, "Couldn't find free buffer");
         return std::nullopt;
     }
 
-    ESP_LOGI("large_buffer_pool", "Gave away free buffer %p", foundBuffer->data());
+    Logger::log(LogLevel::Info, "Gave away free buffer %p", foundBuffer->data());
     return foundBuffer;
 }
 
@@ -207,11 +208,11 @@ bool LargeBufferPool<NumBuffers, BufferSize, location>::return_buffer(char *ptr)
     });
 
     if (!gaveBackBuffer) {
-        ESP_LOGE("large_buffer_pool", "Couldn't give back buffer %p", ptr);
+        Logger::log(LogLevel::Error, "Couldn't give back buffer %p", ptr);
         return false;
     }
 
-    ESP_LOGI("large_buffer_pool", "Got buffer %p back", ptr);
+    Logger::log(LogLevel::Info, "Got buffer %p back", ptr);
 
     return true;
 

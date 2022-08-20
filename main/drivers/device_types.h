@@ -4,8 +4,6 @@
 #include <optional>
 #include <string_view>
 
-#include "esp_log.h"
-
 #include "smartqua_config.h"
 #include "driver/gpio.h"
 #include "utils/json_utils.h"
@@ -15,7 +13,7 @@ enum struct DeviceOperationResult {
 };
 
 struct device_config { 
-    static inline constexpr char StorageName[] = "device_config";
+    static inline constexpr char StorageName[] = "DeviceConfig";
 
     stack_string<name_length> device_driver_name;
     // TODO: add method to write driver conf
@@ -45,7 +43,7 @@ struct read_from_json<device_values> {
             int result = json_scanf(input, input_len, format, &read_value);
             if (result > 0) {
                 opt_value = read_value;
-                ESP_LOGI("read_from_json<device_values>", "Writing to %s", format);
+                Logger::log(LogLevel::Info, "Writing to %s", format);
             }
         };
 

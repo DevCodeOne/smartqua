@@ -8,7 +8,6 @@
 #include <limits>
 
 #include "esp_event.h"
-#include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "freertos/event_groups.h"
@@ -66,7 +65,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         std::memcpy(m_wifi_conf.sta.password, m_config.creds.password.data(),
                     strlen(m_config.creds.password.data()));
 
-        ESP_LOGI(__PRETTY_FUNCTION__, "SSID: %s PASS: %s", m_wifi_conf.sta.ssid, m_wifi_conf.sta.password);
+        Logger::log(LogLevel::Info, "SSID: %s PASS: %s", m_wifi_conf.sta.ssid, m_wifi_conf.sta.password);
 
         m_wifi_conf.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
@@ -107,13 +106,13 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
                 static_cast<uint32_t>(thiz->m_config.reconnect_tries)) {
                 esp_wifi_connect();
                 thiz->retry_num++;
-                ESP_LOGW(__PRETTY_FUNCTION__, "Connection to the AP failed");
+                Logger::log(LogLevel::Warning, "Connection to the AP failed");
             } else {
                 xEventGroupSetBits(thiz->m_wifi_event_group, wifi_fail_bit);
             }
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-            ESP_LOGI(__PRETTY_FUNCTION__, "got ip:" IPSTR,
+            Logger::log(LogLevel::Info, "got ip:" IPSTR,
                      IP2STR(&event->ip_info.ip));
             thiz->retry_num = 0;
             xEventGroupSetBits(thiz->m_wifi_event_group, wifi_connected_bit);

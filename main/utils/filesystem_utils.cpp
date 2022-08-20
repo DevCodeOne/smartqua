@@ -6,11 +6,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "esp_log.h"
 #include "ctre.hpp"
 
-#include "utils.h"
-#include "stack_string.h"
+#include "utils/utils.h"
+#include "utils/logger.h"
+#include "utils/stack_string.h"
 #include "smartqua_config.h"
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
@@ -34,7 +34,6 @@ bool ensure_path_exists(const char *path, uint32_t mask) {
     bool path_exists = true;
     for (auto directory : ctre::range<directory_pattern>(path)) {
         std::string_view directoryView(directory.get<0>());
-        struct stat tmp_stat{};
 
         std::strncat(pathCopy.data(), directoryView.data(), directoryView.size());
         int result = mkdir(pathCopy.data(), mask);
@@ -93,7 +92,7 @@ int64_t loadFileCompletelyIntoBuffer(std::string_view path, char *dst, size_t ds
     });
 
     if (opened_file == nullptr) {
-        ESP_LOGW("load_file_completely_into_buffer", "Couldn't open file %s", pathCopy.data());
+        Logger::log(LogLevel::Error, "Couldn't open file %s", pathCopy.data());
         return -1;
     }
 
@@ -120,7 +119,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
     if (!pathExists) {
-        ESP_LOGW("save_write_to_file", "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
+        Logger::log(LogLevel::Error, "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
         return false;
     }
 
@@ -131,7 +130,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
     FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "w");
 
     if (tmpTargetFile == nullptr) {
-        ESP_LOGW("save_write_to_file", "Couldn't open file : %s", tmpPathCopy.data());
+        Logger::log(LogLevel::Error, "Couldn't open file : %s", tmpPathCopy.data());
         return false;
     }
 
@@ -143,7 +142,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
         const auto written = std::fwrite(reinterpret_cast<const void *>(input.data()), 1, input.length(), tmpTargetFile);
 
         if (written != input.length()) {
-            ESP_LOGW("save_write_to_file", "Didn't write enough bytes %d, %d", written, (int) input.length());
+            Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) input.length());
             return false;
         }
     }

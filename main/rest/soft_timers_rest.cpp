@@ -8,11 +8,13 @@
 
 #include "utils/web_utils.h"
 #include "actions/soft_timer_actions.h"
+#include "actions/stats_actions.h"
+#include "smartqua_config.h"
 
 static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/timers\/(?<index>[0-9]+)(?:\/(?<what>\w+)|\/)?)"};
 
 esp_err_t do_timers(httpd_req *req) {
-    ESP_LOGI("Timers_Rest", "Handle uri %s", req->uri);
+    Logger::log(LogLevel::Info, "Handle uri %s", req->uri);
     std::array<char, 2048> buf;
     json_action_result result{};
     auto [complete_match, index, what] = ctre::match<pattern>(req->uri);

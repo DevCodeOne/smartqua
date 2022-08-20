@@ -16,8 +16,6 @@
 #include <mutex>
 #include <type_traits>
 
-#include "esp_log.h"
-
 #include "smartqua_config.h"
 #include "actions/device_actions.h"
 #include "drivers/soft_timer_types.h"
@@ -26,6 +24,7 @@
 #include "utils/thread_utils.h"
 #include "utils/stack_string.h"
 #include "utils/time_utils.h"
+#include "utils/logger.h"
 
 template<typename DriverType>
 class soft_timer final {
@@ -111,7 +110,7 @@ bool soft_timer_driver<N>::add_timer(single_timer_settings *timer) {
     bool is_already_in_use = std::find(_data.timers.cbegin(), _data.timers.cend(), timer) != _data.timers.cend();
 
     if (is_already_in_use) {
-        ESP_LOGW("Soft_timer_driver", "Address already in use");
+        Logger::log(LogLevel::Warning, "Address already in use");
         return false;
     }
 
@@ -125,7 +124,7 @@ bool soft_timer_driver<N>::add_timer(single_timer_settings *timer) {
     }
 
     if (first_empty_space == _data.timers.size()) {
-        ESP_LOGW("Soft_timer_driver", "No space left");
+        Logger::log(LogLevel::Warning, "No Space left");
         return false;
     }
 
@@ -145,7 +144,7 @@ bool soft_timer_driver<N>::remove_timer(single_timer_settings *timer) {
         if (_data.timers[found_index] == timer) {
             _data.timers[found_index] = nullptr;
             _data.timers_executed[found_index] = false;
-            ESP_LOGI("Soft_timer_driver", "Removed address %p", timer);
+            Logger::log(LogLevel::Info, "Removed address %p", timer);
 
             break;
         }
@@ -156,7 +155,7 @@ bool soft_timer_driver<N>::remove_timer(single_timer_settings *timer) {
 
 template<size_t N>
 void soft_timer_driver<N>::handle_timers(void *) {
-    ESP_LOGI("Soft_timer_driver", "Entering handle_timers ...");
+    Logger::log(LogLevel::Info, "Entering handle_timers ...");
 
     wait_for_clock_sync();
 
@@ -169,7 +168,7 @@ void soft_timer_driver<N>::handle_timers(void *) {
 
         // Reset execution flags at the start of the day
         if (last_day_resetted != currentDayOfWeek) {
-            ESP_LOGI("Soft_timer_driver", "Resetting timer execution flags ... ");
+            Logger::log(LogLevel::Info, "Resetting timer execution flags ... ");
             std::unique_lock instance_guard{_instance_mutex};
             std::fill(_data.timers_executed.begin(), _data.timers_executed.end(), false);
             last_day_resetted = currentDayOfWeek;
@@ -185,29 +184,29 @@ void soft_timer_driver<N>::handle_timers(void *) {
             {
                 std::unique_lock instance_guard{_instance_mutex};
                 if (_data.timers[current_index] == nullptr) {
-                    // ESP_LOGI("Soft_timer_driver", "Timer is null %d %p", current_index, _data.timers[current_index]);
+                    Logger::log(LogLevel::Debug, "Timer is null %d %p", current_index, _data.timers[current_index]);
                     continue;
                 }
 
                 if (!_data.timers[current_index]->enabled) {
-                    // ESP_LOGI("Soft_timer_driver", "Timer is not enabled");
+                    Logger::log(LogLevel::Debug, "Soft_timer_driver", "Timer is not enabled");
                     continue;
                 }
 
                 // Already executed
                 if (_data.timers_executed[current_index]) {
-                    // ESP_LOGI("Soft_timer_driver", "Already executed this timer");
+                    Logger::log(LogLevel::Debug, "Already executed this timer");
                     continue;
                 }
 
                 // Is not active on this weekday
                 if (!(_data.timers[current_index]->weekday_mask & 1 << static_cast<int>(currentDayOfWeek))) {
-                    // ESP_LOGI("Soft_timer_driver", "Not active on this day");
+                    Logger::log(LogLevel::Debug, "Not active on this day");
                     continue;
                 }
 
                 if (current_time_in_seconds < std::chrono::seconds(_data.timers[current_index]->time_of_day)) {
-                    ESP_LOGI("Soft_timer_driver", "Not the time to trigger this timer %u %u", 
+                    Logger::log(LogLevel::Debug, "Not the time to trigger this timer %u %u", 
                         static_cast<uint32_t>(current_time_in_seconds.count()),
                         _data.timers[current_index]->time_of_day);
                     continue;
@@ -215,16 +214,16 @@ void soft_timer_driver<N>::handle_timers(void *) {
                 local_copy = *_data.timers[current_index];
             }
 
-            ESP_LOGI("Soft_timer_driver", "Executing action");
+            Logger::log(LogLevel::Info, "Executing action");
             auto result = set_device_action(local_copy.device_index,
                 local_copy.payload.data(), std::strlen(local_copy.payload.data()), nullptr, 0);
 
             if (result.result == json_action_result_value::successfull) {
                 std::unique_lock instance_guard{_instance_mutex};
                 _data.timers_executed[current_index] = true;
-                ESP_LOGI("Soft_timer_driver", "Executed action");
+                Logger::log(LogLevel::Info, "Executed action");
             } else {
-                ESP_LOGW("Soft_timer_driver", "Execution of timer wasn't successfull, retrying later");
+                Logger::log(LogLevel::Warning, "Execution of timer wasn't successfull, retrying later");
             }
 
             std::this_thread::sleep_until(loop_start + 2s);
@@ -251,7 +250,7 @@ auto soft_timer_driver<N>::create_timer(std::string_view input, single_timer_set
 
     // TODO: write payload to filesystem if it is too large instead of failing here
     if (payload.len + 1 > static_cast<int>(timer_settings.payload.size())) {
-        ESP_LOGW("Soft_timer_driver", "Payload was too large %d : %d", payload.len, timer_settings.payload.size());
+        Logger::log(LogLevel::Warning, "Payload was too large %d : %d", payload.len, timer_settings.payload.size());
         return std::nullopt;
     }
 

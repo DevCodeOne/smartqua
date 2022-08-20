@@ -105,14 +105,14 @@ bool stats_driver<N>::add_stat(single_stat_settings *settings) {
     }) != _data.stat_settings.end();
 
     if (is_already_in_use) {
-        ESP_LOGW("Soft_timer_driver", "Address already in use");
+        Logger::log(LogLevel::Warning, "Address already in use");
         return false; 
     }
 
     auto first_empty_space = std::find(_data.stat_settings.begin(), _data.stat_settings.end(), nullptr);
 
     if (first_empty_space == _data.stat_settings.end()) {
-        ESP_LOGW("stats_driver", "No space left");
+        Logger::log(LogLevel::Warning, "No space left");
         return false;
     }
 
@@ -135,7 +135,7 @@ bool stats_driver<N>::remove_stat(single_stat_settings *settings) {
         return false;
     }
 
-    ESP_LOGI("stats_driver", "Removed address %p", *result);
+    Logger::log(LogLevel::Info, "Removed address %p", *result);
     *result = nullptr;
     return true;
 }
@@ -160,7 +160,7 @@ auto stats_driver<N>::create_stat(std::string_view description, single_stat_sett
 template<size_t N>
 auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::optional<stat_type> {
     if (!stats_driver::add_stat(stat_settings)) {
-        ESP_LOGW("stats_driver", "Stat is already created");
+        Logger::log(LogLevel::Warning, "Stat is already created");
         return std::nullopt;
     }
 
@@ -170,7 +170,7 @@ auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::o
 template<size_t N>
 void stats_driver<N>::init_task() {
     std::call_once(_task_initialized, []{
-        ESP_LOGI("stats_driver", "Adding stats_task to task_pool");
+        Logger::log(LogLevel::Info, "Adding stats_task to task_pool");
         task_pool<max_task_pool_size>::post_task(single_task{
             .single_shot = false,
             .func_ptr = stats_driver<N>::stats_driver_task,
@@ -183,7 +183,7 @@ void stats_driver<N>::init_task() {
 
 template<size_t N>
 void stats_driver<N>::stats_driver_task(void *) {
-    ESP_LOGI("stats_driver", "Checking on stats");
+    Logger::log(LogLevel::Info, "Checking on stats");
     std::unique_lock instance_guard{_instance_mutex};
 
     std::tm timeinfo;
@@ -202,9 +202,9 @@ void stats_driver<N>::stats_driver_task(void *) {
     auto output_folder_exists = ensure_path_exists(out_path.data());
 
     if (output_folder_exists) {
-        ESP_LOGI("stats_driver", "Writing stats to folder : %s", out_path.data());
+        Logger::log(LogLevel::Info, "Writing stats to folder : %s", out_path.data());
     } else {
-        ESP_LOGE("stats_driver", "Folder : %s to write stats to couldn't be created", out_path.data());
+        Logger::log(LogLevel::Error, "Folder : %s to write stats to couldn't be created", out_path.data());
     }
 
     for (auto &current_stat : _data.stat_settings) {
@@ -216,7 +216,7 @@ void stats_driver<N>::stats_driver_task(void *) {
 
         if (time_since_last_measure < current_stat->stat_interval) {
 
-            ESP_LOGI("stats_driver", "Not yet taking stat of device %u, because %d < %d",
+            Logger::log(LogLevel::Info, "Not yet taking stat of device %u, because %d < %d",
                 current_stat->device_index,
                 static_cast<int32_t>(time_since_last_measure.count()),
                 static_cast<int32_t>(current_stat->stat_interval.count()));
@@ -226,7 +226,7 @@ void stats_driver<N>::stats_driver_task(void *) {
         auto result = get_devices_action(current_stat->device_index, nullptr, 0, data_out.data(), data_out.size() - 1);
 
         if (result.result == json_action_result_value::successfull) {
-            ESP_LOGI("stats_driver", "Got %s", data_out.data());
+            Logger::log(LogLevel::Info, "Got %s", data_out.data());
             data_out[result.answer_len] = '\0';
             current_stat->last_checked = minutes_since_midnight;
 
@@ -238,14 +238,14 @@ void stats_driver<N>::stats_driver_task(void *) {
             });
 
             if (output == nullptr) {
-                ESP_LOGE("stats_driver", "Couldn't open file: %s ", out_file.data());
+                Logger::log(LogLevel::Error, "Couldn't open file: %s ", out_file.data());
                 continue;
             }
 
             std::fprintf(output, "%u; \"%s\"", static_cast<uint32_t>(minutes_since_midnight.count()), data_out.data());
             std::fputc('\n', output);
 
-            ESP_LOGI("stats_driver", "Wrote to %s ", out_file.data());
+            Logger::log(LogLevel::Info, "Wrote to %s ", out_file.data());
         }
     }
 }

@@ -12,6 +12,8 @@
 #include <chrono>
 
 #include "utils/thread_utils.h"
+#include "utils/logger.h"
+#include "smartqua_config.h"
 
 using task_func_type = void(*)(void *);
 
@@ -94,7 +96,7 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
         bool sleepThisRound = false;
         {
             if (index == 0) {
-                ESP_LOGI("TaskPool", "Iterated all threads starting at the front");
+                Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
             }
             auto seconds_since_epoch = 
             std::chrono::duration_cast<last_executed_type>(std::chrono::steady_clock::now().time_since_epoch());
@@ -105,13 +107,13 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
 
                 if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
 
-                    ESP_LOGI("task_pool", "=====================================[ In :%s ]======================================", current_task->description);
+                    Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================", current_task->description);
 
                     if (current_task->func_ptr != nullptr) {
                         current_task->func_ptr(current_task->argument);
                     }
 
-                    ESP_LOGI("task_pool", "=====================================[ Out : %s ] =====================================", current_task->description);
+                    Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================", current_task->description);
 
                     if (current_task->single_shot) {
                         current_task = std::nullopt;

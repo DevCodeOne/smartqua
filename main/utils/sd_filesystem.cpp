@@ -3,15 +3,17 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "esp_err.h"
-#include "esp_log.h"
 #include "esp_vfs_fat.h"
 #include "hal/gpio_types.h"
 #include "sdmmc_cmd.h"
 #include "driver/sdmmc_host.h"
 
+#include "utils/logger.h"
+#include "smartqua_config.h"
+
 sd_filesystem::sd_filesystem() {
     std::call_once(initializeFlag, []() {
-        ESP_LOGI("SD_Filesystem", "Initializing sd card");
+        Logger::log(LogLevel::Info, "Initializing sd card");
         const esp_vfs_fat_sdmmc_mount_config_t mount_config {
                 .format_if_mount_failed = true,
                 .max_files = 32,
@@ -28,7 +30,7 @@ sd_filesystem::sd_filesystem() {
             sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
             slot_config.width = numPins;
 
-            ESP_LOGI("SD_Filesystem", "Trying to mount sd card");
+            Logger::log(LogLevel::Info, "Trying to mount sd card");
 
             auto result = esp_vfs_fat_sdmmc_mount(sd_filesystem::mount_point, &host, &slot_config, &mount_config, &_sd_data.card);
 
@@ -55,11 +57,11 @@ sd_filesystem::sd_filesystem() {
                 .max_transfer_sz = 4000
             };
 
-            ESP_LOGI("SD_Filesystem", "Trying to mount sd card");
+            Logger::log(LogLevel::Info, "Trying to mount sd card");
             auto initResult = spi_bus_initialize(spi_host_device_t(host.slot), &bus_cfg, SPI_DMA_CH_AUTO);
 
             if (initResult != ESP_OK) {
-                ESP_LOGW("SD_Filesystem", "Couldn't create spi bus");
+                Logger::log(LogLevel::Warning, "Couldn't create spi bus");
                 return initResult;
             }
 
@@ -75,21 +77,20 @@ sd_filesystem::sd_filesystem() {
 
 
         if ((initResult = tryHostWithPins(4)) != ESP_OK) {
-            ESP_LOGW("SD_Filesystem", "Failed to initialize card with slot_width 4 ...");
-
+            Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 4 ...");
         }
 
         if (initResult != ESP_OK && (initResult = tryHostWithPins(1)) != ESP_OK) {
-            ESP_LOGW("SD_Filesystem", "Failed to initialize card with slot_width 1 ...");
+            Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 1 ...");
 
         }
 
         if (initResult != ESP_OK && (initResult = trySpi()) != ESP_OK) {
-            ESP_LOGW("SD_Filesystem", "Failed to initialize card with spi giving up ...");
+            Logger::log(LogLevel::Warning, "Failed to initialize card with spi giving up ...");
         }
 
         if (initResult != ESP_OK) {
-            ESP_LOGE("SD_Filesystem", "Failed to initialize card");
+            Logger::log(LogLevel::Warning, "Failed to initialize card");
             return;
         }
 
@@ -97,7 +98,7 @@ sd_filesystem::sd_filesystem() {
 
         sdmmc_card_print_info(stdout, _sd_data.card);
 
-        ESP_LOGI("SD_Filesystem", "Initialized sd card");
+        Logger::log(LogLevel::Info, "Initialized sd card");
     });
 }
 

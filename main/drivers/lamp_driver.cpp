@@ -10,6 +10,7 @@
 #include "utils/filesystem_utils.h"
 #include "utils/sd_filesystem.h"
 #include "utils/idf_utils.h"
+#include "utils/logger.h"
 #include "aq_main.h"
 
 // TODO: maybe fix target value range 0-100
@@ -51,18 +52,18 @@ std::optional<LampDriver::ScheduleType::DayScheduleType> parseDaySchedule(const 
             if (auto channelIndex = driver.channelIndex(variableView)) {
                 timePointData.percentages[*channelIndex] = valueAsInt;
             } else {
-                ESP_LOGW("LampDriver", "Couldn't find channel %.*s", variableView.length(), variableView.data());
+                Logger::log(LogLevel::Warning, "Couldn't find channel %.*s", variableView.length(), variableView.data());
             }
 
             containsData = true;
         }
 
         if (containsData) {
-            // ESP_LOGI("LampDriver", "Inserting Timepoint into schedule");
+            Logger::log(LogLevel::Info, "Inserting Timepoint into schedule");
             generatedSchedule.insertTimePoint(std::make_pair(timeOfDay, timePointData));
         } else {
             const auto varsView = timePointMatch.get<vars_name>().to_view();
-            ESP_LOGW("LampDriver", "%.*s didn't cointain any parseable data", 
+            Logger::log(LogLevel::Warning, "%.*s didn't cointain any parseable data", 
                 varsView.length(), varsView.data());
         }
 
@@ -110,12 +111,13 @@ std::optional<LampDriver> LampDriver::create_driver(const std::string_view &inpu
         path_format, sd_filesystem::mount_point, timeinfo.tm_year, timeinfo.tm_yday);
 
     if (result < 0) {
-        ESP_LOGE("LampDriver", "Path to write the schedule to was too long");
+        Logger::log(LogLevel::Warning, "Path to write the schedule to was too long");
         return std::nullopt;
     }
     
     LampDriver driver(&device_conf_out);
     if (!driver.loadAndUpdateSchedule(input)) {
+        Logger::log(LogLevel::Warning, "Couldn't load and update schedule");
         return std::nullopt;
     }
 
@@ -131,20 +133,25 @@ std::optional<LampDriver> LampDriver::create_driver(const device_config *device_
     auto buffer = LargeBufferPoolType::get_free_buffer();
 
     if (!buffer.has_value()) {
+        Logger::log(LogLevel::Warning, "Couldn't get a free buffer");
         return std::nullopt;
     }
 
+    LampDriver driver(device_conf_out);
     auto result = loadFileCompletelyIntoBuffer(createdConf->scheduleName, buffer->data(), buffer->size());
 
-    if (result == -1) {
-        ESP_LOGW("LampDriver", "Couldn't open schedule file %s", createdConf->scheduleName.data());
+    if (result <= 0) {
+        result = driver.remoteSchedule.retrieveData(buffer->data(), buffer->size());
+    }
+
+    if (result <= 0) {
+        Logger::log(LogLevel::Warning, "Couldn't open schedule file %s", createdConf->scheduleName.data());
         return std::nullopt;
     }
 
     std::string_view bufferView(buffer->data(), safe_strlen(buffer->data(), buffer->size()));
 
-    ESP_LOGI("LampDriver", "Parsing schedule %*s", (int) bufferView.length(), bufferView.data());
-    LampDriver driver(device_conf_out);
+    Logger::log(LogLevel::Info, "Parsing schedule %*s", (int) bufferView.length(), bufferView.data());
 
     if (!driver.loadAndUpdateSchedule(bufferView)) {
         return std::nullopt;
@@ -156,12 +163,12 @@ std::optional<LampDriver> LampDriver::create_driver(const device_config *device_
 bool LampDriver::loadAndUpdateSchedule(const std::string_view &input) {
     auto createdConf = reinterpret_cast<const LampDriverData *>(mConf->device_config.data());
     json_scanf(input.data(), input.size(), "{ schedule : %M }", json_scanf_single<LampDriver>, this);
-    ESP_LOGI("LampDriver", "Writing schedule to %s", createdConf->scheduleName.data());
+    Logger::log(LogLevel::Info, "Writing schedule to %s", createdConf->scheduleName.data());
 
     // TODO: maybe add Workaround for this
-    if (!safeWriteToFile(createdConf->scheduleName, ".tmp", input)) {
-        ESP_LOGE("LampDriver", "Failed to write schedule");
-        return true;
+    if (!(safeWriteToFile(createdConf->scheduleName, ".tmp", input) || remoteSchedule.writeData(input.data(), input.size()))) {
+        Logger::log(LogLevel::Warning, "Failed to write schedule");
+        return false;
     }
     return true;
 }
@@ -204,8 +211,26 @@ DeviceOperationResult LampDriver::write_device_options(const char *json_input, s
 }
 
 DeviceOperationResult LampDriver::update_runtime_data() {
+    return update_values(retrieveCurrentValues());
+}
+
+DeviceOperationResult LampDriver::update_values(const std::array<std::optional<int>, NumChannels> &values) {
+    auto lampDriverConf = reinterpret_cast<const LampDriverData *>(mConf->device_config.data());
+
+    for (unsigned int i = 0; i < values.size(); ++i) {
+        const auto &currentDeviceIndex = lampDriverConf->deviceIndices[i];
+        if (currentDeviceIndex) {
+            auto setResult = set_device_action(*currentDeviceIndex, device_values{.percentage = *values[*currentDeviceIndex]}, nullptr, 0);
+        }
+    }
+    return DeviceOperationResult::ok;
+
+}
+
+std::array<std::optional<int>, NumChannels> LampDriver::retrieveCurrentValues() {
+    std::array<std::optional<int>, NumChannels> values;
     if (mConf == nullptr) {
-        return DeviceOperationResult::failure;
+        return values;
     }
 
     auto lampDriverConf = reinterpret_cast<const LampDriverData *>(mConf->device_config.data());
@@ -219,7 +244,7 @@ DeviceOperationResult LampDriver::update_runtime_data() {
     for (uint8_t i = 0; i < std::tuple_size<decltype(decltype(schedule)::TimePointDataType::percentages)>::value; ++i) {
         const auto &currentChannelName = lampDriverConf->channelNames[i];
         const auto &currentDeviceIndex = lampDriverConf->deviceIndices[i];
-        if (currentChannelName && currentDeviceIndex) {
+        if (currentChannelName.has_value() && currentDeviceIndex.has_value()) {
             if (currentTimePoint && currentTimePoint->second.percentages[i]
                 && nextTimePoint && nextTimePoint->second.percentages[i]) {
                 const auto difference = static_cast<int>(*nextTimePoint->second.percentages[i]) - static_cast<int>(*currentTimePoint->second.percentages[i]);
@@ -232,14 +257,13 @@ DeviceOperationResult LampDriver::update_runtime_data() {
                 const auto interpolationFactor = std::fabs(currentTimePointInEffectSince.count() / static_cast<float>(timeDifference.count()));
 
                 const auto newValue = *currentTimePoint->second.percentages[i] + difference * interpolationFactor;
-                ESP_LOGI("LampDriver", "%.*s(%d)=%f , interpFactor=%f",
+                Logger::log(LogLevel::Info, "%.*s(%d)=%f , interpFactor=%f",
                     (int) lampDriverConf->channelNames[i]->len(), lampDriverConf->channelNames[i]->data(), *currentDeviceIndex,
                     newValue, interpolationFactor);
 
-                auto result = set_device_action(*currentDeviceIndex, device_values{.percentage = newValue}, nullptr, 0);
-                // TODO: handle result
+                values[i] = newValue;
             }
         }
     }
-    return DeviceOperationResult::ok;
+    return values;
 }

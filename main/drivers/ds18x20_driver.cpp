@@ -5,7 +5,6 @@
 
 #include "frozen.h"
 #include "ds18x20.h"
-#include "esp_log.h"
 
 #include "smartqua_config.h"
 
@@ -14,7 +13,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const device_config *c
     auto pin = device_resource::get_gpio_resource(driver_data->gpio, gpio_purpose::bus);
 
     if (!pin) {
-        ESP_LOGW("ds18x20_driver", "GPIO pin couldn't be reserved");
+        Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
         return std::nullopt;
     }
 
@@ -23,19 +22,19 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const device_config *c
     auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(driver_data->gpio), sensor_addresses.data(), max_num_devices);
 
     if (detected_sensors < 1) {
-        ESP_LOGI("ds18x20_driver", "Didn't find any devices on gpio : %u", driver_data->gpio);
+        Logger::log(LogLevel::Warning, "Didn't find any devices on gpio : %u", driver_data->gpio);
         return std::nullopt;
     }
 
     auto result = std::find(sensor_addresses.cbegin(), sensor_addresses.cend(), driver_data->addr);
 
     if (result == sensor_addresses.cend()) {
-        ESP_LOGI("ds18x20_driver", "Didn't this specific device");
+        Logger::log(LogLevel::Warning, "Didn't this specific device");
         return std::nullopt;
     }*/
 
     if (!add_address(driver_data->addr)) {
-        ESP_LOGW("ds18x20_driver", "The device is already in use");
+        Logger::log(LogLevel::Warning, "The device is already in use");
         return std::nullopt;
     }
     
@@ -46,24 +45,24 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
     int gpio_num = -1;
     json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpio_num);
-    ESP_LOGI("ds18x20_driver", "gpio_num : %d", gpio_num);
+    Logger::log(LogLevel::Info, "gpio_num : %d", gpio_num);
 
     if (gpio_num == -1) {
-        ESP_LOGW("ds18x20_driver", "Invalid gpio num : %d", gpio_num);
+        Logger::log(LogLevel::Warning, "Invalid gpio num : %d", gpio_num);
         return std::nullopt;
     }
 
     auto pin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), gpio_purpose::bus);
 
     if (!pin) {
-        ESP_LOGW("ds18x20_driver", "GPIO pin couldn't be reserved");
+        Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
         return std::nullopt;
     }
 
     auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices);
 
     if (detected_sensors < 1) {
-        ESP_LOGW("ds18x20_driver", "Didn't find any devices on port : %d", gpio_num);
+        Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d", gpio_num);
         return std::nullopt;
     }
 
@@ -80,7 +79,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
         return std::nullopt;
     }
 
-    ESP_LOGI("ds18x20_driver", "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
+    Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
 
     ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
     std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
@@ -118,13 +117,13 @@ DeviceOperationResult Ds18x20Driver::write_value(const device_values &value) {
 DeviceOperationResult Ds18x20Driver::read_value(device_values &value) const {
     const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
     float temperature = 0.0f;
-    ESP_LOGI("ds18x20_driver", "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
+    Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
         static_cast<uint32_t>(config->addr >> 32),
         static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
 
     auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
 
-    ESP_LOGI("ds18x20_driver", "Read temperature : %d", static_cast<int>(temperature * 1000));
+    Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
 
     if (result != ESP_OK) {
         return DeviceOperationResult::failure;
@@ -158,7 +157,7 @@ bool Ds18x20Driver::add_address(ds18x20_addr_t address) {
         });
 
     if (adress_already_exists) {
-        ESP_LOGW("ds18x20_driver", "No new address, don't add this address");
+        Logger::log(LogLevel::Warning, "No new address, don't add this address");
         return false;
     }
 

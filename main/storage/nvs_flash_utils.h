@@ -1,11 +1,12 @@
 #pragma once
 
-#include <mutex>
 #include <shared_mutex>
 
-#include "esp_log.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+
+#include "utils/logger.h"
+#include "smartqua_config.h"
 
 class nvs_flash {
    public:
@@ -25,7 +26,7 @@ class nvs_flash {
         }
 
         _initialized = err == ESP_OK;
-        ESP_LOGI("nvs_flash", "Initialized nvs");
+        Logger::log(LogLevel::Info, "Initialized nvs");
     }
 
     ~nvs_flash() = default;

@@ -7,7 +7,6 @@
 #include <charconv>
 #include <cstdio>
 
-#include "esp_log.h"
 #include "esp_http_client.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -16,12 +15,14 @@
 #include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
+#include "utils/logger.h"
 #include "utils/stack_string.h"
 #include "storage/rest_storage.h"
 #include "smartqua_config.h"
 
 enum struct SettingInitType { instant, lazy_load };
 
+#if TARGET_DEVICE == ESP32
 template<typename SettingType, auto InitType = SettingInitType::lazy_load>
 class NvsSetting {
    public:
@@ -70,7 +71,7 @@ class NvsSetting {
         m_flash = nvs_flash{};
 
         if (!*m_flash) {
-            ESP_LOGE("Setting", "Nvs flash isn't initialized");
+            Logger::log(LogLevel::Error, "Nvs flash isn't initialized");
             return ESP_FAIL;
         }
 
@@ -78,7 +79,7 @@ class NvsSetting {
             nvs_open(SettingType::name, NVS_READWRITE, &m_nvs_handle);
 
         m_initialized = err == ESP_OK;
-        ESP_LOGW("Setting", "Couldn't initialize nvs setting");
+        Logger::log(LogLevel::Warning, "Couldn't initialize nvs setting");
         if (err != ESP_OK) {
             return err;
         }
@@ -87,7 +88,7 @@ class NvsSetting {
     }
 
     esp_err_t store_to_nvs() {
-        ESP_LOGI("Setting", "Writing to nvs");
+        Logger::log(LogLevel::Info, "Writing to nvs");
 
         esp_err_t err = nvs_set_blob(m_nvs_handle, SettingType::name,
                                      reinterpret_cast<void *>(&m_setting),
@@ -103,7 +104,7 @@ class NvsSetting {
     }
 
     esp_err_t load_from_nvs() {
-        ESP_LOGI("Setting", "Loading from nvs");
+        Logger::log(LogLevel::Info, "Loading from nvs");
 
         size_t struct_size = sizeof(SettingType);
         esp_err_t err =
@@ -121,6 +122,7 @@ class NvsSetting {
     std::optional<nvs_flash> m_flash;
     nvs_handle_t m_nvs_handle;
 };
+#endif
 
 template<typename SettingType, auto InitType = SettingInitType::lazy_load>
 class FilesystemSetting {
@@ -193,13 +195,13 @@ class FilesystemSetting {
                 return ESP_OK;
             }
 
-            ESP_LOGI("sd_card_setting", "Initializing sd card");
+            Logger::log(LogLevel::Info, "Initializing sd card");
             if (!m_filesystem) {
                 m_filesystem = sd_filesystem{};
             }
 
             if (!m_filesystem.value()) {
-                ESP_LOGE("sd_card_setting", "Filesystem is not valid");
+                Logger::log(LogLevel::Error, "Filesystem is not valid");
                 return ESP_FAIL;
             }
 
@@ -207,14 +209,14 @@ class FilesystemSetting {
             auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", sd_filesystem::mount_point, folder_name);
 
             if (result < 0) {
-                ESP_LOGE("sd_card_setting", "Couldn't write folder path");
+                Logger::log(LogLevel::Error, "Couldn't write folder path");
                 return ESP_FAIL;
             }
 
             bool out_folder_exists = ensure_path_exists(out_path.data());
 
             if (!out_folder_exists) {
-                ESP_LOGE("sd_card_setting", "Couldn't create folder structure");
+                Logger::log(LogLevel::Error, "Couldn't create folder structure");
                 return ESP_FAIL;
             }
 
@@ -224,7 +226,7 @@ class FilesystemSetting {
             });
 
             if (!target_file) {
-                ESP_LOGE("sd_card_setting", "Couldn't open target file");
+                Logger::log(LogLevel::Error, "Couldn't open target file");
                 return ESP_FAIL;
             }
 
@@ -238,7 +240,7 @@ class FilesystemSetting {
                 return ESP_FAIL;
             }
 
-            ESP_LOGI("sd_card_setting", "Loading from sd card");
+            Logger::log(LogLevel::Info, "Loading from sd card");
             std::array<char, 64> filename{'\0'};
             copy_filename_to_buffer(filename);
             auto opened_file = std::fopen(filename.data(), "r+");
@@ -247,7 +249,7 @@ class FilesystemSetting {
             });
 
             if (!opened_file) {
-                ESP_LOGW("sd_card_setting", "There is no file to read from");
+                Logger::log(LogLevel::Warning, "There is no file to read from");
                 return ESP_FAIL;
             }
 
@@ -255,7 +257,7 @@ class FilesystemSetting {
             auto file_size = std::ftell(opened_file);
 
             if (file_size != sizeof(setting_type)) {
-                ESP_LOGW("sd_card_setting", "File size of %s is %d and that isn't the correct size %d", 
+                Logger::log(LogLevel::Warning, "File size of %s is %d and that isn't the correct size %d", 
                     SettingType::name,
                     static_cast<int>(file_size),
                     static_cast<int>(sizeof(setting_type)));
@@ -265,7 +267,7 @@ class FilesystemSetting {
             std::fseek(opened_file, 0, SEEK_SET);
             auto read_size = fread(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, opened_file);
 
-            ESP_LOGI("sd_card_setting", "Read %d bytes from the sd card", read_size * sizeof(setting_type));
+            Logger::log(LogLevel::Info, "Read %d bytes from the sd card", read_size * sizeof(setting_type));
 
             return read_size == 1;
         }
@@ -275,14 +277,14 @@ class FilesystemSetting {
                 return ESP_FAIL;
             }
 
-            ESP_LOGI("sd_card_setting", "Writing to sd card");
+            Logger::log(LogLevel::Info, "Writing to sd card");
 
             auto target_file = open_tmp_file();
             rewind(target_file);
 
             auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
             fclose(target_file);
-            ESP_LOGI("sd_card_setting", "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
+            Logger::log(LogLevel::Info, "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
 
             int rename_result = -1;
             if (written_size == 1) {
@@ -292,14 +294,14 @@ class FilesystemSetting {
                 copy_tmp_filename_to_buffer(tmp_filename);
                 copy_filename_to_buffer(filename);
                 std::remove(filename.data());
-                ESP_LOGI("sd_card_setting", "Renaming %s to %s", tmp_filename.data(), filename.data());
+                Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename.data(), filename.data());
                 rename_result = std::rename(tmp_filename.data(), filename.data());
             } else {
-                ESP_LOGE("sd_card_setting", "Setting couldn't be written skipping renaming to real file to avoid issues");
+                Logger::log(LogLevel::Warning, "Setting couldn't be written skipping renaming to real file to avoid issues");
             }
 
             if (rename_result < 0) {
-                ESP_LOGE("sd_card_setting", "Couldn't rename file");
+                Logger::log(LogLevel::Error, "Couldn't rename file");
             }
 
             return written_size == 1 && rename_result >= 0;
@@ -310,64 +312,61 @@ class FilesystemSetting {
         setting_type m_setting;
 };
 
-template<typename SettingType, typename EndPointSetting, typename NonRemoteSetting, SettingInitType InitType = SettingInitType::lazy_load>
+template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>
 class RestRemoteSetting {
-    static_assert(std::is_standard_layout_v<SettingType>,
-        "SettingType has to conform to the standard layout concept");
+    public:
+        static_assert(std::is_standard_layout_v<SettingType>,
+            "SettingType has to conform to the standard layout concept");
 
-    RestRemoteSetting() {
-        if (InitType == SettingInitType::instant) {
-            retrieveInitialValue();
+        RestRemoteSetting() {
+            if (InitType == SettingInitType::instant) {
+                retrieveInitialValue();
+            }
         }
-    }
 
-    ~RestRemoteSetting() {
-    }
+        ~RestRemoteSetting() = default;
 
-    template<typename T>
-    RestRemoteSetting &set_value(const T &new_value) {
-        mValue = new_value;
-        restStorage.writeBinaryData(reinterpret_cast<const char *>(mValue), sizeof(mValue));
+        template<typename T>
+        RestRemoteSetting &set_value(const T &new_value) {
+            mValue = new_value;
+            restStorage.writeData(reinterpret_cast<const char *>(&mValue), sizeof(mValue));
 
-        return *this;
-    }
+            return *this;
+        }
 
-    template<typename T>
-    const auto &get_value(T new_value) {
-        retrieveInitialValue();
+        const auto &get_value() {
+            retrieveInitialValue();
 
-        return mValue;
-    }
+            return mValue;
+        }
 
-    operator bool() const {
-        return isValid();
-    }
+        operator bool() const {
+            return isValid();
+        }
 
-    bool isValid() const {
-        return true;
-    }
+        bool isValid() const {
+            return true;
+        }
 
-    template<size_t ArraySize>
-    static bool generateRestTarget(std::array<char, ArraySize> &dst) {
-        std::array<uint8_t, 6> mac;
-        esp_efuse_mac_get_default(mac.data());
-        snprintf(dst.data(), dst.size(), "%s/%02x-%02x-%02x-%02x-%02x-%02x-%s", 
-            remote_setting_host,
-            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-            SettingType::name);
+        template<size_t ArraySize>
+        static bool generateRestTarget(std::array<char, ArraySize> &dst) {
+            std::array<uint8_t, 6> mac;
+            esp_efuse_mac_get_default(mac.data());
+            snprintf(dst.data(), dst.size(), "http://%s/values/%02x-%02x-%02x-%02x-%02x-%02x-%s", 
+                remote_setting_host,
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                SettingType::name);
 
-        // TODO: check return value
-        return true;
-    }
+            // TODO: check return value
+            return true;
+        }
 
     private:
 
-    void retrieveInitialValue() {
-        restStorage.retrieveBinaryData(reinterpret_cast<char *>(mValue), sizeof(mValue));
-    }
+        void retrieveInitialValue() {
+            restStorage.retrieveData(reinterpret_cast<char *>(&mValue), sizeof(mValue));
+        }
 
-    RestStorage<SettingType, RestDataType::Binary> restStorage;
-    SettingType mValue{};
-    std::array<char, 256> restTarget{};
-    bool initialized = false;
+        RestStorage<RestRemoteSetting, RestDataType::Binary> restStorage;
+        SettingType mValue{};
 };

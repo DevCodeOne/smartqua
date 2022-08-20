@@ -33,12 +33,14 @@ REST-API
 <!-- Custom functions, which also control devices -->
 /custom_functions
 
-Rules
+# Basic Ideas
 
 1. Everything which is not a function, custom_function or timer is a device
 2. Every device can be controlled by everything else
 
 TODO:
+
+- Add possibillity to initialize values for preconfigured devices, which can't be deleted or changed (for lamps or scales)
 
 - Write code for soft_timer_settings and related soft_timer code [X]
 - Devices:
@@ -113,3 +115,43 @@ One-Wire
 
 General Purpose
     - GPIO 15, 16, 17, 27, 32, 33, 34, 35
+
+New Idea:
+
+Modules wich are connected via SPI:
+
+Have Info struct:
+
+// Max 255 device types
+enum DeviceType : std::uint8_t {
+    None,
+    PWM,
+    Switch,
+    Temperature,
+    Voltage,
+
+}
+
+// DeviceValue can contain the following values:
+union DeviceValue {
+    std::uint8_t percentage;
+    std::uint8_t temperature;
+    std::uint8_t voltage;
+    std::uint8_t watts;
+    std::uint8_t ampere;
+};
+
+// Should contain devices
+struct DeviceInfo {
+    std::array<DeviceType, 8> channels;
+} __attribute__((packed));
+
+// Read
+struct DeviceRead {
+    std::array<DeviceValue, 8> channels;
+} __attribute__((packed));
+
+// Write
+struct DeviceWrite {
+    std::array<DeviceValue, 8> channels;
+} __attribute__((packed));

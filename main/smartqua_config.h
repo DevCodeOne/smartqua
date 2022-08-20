@@ -39,7 +39,14 @@
 #endif
 
 #ifndef REMOTE_SETTING_HOST
-#define REMOTE_SETTING_HOST "chris-pc.fritz.box"
+#define REMOTE_SETTING_HOST "nextcloud.fritz.box:9000"
+#endif
+
+#define RPI0        0
+#define ESP32       1
+
+#ifndef TARGET_DEVICE
+#define TARGET_DEVICE ESP32
 #endif
 
 static inline constexpr uint8_t name_length = NAME_LENGTH;
@@ -61,3 +68,7 @@ static inline constexpr uint8_t max_stat_size = MAX_STAT_SIZE;
 static inline constexpr uint8_t max_setting_size = MAX_SETTING_SIZE;
 
 static inline constexpr char remote_setting_host [] = REMOTE_SETTING_HOST;
+
+#include "utils/logger.h"
+
+using Logger = ApplicationLogger<SdCardSink, HttpLogSink>;

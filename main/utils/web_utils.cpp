@@ -4,12 +4,12 @@
 
 #include "ctre.hpp"
 #include "esp_http_server.h"
-#include "esp_log.h"
 #include "mbedtls/base64.h"
 
 static constexpr ctll::fixed_string pattern{R"(Basic (\S+))"};
 
 bool handle_authentication(httpd_req *req, std::string_view user, std::string_view password) {
+    // TODO: replace with stack_string
     std::array<char, 256> auth_buf;
     std::array<char, 256> credential_string;
     std::array<unsigned char, 512> credential_string_encoded;
@@ -36,7 +36,7 @@ bool handle_authentication(httpd_req *req, std::string_view user, std::string_vi
     auto [complete_match, auth_string_encoded] = ctre::match<pattern>(auth_buf.data());
 
     if (!complete_match || !auth_string_encoded) {
-        ESP_LOGI(__PRETTY_FUNCTION__, "Auth line is not well formed %s", auth_buf.data());
+        Logger::log(LogLevel::Info, "Auth line is not well formed %s", auth_buf.data());
         send_auth_failure();
         return false;
     }
@@ -52,10 +52,10 @@ bool handle_authentication(httpd_req *req, std::string_view user, std::string_vi
     
     std::string_view credential_string_encoded_view(reinterpret_cast<char *>(credential_string_encoded.data()), encoded_bytes);
 
-    ESP_LOGI(__PRETTY_FUNCTION__, "Try to log in using %s %s", credential_string_encoded.data(), auth_string_encoded.data());
+    Logger::log(LogLevel::Info, "Try to log in using %s %s", credential_string_encoded.data(), auth_string_encoded.data());
 
     if (auth_string_encoded != credential_string_encoded_view) {
-        ESP_LOGW(__PRETTY_FUNCTION__, "Authentication wasn't successfull");
+        Logger::log(LogLevel::Warning, "Authentication wasn't successfull");
         send_auth_failure();
         return false;
     }

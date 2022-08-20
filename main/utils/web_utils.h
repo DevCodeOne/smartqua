@@ -9,14 +9,14 @@
 #include <string_view>
 
 #include "esp_http_server.h"
-#include "esp_log.h"
 
 #include "utils/stack_string.h"
+#include "smartqua_config.h"
 
 std::optional<unsigned int> extract_index_from_uri(const char *uri);
 
 inline esp_err_t send_in_chunks(httpd_req *req, char *chunk, int32_t num_bytes_to_send) {
-    ESP_LOGI("http_utils", "send_in_chunks");
+    Logger::log(LogLevel::Info, "send_in_chunks");
     int32_t left_to_send = num_bytes_to_send;
     int32_t index = 0;
     while (index < left_to_send) {

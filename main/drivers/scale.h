@@ -10,7 +10,6 @@
 #include <functional>
 #include <optional>
 
-#include "esp_log.h"
 #include "hx711.h"
 #include "utils/sample_container.h"
 #include "utils/task_pool.h"
@@ -57,7 +56,7 @@ class loadcell_resource final {
             auto status = hx711_init(&thiz->m_dev);
         
             if (status != ESP_OK) {
-                ESP_LOGE(__PRETTY_FUNCTION__, "Couldn't initialize scale");
+                Logger::log(LogLevel::Error, "Couldn't initialize scale");
                 return;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -68,18 +67,18 @@ class loadcell_resource final {
 
             if (wait_result != ESP_OK || hx711_is_ready(&thiz->m_dev, &is_ready) != ESP_OK ||
                 !is_ready) {
-                ESP_LOGE(__PRETTY_FUNCTION__, "Scale wasn't ready");
+                Logger::log(LogLevel::Error, "Scale wasn't ready");
                 std::this_thread::yield();
             }
 
             esp_err_t read_result = hx711_read_data(&thiz->m_dev, &value);
 
             if (read_result != ESP_OK) {
-                ESP_LOGE(__PRETTY_FUNCTION__, "Failed to read from scale");
+                Logger::log(LogLevel::Error, "Failed to read from scale");
                 std::this_thread::yield();
             }
 
-            // ESP_LOGI(__PRETTY_FUNCTION__, "Read raw value %d", value);
+            Logger::log(LogLevel::Error, "Read raw value %d", value);
             thiz->m_values.put_sample(value);
 
         }*/

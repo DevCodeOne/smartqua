@@ -1,13 +1,14 @@
 #pragma once
 
-#include "esp_log.h"
-
 #include <tuple>
 #include <mutex>
 
 #include "utils/utils.h"
+#include "utils/logger.h"
+#include "smartqua_config.h"
 
-using ignored_event = void;
+using IgnoredEvent = void;
+using ignored_event = IgnoredEvent;
 
 namespace Detail {
     template<typename StoreType, typename SaveType, typename EventType, typename ReturnType>
@@ -23,7 +24,7 @@ namespace Detail {
     };
 
     template<typename StoreType, typename SaveType, typename EventType>
-    class ReturnValueHandler<StoreType, SaveType, EventType, ignored_event> {
+    class ReturnValueHandler<StoreType, SaveType, EventType, IgnoredEvent> {
         public:
         static void handle(StoreType &, SaveType &, EventType &) { /* Do nothing, that event is ignored by the storetype */ }
     };
@@ -42,7 +43,7 @@ class Store {
     public:
         template<typename T>
         void writeEvent(T &event) {
-            ESP_LOGI(__PRETTY_FUNCTION__, "event");
+            Logger::log(LogLevel::Info, "Write event to store");
             initValues();
 
             constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](auto &current_store){
@@ -56,7 +57,7 @@ class Store {
 
         template<typename T>
         void readEvent(T &event) {
-            ESP_LOGI(__PRETTY_FUNCTION__, "event");
+            Logger::log(LogLevel::Info, "Read event from store");
             initValues();
 
             constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](const auto &currentStore){
@@ -67,10 +68,10 @@ class Store {
         void initValues() {
             static std::once_flag _init_flag;
             std::call_once(_init_flag, []() {
-                ESP_LOGI(__PRETTY_FUNCTION__, "Init values");
+                Logger::log(LogLevel::Info, "Init values of central store");
                 constexpr_for<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [](auto &current_store){
-                    auto initial_value = current_store.ssave.get_value();
-                    current_store.sstore = initial_value;
+                    Logger::log(LogLevel::Info, "Initializing current type");
+                    current_store.sstore = current_store.ssave.get_value();
                 });
             });
         }

@@ -161,7 +161,7 @@ void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
         return;
     }
 
-    ESP_LOGI("Device_Settings", "Updating runtimedata");
+    Logger::log(LogLevel::Info, "Updating runtimedata");
     typeInstance->m_data.invokeOnAllRuntimeData([](auto &currentRuntimeData) {
         currentRuntimeData.update_runtime_data();
     });
@@ -189,7 +189,7 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> F
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
-        ESP_LOGI("Device_Settings", "Writing to device ...");
+        Logger::log(LogLevel::Info, "Writing to device ...");
         event.result.op_result = currentDevice.write_value(event.write_value);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });
@@ -202,7 +202,7 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_device_options &event)
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
-        ESP_LOGI("Device_Settings", "Writing to device ...");
+        Logger::log(LogLevel::Info, "Writing to device ...");
         event.result.op_result = currentDevice.write_options(event.jsonSettingValue);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });
@@ -215,7 +215,7 @@ void DeviceSettings<N, DeviceDrivers ...>::dispatch(read_from_device &event) con
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
-        ESP_LOGI("Device_Settings", "Reading from device ...");
+        Logger::log(LogLevel::Info, "Reading from device ...");
         event.result.op_result = currentDevice.read_value(event.read_value);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });
@@ -226,7 +226,7 @@ void DeviceSettings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event)
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
-        ESP_LOGI("Device_Settings", "Reading from device ...");
+        Logger::log(LogLevel::Info, "Reading info from device ...");
         event.result.op_result = currentDevice.get_info(event.output_dst, event.output_len);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });

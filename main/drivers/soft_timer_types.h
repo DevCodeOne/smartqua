@@ -15,7 +15,7 @@ enum struct single_timer_operation_result {
 };
 
 struct single_timer_settings {
-    static inline constexpr char StorageName[] = "timer_settings";
+    static inline constexpr char StorageName[] = "TimerSettings";
 
     uint32_t time_of_day;
     uint32_t device_index;

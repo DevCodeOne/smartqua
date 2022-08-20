@@ -7,7 +7,6 @@
 #include <string_view>
 
 #include "frozen.h"
-#include "esp_log.h"
 
 #include "smartqua_config.h"
 #include "device_types.h"
@@ -55,7 +54,7 @@ private:
 template<typename ... DeviceDrivers>
 std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, device_config &device_conf_out) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
-    ESP_LOGI("Device_Driver", "Searching driver %.*s", driver_name.length(), driver_name.data());
+    Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
     constexpr_for_index<sizeof...(DeviceDrivers) - 1>::doCall(
         [input, driver_name, &device_conf_out, &found_device_driver](auto current_index) constexpr {
@@ -66,7 +65,7 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
                 return;
             }
 
-             ESP_LOGI("Device_Driver", "Found driver %.*s", driver_name.length(), driver_name.data());
+            Logger::log(LogLevel::Info, "Found driver %.*s", driver_name.length(), driver_name.data());
             device_conf_out.device_driver_name = driver_type::name;
             auto result = driver_type::create_driver(input, device_conf_out);
             
@@ -89,15 +88,15 @@ std::optional<device<DeviceDrivers ...>> create_device(const device_config *devi
         using driver_type = std::tuple_element_t<current_index, std::tuple<DeviceDrivers ...>>;
 
         if (std::strncmp(device_conf->device_driver_name.data(), driver_type::name, name_length) == 0) {
-            ESP_LOGW("Device_Driver", "Found driver %s", device_conf->device_driver_name.data());
+            Logger::log(LogLevel::Warning, "Found driver %s", device_conf->device_driver_name.data());
             auto result = driver_type::create_driver(device_conf);
 
             if (!result.has_value()) {
-                ESP_LOGE("Device_Driver", "Failed to create device with driver %s", device_conf->device_driver_name.data());
+                Logger::log(LogLevel::Warning, "Failed to create device with driver %s", device_conf->device_driver_name.data());
                 return;
             }
 
-            ESP_LOGI("Device_Driver", "Created device with driver %s", device_conf->device_driver_name.data());
+            Logger::log(LogLevel::Info, "Created device with driver %s", device_conf->device_driver_name.data());
             found_device_driver = std::move(*result);
         }
     });
@@ -113,6 +112,7 @@ template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::write_value(const device_values &value) {
     return std::visit(
         [&value](auto &current_driver) { 
+            Logger::log(LogLevel::Info, "Delegating write_value to driver");
             return current_driver.write_value(value); 
         }, m_driver);
 }
@@ -121,7 +121,7 @@ template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::read_value(device_values &value) const {
     return std::visit(
         [&value](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating read_value to driver");
+            Logger::log(LogLevel::Info, "Delegating read_value to driver");
             return current_driver.read_value(value); 
         }, m_driver);
 }
@@ -130,7 +130,7 @@ template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
     return std::visit(
         [output_buffer, output_buffer_len](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating get_info to driver");
+            Logger::log(LogLevel::Info, "Delegating get_info to driver");
             return current_driver.get_info(output_buffer, output_buffer_len); 
         }, m_driver);
 }
@@ -139,7 +139,7 @@ template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::write_options(const std::string_view &jsonSettingValue) {
     return std::visit(
         [&jsonSettingValue](const auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating write_options to driver");
+            Logger::log(LogLevel::Info, "Delegating write_options to driver");
             return current_driver.write_options(jsonSettingValue.data(), jsonSettingValue.length()); 
         }, m_driver);
 }
@@ -148,7 +148,7 @@ template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::update_runtime_data() {
     return std::visit(
         [](auto &current_driver) { 
-            ESP_LOGI("Device_Driver", "Delegating update_runtime_data to driver");
+            Logger::log(LogLevel::Info, "Delegating updating_runtime_data to driver");
             return current_driver.update_runtime_data(); 
         }, m_driver);
 }

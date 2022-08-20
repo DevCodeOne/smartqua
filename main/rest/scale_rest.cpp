@@ -1,6 +1,8 @@
 #include <cstring>
 
+#include "utils/logger.h"
 #include "scale_rest.h"
+#include "smartqua_config.h"
 #include "aq_main.h"
 
 /*
@@ -33,7 +35,7 @@ esp_err_t get_load(httpd_req_t *req) {
     json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d, %Q : %d}", "info", "OK",
                 "tare", static_cast<int32_t>(off / sc), "load",
                 static_cast<int32_t>(current_weight), "contained_co2", se.data.contained_co2);
-    ESP_LOGE(log_tag, "%s", buf);
+    Logger::log(LogLevel::Error, "%s", buf);
 
     httpd_resp_sendstr(req, buf);
     return ESP_OK;
@@ -62,7 +64,7 @@ esp_err_t set_contained_co2(httpd_req *req) {
     int32_t contained_co2 = 0;
 
     json_scanf(buf, recv_size, "{ contained_co2 : %d }", &contained_co2);
-    ESP_LOGI(log_tag, "%s %d", buf, contained_co2);
+    Logger::log(LogLevel::Info, "%s %d", buf, contained_co2);
 
     scale_event se{ .type = scale_setting_indices::contained_co2, .data = { .contained_co2 = contained_co2 }};
     global_store.write_event(se);
