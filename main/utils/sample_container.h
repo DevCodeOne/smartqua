@@ -52,6 +52,10 @@ class sample_container final {
         return m_avg; 
     }
 
+    AvgType last() const {
+        return m_samples.back();
+    }
+
    private:
     // TODO: maybe don't recalculate complete new average
     template <typename MutexType>

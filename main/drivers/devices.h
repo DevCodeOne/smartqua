@@ -39,7 +39,7 @@ public:
 
     DeviceOperationResult write_value(const device_values &value);
     // To calibrate something or execute actions
-    DeviceOperationResult write_options(const std::string_view &jsonSettingValue);
+    DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
     DeviceOperationResult update_runtime_data();
     DeviceOperationResult read_value(device_values &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
@@ -136,11 +136,11 @@ DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, s
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::write_options(const std::string_view &jsonSettingValue) {
+DeviceOperationResult device<DeviceDrivers ...>::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
     return std::visit(
-        [&jsonSettingValue](const auto &current_driver) { 
+        [&conf, &action, &json](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_options to driver");
-            return current_driver.write_options(jsonSettingValue.data(), jsonSettingValue.length()); 
+            return current_driver.call_device_action(conf, action, json); 
         }, m_driver);
 }
 

@@ -82,9 +82,10 @@ DeviceOperationResult DacDriver::get_info(char *output, size_t output_buffer_len
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult DacDriver::write_device_options(const char *json_input, size_t input_len) {
+DeviceOperationResult DacDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::not_supported;
 }
+
 
 DeviceOperationResult DacDriver::update_runtime_data() {
     return DeviceOperationResult::ok;

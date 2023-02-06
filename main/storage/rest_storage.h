@@ -2,16 +2,20 @@
 
 #include <array>
 #include <charconv>
+#include <type_traits>
 
 #include "esp_http_client.h"
 #include "esp_log.h"
 
 #include "utils/rest_client.h"
+#include "network/network_info.h"
 
 // TODO: add setting to close the connection for storage, that's rarely updated
 template<typename SettingType, RestDataType StorageType>
 class RestStorage {
     public:
+        template<bool isDefaultConstruct = std::is_default_constructible_v<SettingType>,
+                typename std::enable_if_t<isDefaultConstruct, int> = 0>
         RestStorage() {
             isValid = SettingType::generateRestTarget(restTarget);
 
@@ -32,9 +36,33 @@ class RestStorage {
             ESP_LOGI("RestStorage", "Created client with target %s", clientConfig.url);
         }
 
+        // If the pathGenerator needs some kind of initialization
+        template<typename ... Args>
+        RestStorage(Args &&... args) : pathGenerator(std::forward<Args>(args) ...) {
+            // TODO: Consider only using temporary instance, instead of initiation a member value
+            isValid = pathGenerator.generateRestTarget(restTarget);
+
+            if (!isValid) {
+                ESP_LOGW("RestStorage", "Rest target is not valid");
+                return;
+            }
+
+            clientConfig.url = restTarget.data();
+            client = esp_http_client_init(&clientConfig);
+
+            if (client == nullptr) {
+                ESP_LOGW("RestStorage", "Couldn't create client with target %s", clientConfig.url);
+                isValid = false;
+                return;
+            }
+
+            ESP_LOGI("RestStorage", "Created client with target %s", clientConfig.url);
+        }
+
         RestStorage(const RestStorage &other) = delete;
-        RestStorage(RestStorage &&other) : client(other.client), restTarget(other.restTarget) {
-            clientConfig.url = nullptr;
+        RestStorage(RestStorage &&other) 
+            : client(other.client), isValid(other.isValid), restTarget(other.restTarget), pathGenerator(other.pathGenerator) {
+            other.clientConfig.url = nullptr;
             other.client = nullptr;
         }
 
@@ -44,8 +72,10 @@ class RestStorage {
 
             swap(clientConfig, other.clientConfig);
             swap(client, other.client);
+            swap(pathGenerator, other.pathGenerator);
+            swap(isValid, other.isValid);
 
-            clientConfig.url = restTarget.data();
+            other.client = nullptr;
 
             return *this;
         }
@@ -57,8 +87,8 @@ class RestStorage {
         }
 
         bool retrieveData(char *dst, size_t len) {
-            if (!isValid) {
-                ESP_LOGW("RestStorage", "RestStorage is not valid");
+            if (!isValid || !NetworkInfo::canUseNetwork()) {
+                ESP_LOGW("RestStorage", "RestStorage is not valid (%d)", isValid);
                 return false;
             }
 
@@ -87,6 +117,7 @@ class RestStorage {
             const auto getResult = esp_http_client_get_status_code(client);
 
             if (getResult != 200) { 
+                esp_http_client_close(client);
                 ESP_LOGW("RestStorage", "Didn't get 200 Ok");
                 return false; 
             }
@@ -109,21 +140,23 @@ class RestStorage {
             return true;
         }
 
+        template<esp_http_client_method_t Method = HTTP_METHOD_PUT>
         bool writeData(const char *src, size_t len) {
-            if (!isValid) {
-                ESP_LOGW("RestStorage", "RestStorage is not valid");
+            if (!isValid || !NetworkInfo::canUseNetwork()) {
+                ESP_LOGW("RestStorage", "RestStorage is not valid (%d)", isValid);
                 return false;
             }
 
-            ESP_LOGI("RestStorage", "Try to write %d bytes to %s", (int) len, clientConfig.url);
+            // ESP_LOGI("RestStorage", "Try to write %d bytes to %s", (int) len, clientConfig.url);
 
-            esp_http_client_set_method(client, HTTP_METHOD_PUT);
+            auto error = esp_http_client_set_method(client, Method);
 
-            // std::array<char, 32> numbersDst{'\0'};
-            // std::to_chars(numbersDst.data(), numbersDst.data() + numbersDst.size(), len);
-            // TODO: check return value
+            if (error != ESP_OK) { 
+                ESP_LOGW("RestStorage", "Couldn't set method");
+                return false; 
+            }
 
-            auto error = esp_http_client_set_header(client, "Content-Type", DataTypeToContentType<StorageType>::ContentType);
+            error = esp_http_client_set_header(client, "Content-Type", DataTypeToContentType<StorageType>::ContentType);
 
             if (error != ESP_OK) { 
                 ESP_LOGW("RestStorage", "Couldn't set headers");
@@ -134,6 +167,7 @@ class RestStorage {
 
             if (error != ESP_OK) { 
                 ESP_LOGW("RestStorage", "Couldn't open stream to write");
+                error = esp_http_client_close(client);
                 return false; 
             }
 
@@ -141,21 +175,23 @@ class RestStorage {
 
             if (written == -1) { 
                 ESP_LOGW("RestStorage", "Couldn't write to stream");
+                error = esp_http_client_close(client);
                 return false; 
             }
 
             if (error != ESP_OK) { 
                 ESP_LOGW("RestStorage", "Couldn't write to stream");
+                error = esp_http_client_close(client);
                 return false; 
             }
             
             error = esp_http_client_close(client);
 
             if (error != ESP_OK) { 
-                ESP_LOGW("RestStorage", "Fail on http close, ignoring this error");
+                // ESP_LOGW("RestStorage", "Fail on http close, ignoring this error");
             }
 
-            ESP_LOGI("RestStorage", "Wrote %d bytes to %s", (int) len, clientConfig.url);
+            // ESP_LOGI("RestStorage", "Wrote %d bytes to %s", (int) len, clientConfig.url);
 
             return true;
         }
@@ -168,5 +204,6 @@ class RestStorage {
         esp_http_client_handle_t client{};
         esp_http_client_config_t clientConfig{};
         bool isValid;
-        std::array<char, 96> restTarget{};
+        std::array<char, 128> restTarget{};
+        SettingType pathGenerator;
 };

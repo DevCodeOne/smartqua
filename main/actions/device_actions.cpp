@@ -1,5 +1,6 @@
 #include "device_actions.h"
 
+#include "actions/action_types.h"
 #include "frozen.h"
 
 #include "aq_main.h"
@@ -163,6 +164,36 @@ json_action_result set_device_action(unsigned int index, const device_values &va
     } else {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q }", "An error while writing to device occured");
+        }
+        result.result = json_action_result_value::failed;
+    }
+
+    return result;
+}
+
+
+json_action_result write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+    json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
+    json_action_result result{ 0, json_action_result_value::failed };
+
+    std::array<char, 1024> info_buffer{'\0'};
+    write_device_options info{ 
+        .index = static_cast<unsigned int>(index), 
+        .action = action,
+        .input = std::string_view{input, input_len},
+        .output_dst = info_buffer.data(),
+        .output_len = info_buffer.size()};
+
+    global_store.writeEvent(info);
+
+    if (info.result.collection_result == DeviceCollectionOperation::ok && info.result.op_result == DeviceOperationResult::ok) {
+        if (output_buffer != nullptr && output_buffer[0] != '\0' && output_buffer_len != 0) {
+            result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer.data());
+        }
+        result.result = json_action_result_value::successfull;
+    } else {
+        if (output_buffer != nullptr && output_buffer_len != 0) {
+            result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
         }
         result.result = json_action_result_value::failed;
     }

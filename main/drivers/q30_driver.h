@@ -1,10 +1,10 @@
 #include <string_view>
 #include <optional>
 
-#include "lamp_driver.h"
+#include "schedule_driver.h"
 
 struct Q30Data final {
-    LampDriverData data;
+    ScheduleDriverData data;
     int onSwitchDevice;
     int fanDevice;
 };
@@ -30,16 +30,16 @@ class Q30Driver final {
         DeviceOperationResult write_value(const device_values &value);
         DeviceOperationResult read_value(device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult write_device_options(const char *json_input, size_t input_len);
+        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
 
         DeviceOperationResult update_runtime_data();
     
     private:
 
-        Q30Driver(std::optional<LampDriver> &&lampDriver, const device_config *config);
+        Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const device_config *config);
 
         const device_config *mConf;
-        std::optional<LampDriver> mLampDriver;
+        std::optional<ScheduleDriver> mLampDriver;
 
         friend struct read_from_json<Q30Driver>;
 };

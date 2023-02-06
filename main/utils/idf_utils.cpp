@@ -18,7 +18,6 @@ void sntp_clock::init_sntp() {
 }
 
 void sntp_clock::sync_callback(timeval *val) { 
-    Logger::log(LogLevel::Info, "sntp_sync_callback");
 }
 
 void wait_for_clock_sync(std::time_t *now, std::tm *timeinfo) {

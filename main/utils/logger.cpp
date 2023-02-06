@@ -6,6 +6,20 @@
 #include "utils/stack_string.h"
 #include "utils/utils.h"
 
+const char *to_string(LogLevel level) {
+    switch (level) {
+        case LogLevel::Debug:
+            return "debug";
+        case LogLevel::Info:
+            return "info";
+        case LogLevel::Warning:
+            return "warn";
+        case LogLevel::Error:
+            return "error";
+    }
+    return "";
+}
+
 bool HttpLogSink::install() { return true; }
 
 bool HttpLogSink::uninstall() { return true; }

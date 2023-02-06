@@ -34,7 +34,7 @@ class Ds18x20Driver final {
         DeviceOperationResult write_value(const device_values &value);
         DeviceOperationResult read_value(device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult write_device_options(const char *json_input, size_t input_len);
+        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
     private:
         Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin);

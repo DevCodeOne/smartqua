@@ -15,7 +15,6 @@
 #include "network/webserver.h"
 #include "rest/stats_rest.h"
 #include "rest/devices_rest.h"
-#include "rest/soft_timers_rest.h"
 #include "smartqua_config.h"
 #include "utils/idf_utils.h"
 #include "utils/sd_filesystem.h"
@@ -23,10 +22,13 @@
 #include "aq_main.h"
 
 #include <chrono>
+#include <cstdint>
+#include <pthread.h>
 #include <thread>
 // clang-format on
 
 static constexpr char log_tag[] = "Aq_main";
+std::atomic_bool canUseNetwork{false};
 
 decltype(global_store) global_store;
 
@@ -53,7 +55,7 @@ void print_health(void *) {
     earlierHeapUsage = currentFreeHeap;
 }
 
-void networkTask(void *pvParameters) {
+void *networkTask(void *pvParameters) {
     // TODO: This first log should consider the device we are running this on (don't use esp-idf here)
     ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
 
@@ -78,36 +80,12 @@ void networkTask(void *pvParameters) {
 
     // Logger::ignoreLogsBelow(LogLevel::Warning);
 
+    Logger::log(LogLevel::Info, "Init global store now");
     global_store.initValues();
 
     // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues
     // webserver<security_level::unsecured> app_server("/external/app_data");
     WebServer<WebServerSecurityLevel::unsecured> api_server("");
-    api_server.registerHandler({.uri ="/api/v1/timers*",
-                             .method = HTTP_GET,
-                             .handler = do_timers,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/timers*",
-                             .method = HTTP_POST,
-                             .handler = do_timers,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/timers*",
-                             .method = HTTP_PUT,
-                             .handler = do_timers,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/timers*",
-                             .method = HTTP_DELETE,
-                             .handler = do_timers,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/timers*",
-                             .method = HTTP_PATCH,
-                             .handler = do_timers,
-                             .user_ctx = nullptr});
-
     api_server.registerHandler({.uri ="/api/v1/devices*",
                              .method = HTTP_GET,
                              .handler = do_devices,
@@ -168,11 +146,31 @@ void networkTask(void *pvParameters) {
     });
 
     task_pool<max_task_pool_size>::do_work();
+
+    return nullptr;
 }
 
 extern "C" {
 
 void app_main() {
-    xTaskCreatePinnedToCore(networkTask, "networkTask", 4096 * 8, nullptr, 5, nullptr, 1);
+    pthread_attr_t attributes;
+    pthread_t mainThreadHandle;
+
+    pthread_attr_init(&attributes);
+
+    constexpr size_t stackSize = 4096 * 4;
+
+    //pthread_attr_setstack(&attributes, pthreadStack.get(), stackSize);
+    // Only stack size can be set on esp-idf
+    pthread_attr_setstacksize(&attributes, stackSize);
+    if (auto result = pthread_create(&mainThreadHandle, &attributes, networkTask, nullptr); result != 0) {
+        ESP_LOGE("Main", "Couldn start main thread");
+    }
+
+    if (auto result = pthread_join(mainThreadHandle, nullptr); result != 0) {
+        ESP_LOGE("Main", "main thread exited shouldn't happen");
+    }
+
+    pthread_attr_destroy(&attributes);
 }
 }

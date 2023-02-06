@@ -56,9 +56,10 @@ DeviceOperationResult PwmDriver::read_value(device_values &values) const {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult PwmDriver::write_device_options(const char *json_input, size_t input_len) {
-    return DeviceOperationResult::ok;
+DeviceOperationResult PwmDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+    return DeviceOperationResult::not_supported;
 }
+
 
 DeviceOperationResult PwmDriver::update_runtime_data() {
     return DeviceOperationResult::ok;

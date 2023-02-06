@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -13,9 +14,11 @@
 #include "freertos/event_groups.h"
 
 #include "storage/nvs_flash_utils.h"
+#include "network/network_info.h"
 
 static constexpr uint8_t wifi_connected_bit = BIT0;
 static constexpr uint8_t wifi_fail_bit = BIT1;
+extern std::atomic_bool canUseNetworkVar;
 
 template <wifi_mode_t Mode>
 class wifi_manager;
@@ -65,7 +68,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         std::memcpy(m_wifi_conf.sta.password, m_config.creds.password.data(),
                     strlen(m_config.creds.password.data()));
 
-        Logger::log(LogLevel::Info, "SSID: %s PASS: %s", m_wifi_conf.sta.ssid, m_wifi_conf.sta.password);
+        // Logger::log(LogLevel::Info, "SSID: %s PASS: %s", m_wifi_conf.sta.ssid, m_wifi_conf.sta.password);
 
         m_wifi_conf.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
@@ -110,12 +113,14 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
             } else {
                 xEventGroupSetBits(thiz->m_wifi_event_group, wifi_fail_bit);
             }
+            NetworkInfo::disallowNetwork();
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
             Logger::log(LogLevel::Info, "got ip:" IPSTR,
                      IP2STR(&event->ip_info.ip));
             thiz->retry_num = 0;
             xEventGroupSetBits(thiz->m_wifi_event_group, wifi_connected_bit);
+            NetworkInfo::allowNetwork();
         }
     }
 

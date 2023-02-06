@@ -313,10 +313,28 @@ class FilesystemSetting {
 };
 
 template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>
+struct RestRemoteSettingPathGenerator {
+    template<size_t ArraySize>
+    static bool generateRestTarget(std::array<char, ArraySize> &dst) {
+        std::array<uint8_t, 6> mac;
+        esp_efuse_mac_get_default(mac.data());
+        snprintf(dst.data(), dst.size(), "http://%s/values/%02x-%02x-%02x-%02x-%02x-%02x-%s", 
+            remote_setting_host,
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+            SettingType::name);
+
+        // TODO: check return value
+        return true;
+    }
+};
+
+template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>
 class RestRemoteSetting {
     public:
         static_assert(std::is_standard_layout_v<SettingType>,
             "SettingType has to conform to the standard layout concept");
+
+        using PathGeneratorType = RestRemoteSettingPathGenerator<SettingType, InitType>;
 
         RestRemoteSetting() {
             if (InitType == SettingInitType::instant) {
@@ -348,18 +366,7 @@ class RestRemoteSetting {
             return true;
         }
 
-        template<size_t ArraySize>
-        static bool generateRestTarget(std::array<char, ArraySize> &dst) {
-            std::array<uint8_t, 6> mac;
-            esp_efuse_mac_get_default(mac.data());
-            snprintf(dst.data(), dst.size(), "http://%s/values/%02x-%02x-%02x-%02x-%02x-%02x-%s", 
-                remote_setting_host,
-                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
-                SettingType::name);
-
-            // TODO: check return value
-            return true;
-        }
+        
 
     private:
 
@@ -367,6 +374,6 @@ class RestRemoteSetting {
             restStorage.retrieveData(reinterpret_cast<char *>(&mValue), sizeof(mValue));
         }
 
-        RestStorage<RestRemoteSetting, RestDataType::Binary> restStorage;
+        RestStorage<PathGeneratorType, RestDataType::Binary> restStorage;
         SettingType mValue{};
 };

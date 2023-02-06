@@ -192,7 +192,7 @@ auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const D
 template<typename TimePointData, uint8_t TimePointsPerDay>
 template<typename DurationType>
 auto WeekSchedule<TimePointData, TimePointsPerDay>::findNextTimePoint(const DurationType &unitThisDay, std::optional<weekday> day) const {
-    // If if has no value take current day
+    // If if has no value use current day
     if (!day.has_value()) {
         day = getDayOfWeek();
     }

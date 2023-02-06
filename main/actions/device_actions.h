@@ -21,6 +21,8 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
 json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len);
 
+json_action_result write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+
 using DeviceCollectionOperation = collection_operation_result;
 
 static inline constexpr size_t device_uid = 30;
@@ -53,16 +55,6 @@ struct write_to_device {
     } result;
 };
 
-struct write_device_options {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
-    std::string_view jsonSettingValue;
-
-    struct {
-        DeviceOperationResult op_result = DeviceOperationResult::failure;
-        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
-    } result;
-};
-
 struct retrieve_device_info {
     unsigned int index = std::numeric_limits<unsigned int>::max();
     char *output_dst = nullptr;
@@ -73,6 +65,21 @@ struct retrieve_device_info {
         DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
     } result;
 };
+
+struct write_device_options {
+    unsigned int index = std::numeric_limits<unsigned int>::max();
+    std::string_view action;
+    std::string_view input;
+    char *output_dst = nullptr;
+    size_t output_len = 0;
+    
+    struct {
+        DeviceOperationResult op_result = DeviceOperationResult::failure;
+        DeviceCollectionOperation collection_result = DeviceCollectionOperation::failed;
+    } result;
+};
+
+
 template<size_t N, typename ... DeviceDrivers>
 class DeviceSettings final {
 public:
@@ -200,14 +207,27 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> F
 template<size_t N, typename ... DeviceDrivers>
 auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_device_options &event) -> FilterReturnType<write_to_device> {
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
+    event.output_dst = nullptr;
+    event.output_len = 0;
 
-    m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
-        Logger::log(LogLevel::Info, "Writing to device ...");
-        event.result.op_result = currentDevice.write_options(event.jsonSettingValue);
-        event.result.collection_result = DeviceCollectionOperation::ok;
-    });
+    SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid> setEvent{
+        .index = event.index,
+    };
 
-    return m_data.getTrivialRepresentation();
+    return m_data.dispatch(setEvent, 
+        [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
+            if (!currentDevice) {
+                Logger::log(LogLevel::Error, "%s %d current device is not valid", __FUNCTION__, event.index);
+                event.result.collection_result = DeviceCollectionOperation::index_invalid;
+                return currentDevice.has_value();
+            }
+
+            Logger::log(LogLevel::Info, "write_device_options for %d device", event.index);
+            event.result.op_result = currentDevice->call_device_action(&currentTrivialValue, event.action, event.input);
+            event.result.collection_result = DeviceCollectionOperation::ok;
+            return currentDevice.has_value();
+        });
+
 }
 
 template<size_t N, typename ... DeviceDrivers>

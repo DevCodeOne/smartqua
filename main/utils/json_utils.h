@@ -12,6 +12,8 @@
 
 #include "utils/stack_string.h"
 
+#include <esp_log.h>
+
 template<typename T1, typename T2>
 constexpr auto constexpr_pow(T1 n, T2 e) {
     static_assert(std::is_integral_v<T1> && std::is_integral_v<T2>);

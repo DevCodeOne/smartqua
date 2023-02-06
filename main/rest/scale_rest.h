@@ -5,7 +5,7 @@
 
 #include "storage/store.h"
 #include "storage/settings.h"
-#include "drivers/scale.h"
+#include "drivers/scale_driver.h"
 
 /*
 esp_err_t get_load(httpd_req_t *req);

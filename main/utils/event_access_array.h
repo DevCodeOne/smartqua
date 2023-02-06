@@ -32,12 +32,6 @@ namespace SmartAq::Utils {
     };
 
     namespace ArrayActions {
-        json_action_result GetOverviewAction(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-        json_action_result GetValueAction(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-        json_action_result AddValueAction(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-        json_action_result RemoveValueAction(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-        json_action_result SetValueAction(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-
         // Initialise and Update Value
         // index is optional, the next free position in the array will be used
         // if the index is specified, the settingName can be used to update the name
@@ -214,7 +208,7 @@ namespace SmartAq::Utils {
 
         std::optional<unsigned int> foundIndex = findIndex(event.index, event.settingName, true);
 
-        if (!foundIndex.has_value() && !event.index.has_value()) {
+        if (!foundIndex.has_value()) {
             event.result.collection_result = collection_operation_result::collection_full;
             return data;
         }

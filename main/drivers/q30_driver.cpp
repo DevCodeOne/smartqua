@@ -6,7 +6,7 @@
 
 std::optional<Q30Driver> Q30Driver::create_driver(const std::string_view &input, device_config &device_conf_out) {
     auto createdConf = reinterpret_cast<Q30Data *>(device_conf_out.device_config.data());
-    std::optional<LampDriver> createdLampDriver = std::nullopt;
+    std::optional<ScheduleDriver> createdLampDriver = std::nullopt;
     createdConf->fanDevice = -1;
     createdConf->onSwitchDevice = -1;
     json_token scheduleData{};
@@ -22,7 +22,7 @@ std::optional<Q30Driver> Q30Driver::create_driver(const std::string_view &input,
         return std::nullopt;
     }
 
-    createdLampDriver = LampDriver::create_driver(scheduleDataAsView, device_conf_out);
+    createdLampDriver = ScheduleDriver::create_driver(scheduleDataAsView, device_conf_out);
 
     if (!createdLampDriver.has_value()) {
         Logger::log(LogLevel::Warning, "Couldn't create Q30 Driver : Couldn't create LampDriver");
@@ -38,7 +38,7 @@ std::optional<Q30Driver> Q30Driver::create_driver(const device_config *config) {
         return std::nullopt;
     }
 
-    auto createdLampDriver = LampDriver::create_driver(config);
+    auto createdLampDriver = ScheduleDriver::create_driver(config);
 
     if (!createdLampDriver.has_value()) {
         Logger::log(LogLevel::Warning, "Couldn't create LampDriver from stored config");
@@ -48,7 +48,7 @@ std::optional<Q30Driver> Q30Driver::create_driver(const device_config *config) {
     return Q30Driver(std::move(createdLampDriver), config);
 }
 
-Q30Driver::Q30Driver(std::optional<LampDriver> &&lampDriver, const device_config *config) : mConf(config), mLampDriver(std::move(lampDriver)) { }
+Q30Driver::Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const device_config *config) : mConf(config), mLampDriver(std::move(lampDriver)) { }
 
 DeviceOperationResult Q30Driver::write_value(const device_values &value) {
     return DeviceOperationResult::not_supported;
@@ -62,9 +62,10 @@ DeviceOperationResult Q30Driver::get_info(char *output, size_t output_buffer_len
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult Q30Driver::write_device_options(const char *json_input, size_t input_len) {
+DeviceOperationResult Q30Driver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::not_supported;
 }
+
 
 DeviceOperationResult Q30Driver::update_runtime_data() {
     auto q30Conf = reinterpret_cast<const Q30Data *>(mConf->device_config.data());

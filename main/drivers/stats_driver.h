@@ -242,7 +242,7 @@ void stats_driver<N>::stats_driver_task(void *) {
                 continue;
             }
 
-            std::fprintf(output, "%u; \"%s\"", static_cast<uint32_t>(minutes_since_midnight.count()), data_out.data());
+            std::fprintf(output, "%lu; \"%s\"", static_cast<uint32_t>(minutes_since_midnight.count()), data_out.data());
             std::fputc('\n', output);
 
             Logger::log(LogLevel::Info, "Wrote to %s ", out_file.data());

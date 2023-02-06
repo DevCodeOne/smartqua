@@ -21,9 +21,8 @@ class ring_buffer {
 
     ring_buffer &append(T value) { 
         m_data[calc_real_index(m_size)] = value; 
-        // Wrap around
         if (m_size + 1 == m_data.size()) {
-            m_size = 0;
+            // Wrap around, size isn't increased
             m_offset = (m_offset + 1) % m_data.size();
         } else {
             ++m_size;

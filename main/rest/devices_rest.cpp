@@ -3,6 +3,7 @@
 #include <cstring>
 #include <algorithm>
 
+#include "actions/action_types.h"
 #include "aq_main.h"
 #include "actions/device_actions.h"
 #include "drivers/device_types.h"
@@ -42,8 +43,10 @@ esp_err_t do_devices(httpd_req *req) {
             result = get_devices_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_GET && what) { // TODO: check what what really is
             result = get_device_info(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
-        } else if (req->method == HTTP_PUT) {
+        } else if (req->method == HTTP_PUT && !what) {
             result = add_device_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
+        } else if (req->method == HTTP_PUT && what) {
+            result = write_device_options_action(index_value, what.to_view().data(), buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_DELETE) {
             result = remove_device_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_PATCH) {
@@ -59,8 +62,11 @@ esp_err_t do_devices(httpd_req *req) {
     }
 
     Logger::log(LogLevel::Debug, "Sending response from device");
-    if (result.answer_len) {
+    if (result.answer_len && buffer->data()[0] != '\0') {
         send_in_chunks(req, buffer->data(), result.answer_len);
+    } else if (result.answer_len == 0 && result.result == json_action_result_value::successfull) {
+        httpd_resp_set_status(req, HTTPD_204);
+        httpd_resp_send(req, "", 0);
     } else {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "An error happened");
     }

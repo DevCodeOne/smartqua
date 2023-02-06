@@ -59,9 +59,10 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
         return std::nullopt;
     }
 
-    auto detected_sensors = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices);
+    size_t numDevicesFound = -1;
+    auto result = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices, &numDevicesFound);
 
-    if (detected_sensors < 1) {
+    if (result != ESP_OK && numDevicesFound < 1) {
         Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d", gpio_num);
         return std::nullopt;
     }
@@ -69,7 +70,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     // Skip already found addresses and use only the new ones
     std::optional<unsigned int> index_to_add = std::nullopt;
 
-    for (unsigned int i = 0; i < detected_sensors; ++i) {
+    for (unsigned int i = 0; i < numDevicesFound; ++i) {
         if (add_address(sensor_addresses[i])) {
             index_to_add = i;
         }
@@ -140,7 +141,7 @@ DeviceOperationResult Ds18x20Driver::get_info(char *output_buffer, size_t output
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult Ds18x20Driver::write_device_options(const char *json_input, size_t input_len) {
+DeviceOperationResult Ds18x20Driver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::ok;
 }
 
