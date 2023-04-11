@@ -1,5 +1,5 @@
 #include "esp_http_server.h"
-#include "esp_spi_flash.h"
+#include "spi_flash_mmap.h"
 #include "esp_spiffs.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portable.h"
@@ -10,6 +10,7 @@
 
 
 // clang-format off
+// #include "utils/sd_filesystem.h"
 #include "auth.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
@@ -17,7 +18,6 @@
 #include "rest/devices_rest.h"
 #include "smartqua_config.h"
 #include "utils/idf_utils.h"
-#include "utils/sd_filesystem.h"
 #include "utils/logger.h"
 #include "aq_main.h"
 
@@ -27,10 +27,9 @@
 #include <thread>
 // clang-format on
 
-static constexpr char log_tag[] = "Aq_main";
 std::atomic_bool canUseNetwork{false};
 
-decltype(global_store) global_store;
+std::optional<GlobalStoreType> global_store;
 
 void init_timezone() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", true);
@@ -58,6 +57,7 @@ void print_health(void *) {
 void *networkTask(void *pvParameters) {
     // TODO: This first log should consider the device we are running this on (don't use esp-idf here)
     ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
+    i2cdev_init();
 
     Logger::log(LogLevel::Info, "Installed general logger");
 
@@ -81,61 +81,20 @@ void *networkTask(void *pvParameters) {
     // Logger::ignoreLogsBelow(LogLevel::Warning);
 
     Logger::log(LogLevel::Info, "Init global store now");
-    global_store.initValues();
+    global_store = std::make_optional<GlobalStoreType>();
+    global_store->initValues();
 
     // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues
     // webserver<security_level::unsecured> app_server("/external/app_data");
     WebServer<WebServerSecurityLevel::unsecured> api_server("");
-    api_server.registerHandler({.uri ="/api/v1/devices*",
-                             .method = HTTP_GET,
-                             .handler = do_devices,
-                             .user_ctx = nullptr});
+    api_server.registerHandler("/api/v1/devices",
+                            1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE | 1ULL << HTTP_PATCH,
+                            do_devices);
 
-    api_server.registerHandler({.uri ="/api/v1/devices*",
-                             .method = HTTP_POST,
-                             .handler = do_devices,
-                             .user_ctx = nullptr});
+    api_server.registerHandler("/api/v1/stats",
+                            1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE | 1ULL << HTTP_PATCH,
+                            do_devices);
 
-    api_server.registerHandler({.uri ="/api/v1/devices*",
-                             .method = HTTP_PUT,
-                             .handler = do_devices,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/devices*",
-                             .method = HTTP_DELETE,
-                             .handler = do_devices,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/devices*",
-                             .method = HTTP_PATCH,
-                             .handler = do_devices,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/stats*",
-                             .method = HTTP_GET,
-                             .handler = do_stats,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/stats*",
-                             .method = HTTP_POST,
-                             .handler = do_stats,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/stats*",
-                             .method = HTTP_PUT,
-                             .handler = do_stats,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/stats*",
-                             .method = HTTP_DELETE,
-                             .handler = do_stats,
-                             .user_ctx = nullptr});
-
-    api_server.registerHandler({.uri ="/api/v1/stats*",
-                             .method = HTTP_PATCH,
-                             .handler = do_stats,
-                             .user_ctx = nullptr});
-    
     sntp_clock clock;
 
     auto resource = task_pool<max_task_pool_size>::post_task(single_task{
@@ -158,7 +117,7 @@ void app_main() {
 
     pthread_attr_init(&attributes);
 
-    constexpr size_t stackSize = 4096 * 4;
+    constexpr size_t stackSize = 4096 * 6;
 
     //pthread_attr_setstack(&attributes, pthreadStack.get(), stackSize);
     // Only stack size can be set on esp-idf

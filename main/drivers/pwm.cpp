@@ -34,25 +34,25 @@ DeviceOperationResult PwmDriver::write_value(const device_values &value) {
     }
 
     if (!pwm_conf->invert) {
-        pwm_conf->current_value = std::clamp<uint16_t>(*pwmValue, 0, pwm_conf->max_value);
+        m_current_value = std::clamp<uint16_t>(*pwmValue, 0, pwm_conf->max_value);
     } else {
-        pwm_conf->current_value = pwm_conf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pwm_conf->max_value);
+        m_current_value = pwm_conf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pwm_conf->max_value);
     }
 
-    Logger::log(LogLevel::Info, "Setting new value %d", pwm_conf->current_value);
+    Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
 
     if (!pwm_conf->fade) {
-        result = ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 0);
+        result = ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, m_current_value, 0);
     } else {
         // Maybe do the fading in a dedicated thread, and block that thread ?
-        result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, pwm_conf->current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+        result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
     }
 
     return result == ESP_OK ? DeviceOperationResult::ok : DeviceOperationResult::failure;
 }
 
 // TODO: implement both
-DeviceOperationResult PwmDriver::read_value(device_values &values) const {
+DeviceOperationResult PwmDriver::read_value(std::string_view what, device_values &values) const {
     return DeviceOperationResult::not_supported;
 }
 
@@ -107,7 +107,7 @@ std::optional<PwmDriver> PwmDriver::create_driver(const device_config *config) {
     ledc_channel.channel = channel->channel_num();
     pwm_conf->channel = ledc_channel.channel;
     ledc_channel.timer_sel = timer->timer_num();
-    ledc_channel.duty = pwm_conf->current_value;
+    ledc_channel.duty = 0;
     ledc_channel.hpoint = 0; 
     ledc_channel.intr_type = ledc_intr_type_t::LEDC_INTR_DISABLE;
 
@@ -130,21 +130,19 @@ std::optional<PwmDriver> PwmDriver::create_driver(const std::string_view input, 
     int resolution = new_conf.timer_conf.resolution;
     int channel = new_conf.channel;
     int max_value = new_conf.max_value;
-    int current_value = new_conf.current_value;
     int gpio_num = new_conf.gpio_num;
     bool fade = new_conf.fade;
     bool invert = new_conf.invert;
 
     json_scanf(input.data(), input.size(),
-        "{ frequency : %d, resolution : %d, channel : %d, max_value : %d, current_value : %d, gpio_num : %d, fade : %B, invert : %B}", 
-        &frequency, &resolution, &channel, &max_value, &current_value, &gpio_num, &fade, &invert);
+        "{ frequency : %d, resolution : %d, channel : %d, max_value : %d, gpio_num : %d, fade : %B, invert : %B}", 
+        &frequency, &resolution, &channel, &max_value, &gpio_num, &fade, &invert);
 
     bool assign_result = true;
     assign_result &= check_assign(new_conf.timer_conf.frequency, frequency);
     assign_result &= check_assign(new_conf.timer_conf.resolution, resolution);
     assign_result &= check_assign(new_conf.channel, channel);
     assign_result &= check_assign(new_conf.max_value, max_value);
-    assign_result &= check_assign(new_conf.current_value, current_value);
     assign_result &= check_assign(new_conf.gpio_num, gpio_num);
     new_conf.fade = static_cast<bool>(fade);
     new_conf.invert = static_cast<bool>(invert);

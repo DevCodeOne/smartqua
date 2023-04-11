@@ -72,8 +72,8 @@ class AllocatedBuffer<BufferSize, BufferLocation::heap> {
 
     // TODO: specify malloc method later on heap_caps_malloc vs malloc
     AllocatedBuffer() {
-        m_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(BufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
-        // m_buffer.reset(reinterpret_cast<char *>(malloc(BufferSize)));
+        // m_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(BufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+        m_buffer.reset(reinterpret_cast<char *>(malloc(BufferSize)));
     }
 
     constexpr auto size() const { return BufferSize; }

@@ -83,7 +83,7 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
     return true;
 }
 
-int64_t loadFileCompletelyIntoBuffer(std::string_view path, char *dst, size_t dst_len) {
+int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
     stack_string<name_length * 4> pathCopy = path;
     auto opened_file = std::fopen(pathCopy.data(), "rb");
@@ -106,15 +106,22 @@ int64_t loadFileCompletelyIntoBuffer(std::string_view path, char *dst, size_t ds
     std::rewind(opened_file);
     const int64_t read_size = std::fread(dst, 1, file_size, opened_file);
 
+    /*
     if (read_size < dst_len && read_size > 0) {
         dst[read_size] = '\0';
     }
+    */
 
     return read_size;
 }
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::string_view input) {
-    stack_string<name_length * 4> tmpPathCopy;
+    // Write terminating zero
+    return safeWriteToFile(path, tmpExtension, reinterpret_cast<const void *>(input.data()), input.length() + 1);
+}
+
+bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
+    stack_string<name_length * 2> tmpPathCopy;
     copy_parent_directory(path.data(), tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity);
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
@@ -123,11 +130,11 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
         return false;
     }
 
-    stack_string<name_length * 4> pathCopy = path;
+    stack_string<name_length * 2> pathCopy = path;
 
     snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
         path.length(), path.data(), tmpExtension.length(), tmpExtension.data());
-    FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "w");
+    FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "wb");
 
     if (tmpTargetFile == nullptr) {
         Logger::log(LogLevel::Error, "Couldn't open file : %s", tmpPathCopy.data());
@@ -139,10 +146,10 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
             std::fclose(tmpTargetFile);
         });
 
-        const auto written = std::fwrite(reinterpret_cast<const void *>(input.data()), 1, input.length(), tmpTargetFile);
+        const auto written = std::fwrite(const_cast<const void *>(data), 1, length, tmpTargetFile);
 
-        if (written != input.length()) {
-            Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) input.length());
+        if (written != length) {
+            Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) length);
             return false;
         }
     }

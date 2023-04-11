@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <algorithm>
+#include <thread>
 
 #include "actions/action_types.h"
 #include "aq_main.h"
@@ -16,6 +17,7 @@
 static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9]+)(?:\/(?<what>\w+)|\/)?)"};
 
 esp_err_t do_devices(httpd_req *req) {
+    Logger::log(LogLevel::Info, "This thread id %d", std::this_thread::get_id());
     Logger::log(LogLevel::Info, "Handle uri %s", req->uri);
     auto buffer = LargeBufferPoolType::get_free_buffer();
 
@@ -40,7 +42,9 @@ esp_err_t do_devices(httpd_req *req) {
         auto index_value = std::atoi(index.to_view().data());
         
         if (req->method == HTTP_GET && !what) {
-            result = get_devices_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
+            json_token param{};
+            json_scanf(buffer->data(), req->content_len, "{ param : %T }", &param);
+            result = get_devices_action(index_value, param.ptr, param.len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_GET && what) { // TODO: check what what really is
             result = get_device_info(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_PUT && !what) {

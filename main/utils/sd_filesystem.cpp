@@ -21,37 +21,37 @@ sd_filesystem::sd_filesystem() {
             };
 
 
-        const auto tryHostWithPins = [&mount_config](int numPins) {
-            gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY);
-            gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);
-            sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-            host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
-            host.command_timeout_ms = 2000;
-            sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-            slot_config.width = numPins;
+        //const auto tryHostWithPins = [&mount_config](int numPins) {
+        //    gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY);
+        //    gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);
+        //    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+        //    host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
+        //    host.command_timeout_ms = 2000;
+        //    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+        //    slot_config.width = numPins;
 
-            Logger::log(LogLevel::Info, "Trying to mount sd card");
+        //    Logger::log(LogLevel::Info, "Trying to mount sd card");
 
-            auto result = esp_vfs_fat_sdmmc_mount(sd_filesystem::mount_point, &host, &slot_config, &mount_config, &_sd_data.card);
+        //    auto result = esp_vfs_fat_sdmmc_mount(sd_filesystem::mount_point, &host, &slot_config, &mount_config, &_sd_data.card);
 
-            if (result != ESP_OK) {
-                gpio_set_pull_mode((gpio_num_t)15, GPIO_FLOATING);
-                gpio_set_pull_mode((gpio_num_t)2, GPIO_FLOATING);
-            }
+        //    if (result != ESP_OK) {
+        //        gpio_set_pull_mode((gpio_num_t)15, GPIO_FLOATING);
+        //        gpio_set_pull_mode((gpio_num_t)2, GPIO_FLOATING);
+        //    }
 
-            return result;
+        //    return result;
 
-        };
+        //};
 
         const auto trySpi = [&mount_config]() {
-            // gpio_set_pull_mode((gpio_num_t)15, GPIO_PULLUP_ONLY);
-            // gpio_set_pull_mode((gpio_num_t)2, GPIO_PULLUP_ONLY);
             sdmmc_host_t host = SDSPI_HOST_DEFAULT();
             host.command_timeout_ms = 2000;
             spi_bus_config_t bus_cfg = {
-                .mosi_io_num = 13,
-                .miso_io_num = 12,
-                .sclk_io_num = 14,
+                //.mosi_io_num = 23,
+                //.miso_io_num = 19,
+                .mosi_io_num = 19,
+                .miso_io_num = 23,
+                .sclk_io_num = 18,
                 .quadwp_io_num = -1,
                 .quadhd_io_num = -1,
                 .max_transfer_sz = 4000
@@ -73,17 +73,17 @@ sd_filesystem::sd_filesystem() {
 
         };
         
-        esp_err_t initResult = ESP_OK;
+        esp_err_t initResult = ESP_FAIL;
 
 
-        if ((initResult = tryHostWithPins(4)) != ESP_OK) {
-            Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 4 ...");
-        }
+        //if ((initResult = tryHostWithPins(4)) != ESP_OK) {
+        //    Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 4 ...");
+        //}
 
-        if (initResult != ESP_OK && (initResult = tryHostWithPins(1)) != ESP_OK) {
-            Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 1 ...");
+        //if (initResult != ESP_OK && (initResult = tryHostWithPins(1)) != ESP_OK) {
+        //    Logger::log(LogLevel::Warning, "Failed to initialize card with slot_width 1 ...");
 
-        }
+        //}
 
         if (initResult != ESP_OK && (initResult = trySpi()) != ESP_OK) {
             Logger::log(LogLevel::Warning, "Failed to initialize card with spi giving up ...");

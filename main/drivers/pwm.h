@@ -18,7 +18,6 @@ struct pwm_config {
     ledc_channel_t channel = LEDC_CHANNEL_0;
     // TODO: configure this differently
     uint16_t max_value = (1 << 10) - 1;
-    uint16_t current_value = 0;
     uint8_t gpio_num = static_cast<uint8_t>(gpio_num_t::GPIO_NUM_MAX);
     bool fade = false;
     bool invert = false;
@@ -34,7 +33,7 @@ class PwmDriver final {
         static std::optional<PwmDriver> create_driver(const device_config *config);
 
         DeviceOperationResult write_value(const device_values &value);
-        DeviceOperationResult read_value(device_values &value) const;
+        DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult update_runtime_data();
@@ -45,4 +44,5 @@ class PwmDriver final {
         std::shared_ptr<timer_resource> m_timer = nullptr;
         std::shared_ptr<gpio_resource> m_gpio = nullptr;
         std::shared_ptr<led_channel> m_channel = nullptr;
+        uint16_t m_current_value = 0;
 };

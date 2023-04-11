@@ -37,7 +37,7 @@ int32_t LoadcellDriver::convertToRealValue(int32_t rawValue, int32_t offset, int
     return (rawValue + offset) * (scale / static_cast<float>(100'000));
 }
 
-DeviceOperationResult LoadcellDriver::read_value(device_values &out) const {
+DeviceOperationResult LoadcellDriver::read_value(std::string_view what, device_values &out) const {
     const auto config = reinterpret_cast<LoadcellConfig *>(mConf->device_config.data());
     // TODO: prevent scale from being zero
     out.milligramms = convertToRealValue(m_values.average(), config->offset, config->scale);

@@ -8,10 +8,16 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/dac.h"
+#include "driver/i2c.h"
 #include "hal/dac_types.h"
 
 enum struct gpio_purpose {
     bus, gpio
+};
+
+enum struct i2c_ports {
+    zero = I2C_NUM_0, 
+    one = I2C_NUM_1
 };
 
 class gpio_resource final {
@@ -116,6 +122,29 @@ class dac_resource final {
         friend class device_resource;
 };
 
+// TODO: implement
+class i2c_resource final {
+    public:
+        i2c_resource(const i2c_resource &) = delete;
+        i2c_resource(dac_resource &&);
+        ~i2c_resource();
+
+        i2c_resource &operator=(const i2c_resource &) = delete;
+        i2c_resource &operator=(i2c_resource &&);
+
+        void swap(i2c_resource &other);
+
+        i2c_port_t channel_num() const;
+    private:
+        i2c_resource(i2c_resource channel, std::shared_ptr<gpio_resource> &sdaPin, std::shared_ptr<gpio_resource> &sclPin);
+
+        i2c_port_t m_i2c_num;
+        std::shared_ptr<gpio_resource> m_sdaPin;
+        std::shared_ptr<gpio_resource> m_sclPin;
+
+        friend class device_resource;
+};
+
 void swap(led_channel &lhs, led_channel &rhs);
 
 class device_resource final {
@@ -124,6 +153,8 @@ class device_resource final {
         static std::shared_ptr<timer_resource> get_timer_resource(const timer_config &config);
         static std::shared_ptr<dac_resource> get_dac_resource(dac_channel_t channel);
         static std::shared_ptr<led_channel> get_led_channel();
+        // TODO: implement
+        static std::shared_ptr<i2c_resource> get_i2c_port(i2c_port_t port, i2c_mode_t mode, gpio_num_t sda, gpio_num_t scl);
 
     private:
         // TODO: replace with weak_ptr
@@ -132,7 +163,7 @@ class device_resource final {
             // std::make_pair(gpio_num_t::GPIO_NUM_1, std::shared_ptr<gpio_resource>(nullptr)),
             // std::make_pair(gpio_num_t::GPIO_NUM_2, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_3, std::shared_ptr<gpio_resource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_4, std::shared_ptr<gpio_resource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_4, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_5, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_6, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_7, std::shared_ptr<gpio_resource>(nullptr)),
@@ -140,9 +171,9 @@ class device_resource final {
             std::make_pair(gpio_num_t::GPIO_NUM_9, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_10, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_11, std::shared_ptr<gpio_resource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_12, std::shared_ptr<gpio_resource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_12, std::shared_ptr<gpio_resource>(nullptr)),
             // std::make_pair(gpio_num_t::GPIO_NUM_13, std::shared_ptr<gpio_resource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_14, std::shared_ptr<gpio_resource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_14, std::shared_ptr<gpio_resource>(nullptr)),
             // std::make_pair(gpio_num_t::GPIO_NUM_15, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_16, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_17, std::shared_ptr<gpio_resource>(nullptr)),
@@ -184,6 +215,11 @@ class device_resource final {
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_5, std::shared_ptr<led_channel>(nullptr)),
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_6, std::shared_ptr<led_channel>(nullptr)),
             std::make_pair(ledc_channel_t::LEDC_CHANNEL_7, std::shared_ptr<led_channel>(nullptr)),
+        };
+
+        static inline std::array _i2c_ports {
+            std::make_pair(i2c_ports::zero, std::shared_ptr<i2c_resource>(nullptr)),
+            std::make_pair(i2c_ports::one, std::shared_ptr<i2c_resource>(nullptr))
         };
 
         static inline std::recursive_mutex _instance_mutex;

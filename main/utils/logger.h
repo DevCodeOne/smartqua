@@ -116,6 +116,17 @@ struct HttpLogSinkPathGenerator {
 
 };
 
+class VoidSink final {
+    public:
+        bool install() { return true; }
+        bool uninstall() { return true; }
+
+        
+        template<typename ... Arguments>
+        bool log(LogLevel level, const char *fmt, Arguments && ... args) { return true; }
+    private:
+};
+
 class HttpLogSink final {
     public:
         bool install();
@@ -128,6 +139,7 @@ class HttpLogSink final {
         static inline RestStorage<HttpLogSinkPathGenerator, RestDataType::Json> logSink;
 };
 
+/*
 class SdCardSink final {
     public:
         static inline constexpr char log_path_format [] = "%s/logs";
@@ -145,6 +157,7 @@ class SdCardSink final {
         FILE *_log_output_file = nullptr;
         std::size_t _since_last_flush = 0;
 };
+*/
 
 template<size_t DstSize>
 bool HttpLogSinkPathGenerator::generateRestTarget(std::array<char, DstSize> &dst) {
@@ -206,8 +219,11 @@ bool HttpLogSink::log(LogLevel level, const char *fmt, Arguments && ... args) {
     return true;
 }
 
+/*
 template<typename ... Arguments>
 bool SdCardSink::log(LogLevel level, const char *fmt, Arguments && ... args) {
+    return false;
+
     auto current_log_file = open_current_log();
 
     if (current_log_file == nullptr) {
@@ -221,3 +237,4 @@ bool SdCardSink::log(LogLevel level, const char *fmt, Arguments && ... args) {
     return true; 
 
 }
+*/

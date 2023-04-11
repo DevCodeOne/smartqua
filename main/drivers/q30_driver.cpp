@@ -54,7 +54,7 @@ DeviceOperationResult Q30Driver::write_value(const device_values &value) {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult Q30Driver::read_value(device_values &value) const {
+DeviceOperationResult Q30Driver::read_value(std::string_view what, device_values &value) const {
     return DeviceOperationResult::not_supported;
 }
 
@@ -80,7 +80,7 @@ DeviceOperationResult Q30Driver::update_runtime_data() {
     // TODO: change algo later later
     for (const auto &currentValue : newChannelValues) {
         if (currentValue) {
-            fanSpeed += *currentValue * 2;
+            fanSpeed = std::max(static_cast<uint16_t>(std::get<2>(*currentValue) * 2), fanSpeed);
         }
     }
 

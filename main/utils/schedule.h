@@ -7,6 +7,10 @@
 
 #include "utils/time_utils.h"
 
+enum struct DaySearchSettings {
+    OnlyThisDay, AllDays
+};
+
 template<typename TimePointData, uint8_t TimePointsPerDay>
 class DaySchedule {
 public:
@@ -139,10 +143,12 @@ public:
     WeekSchedule(const DayScheduleArrayType &schedule);
 
     template<typename DurationType>
-    auto findCurrentTimePoint(const DurationType &unitThisDay, std::optional<weekday> day = std::nullopt) const;
+    auto findCurrentTimePoint(const DurationType &unitThisDay, DaySearchSettings settings = DaySearchSettings::AllDays, 
+        std::optional<weekday> day = std::nullopt) const;
 
     template<typename DurationType>
-    auto findNextTimePoint(const DurationType &unitThisDay, std::optional<weekday> day = std::nullopt) const;
+    auto findNextTimePoint(const DurationType &unitThisDay, DaySearchSettings settings = DaySearchSettings::AllDays, 
+        std::optional<weekday> day = std::nullopt) const;
 
     auto &setDaySchedule(weekday day, const DayScheduleType &daySchedule);
 
@@ -158,13 +164,12 @@ auto &WeekSchedule<TimePointData, TimePointsPerDay>::setDaySchedule(weekday day,
 }
 
 // TODO: return timepoint on day + day in seconds
-
 template<typename TimePointData, typename DurationType = std::chrono::seconds>
 using TimePointInfoType = std::pair<DurationType, TimePointData>;
 
 template<typename TimePointData, uint8_t TimePointsPerDay>
 template<typename DurationType>
-auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const DurationType &unitThisDay, std::optional<weekday> day) const {
+auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const DurationType &unitThisDay, DaySearchSettings settings, std::optional<weekday> day) const {
     // If if has no value take current day
     if (!day.has_value()) {
         day = getDayOfWeek();
@@ -175,14 +180,14 @@ auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const D
 
     // If nothing was fount find the first available timepoint
     uint8_t daysSearched = 0;
-    while (result == daySchedules[dayIndex].end() && daysSearched < 8) {
+    while (settings == DaySearchSettings::AllDays && result == daySchedules[dayIndex].end() && daysSearched < 8) {
         dayIndex = static_cast<uint32_t>(getPreviousDay(static_cast<weekday>(dayIndex)));
         result = daySchedules[dayIndex].getLastTimePointOfDay();
         ++daysSearched;
     }
 
-    if (daysSearched == 8) {
-        return std::make_optional<TimePointInfoType<TimePointData>>();
+    if (daysSearched == 8 || result == daySchedules[dayIndex].end()) {
+        return std::optional<TimePointInfoType<TimePointData>>{};
     }
 
     return std::make_optional<TimePointInfoType<TimePointData>>(
@@ -191,7 +196,7 @@ auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const D
 
 template<typename TimePointData, uint8_t TimePointsPerDay>
 template<typename DurationType>
-auto WeekSchedule<TimePointData, TimePointsPerDay>::findNextTimePoint(const DurationType &unitThisDay, std::optional<weekday> day) const {
+auto WeekSchedule<TimePointData, TimePointsPerDay>::findNextTimePoint(const DurationType &unitThisDay, DaySearchSettings settings, std::optional<weekday> day) const {
     // If if has no value use current day
     if (!day.has_value()) {
         day = getDayOfWeek();
@@ -202,14 +207,14 @@ auto WeekSchedule<TimePointData, TimePointsPerDay>::findNextTimePoint(const Dura
 
     // If nothing was found find the first available timepoint
     uint8_t daysSearched = 0;
-    while (result == daySchedules[dayIndex].end() && daysSearched < 8) {
+    while (settings == DaySearchSettings::AllDays && result == daySchedules[dayIndex].end() && daysSearched < 8) {
         dayIndex = static_cast<uint32_t>(getNextDay(static_cast<weekday>(dayIndex)));
         result = daySchedules[dayIndex].getFirstTimePointOfDay();
         ++daysSearched;
     }
 
-    if (daysSearched == 8) {
-        return std::make_optional<TimePointInfoType<TimePointData>>();
+    if (daysSearched == 8 || result == daySchedules[dayIndex].end()) {
+        return std::optional<TimePointInfoType<TimePointData>>{};
     }
 
     return std::make_optional<TimePointInfoType<TimePointData>>(

@@ -41,7 +41,7 @@ public:
     // To calibrate something or execute actions
     DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
     DeviceOperationResult update_runtime_data();
-    DeviceOperationResult read_value(device_values &value) const;
+    DeviceOperationResult read_value(std::string_view what, device_values &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
 
 private:
@@ -108,6 +108,7 @@ template<typename ... DeviceDrivers>
 template<typename DriverType>
 device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver)) {}
 
+// TODO: same thing as in read_value
 template<typename ... DeviceDrivers>
 DeviceOperationResult device<DeviceDrivers ...>::write_value(const device_values &value) {
     return std::visit(
@@ -118,11 +119,11 @@ DeviceOperationResult device<DeviceDrivers ...>::write_value(const device_values
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::read_value(device_values &value) const {
+DeviceOperationResult device<DeviceDrivers ...>::read_value(std::string_view what, device_values &value) const {
     return std::visit(
-        [&value](const auto &current_driver) { 
+        [&value, what](const auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating read_value to driver");
-            return current_driver.read_value(value); 
+            return current_driver.read_value(what, value); 
         }, m_driver);
 }
 

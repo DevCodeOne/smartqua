@@ -62,8 +62,8 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     size_t numDevicesFound = -1;
     auto result = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices, &numDevicesFound);
 
-    if (result != ESP_OK && numDevicesFound < 1) {
-        Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d", gpio_num);
+    if (result != ESP_OK || numDevicesFound < 1) {
+        Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d, result : %d, num_devices : %d", gpio_num, (int) result, (int) numDevicesFound);
         return std::nullopt;
     }
 
@@ -77,13 +77,14 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     }
 
     if (!index_to_add.has_value()) {
+        Logger::log(LogLevel::Info, "Didn't find any devices attaced to gpio_num : %d", gpio_num);
         return std::nullopt;
     }
 
     Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
 
     ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
-    std::memcpy(reinterpret_cast<void *>(&device_conf_out.device_config), reinterpret_cast<void *>(&data), sizeof(ds18x20_driver_data));
+    std::memcpy(reinterpret_cast<void *>(device_conf_out.device_config.data()), &data, sizeof(ds18x20_driver_data));
     device_conf_out.device_driver_name =  Ds18x20Driver::name;
 
     return Ds18x20Driver(&device_conf_out, pin);
@@ -115,7 +116,8 @@ DeviceOperationResult Ds18x20Driver::write_value(const device_values &value) {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult Ds18x20Driver::read_value(device_values &value) const {
+// TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
+DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, device_values &value) const {
     const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
     float temperature = 0.0f;
     Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),

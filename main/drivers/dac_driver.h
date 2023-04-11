@@ -9,7 +9,6 @@
 
 struct DacDriverData final {
     dac_channel_t channel = dac_channel_t::DAC_CHANNEL_1;
-    uint8_t value = 0;
 };
 
 class DacDriver final {
@@ -28,7 +27,7 @@ class DacDriver final {
         static std::optional<DacDriver> create_driver(const device_config *config);
 
         DeviceOperationResult write_value(const device_values &value);
-        DeviceOperationResult read_value(device_values &value) const;
+        DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
@@ -36,7 +35,8 @@ class DacDriver final {
     private:
         DacDriver(const device_config *conf, std::shared_ptr<dac_resource> dacResource);
 
-        const device_config *m_conf;
-        std::shared_ptr<dac_resource> m_dac;
+        const device_config *m_conf = nullptr;
+        uint8_t m_value = 0;
+        std::shared_ptr<dac_resource> m_dac = nullptr;
 
 };

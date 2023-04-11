@@ -243,10 +243,11 @@ namespace SmartAq::Utils {
 
         event.index = indexToDelete;
         event.result.collection_result = collection_operation_result::ok;
+        // First delete class, so the class can use the information in the trivial representation if needed
+        runtimeData[*indexToDelete] = std::nullopt;
         data.values[*indexToDelete] = BaseType{};
         data.names[*indexToDelete][0] = '\0';
         data.initialized[*indexToDelete] = false;
-        runtimeData[*indexToDelete] = std::nullopt;
 
         return data;
     }

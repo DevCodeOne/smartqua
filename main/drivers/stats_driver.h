@@ -198,7 +198,8 @@ void stats_driver<N>::stats_driver_task(void *) {
     std::array<char, 64> out_file;
     std::array<char, 36> out_path;
 
-    snprintf(out_path.data(), out_path.size(), "%s/stats/%d", sd_filesystem::mount_point, timeinfo.tm_yday);
+    const char *mount_point = "";
+    snprintf(out_path.data(), out_path.size(), "%s/stats/%d", mount_point, timeinfo.tm_yday);
     auto output_folder_exists = ensure_path_exists(out_path.data());
 
     if (output_folder_exists) {

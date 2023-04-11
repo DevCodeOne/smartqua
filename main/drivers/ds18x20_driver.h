@@ -32,7 +32,7 @@ class Ds18x20Driver final {
         static std::optional<Ds18x20Driver> create_driver(const device_config *config);
 
         DeviceOperationResult write_value(const device_values &value);
-        DeviceOperationResult read_value(device_values &value) const;
+        DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();

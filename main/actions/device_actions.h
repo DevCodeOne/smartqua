@@ -37,6 +37,7 @@ using retrieve_device_overview = SmartAq::Utils::ArrayActions::GetValueOverview<
 
 struct read_from_device {
     unsigned int index = std::numeric_limits<unsigned int>::max();
+    std::string_view what = "";
     device_values read_value;
     
     struct {
@@ -236,10 +237,11 @@ void DeviceSettings<N, DeviceDrivers ...>::dispatch(read_from_device &event) con
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         Logger::log(LogLevel::Info, "Reading from device ...");
-        event.result.op_result = currentDevice.read_value(event.read_value);
+        event.result.op_result = currentDevice.read_value(event.what, event.read_value);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });
 }
+
 
 template<size_t N, typename ... DeviceDrivers>
 void DeviceSettings<N, DeviceDrivers ...>::dispatch(retrieve_device_info &event) const {

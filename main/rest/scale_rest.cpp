@@ -30,7 +30,7 @@ esp_err_t get_load(httpd_req_t *req) {
     }
 
     scale_event se{};
-    global_store.read_event(se);
+    global_store->read_event(se);
 
     json_printf(&answer, "{ %Q : %Q, %Q : %d, %Q : %d, %Q : %d}", "info", "OK",
                 "tare", static_cast<int32_t>(off / sc), "load",
@@ -67,7 +67,7 @@ esp_err_t set_contained_co2(httpd_req *req) {
     Logger::log(LogLevel::Info, "%s %d", buf, contained_co2);
 
     scale_event se{ .type = scale_setting_indices::contained_co2, .data = { .contained_co2 = contained_co2 }};
-    global_store.write_event(se);
+    global_store->write_event(se);
 
     json_printf(&answer, "{ %Q : %Q}", "info", "OK");
     httpd_resp_sendstr(req, buf);
@@ -85,7 +85,7 @@ esp_err_t tare_scale(httpd_req_t *req) {
     // scale.tare();
     int32_t scale_offset = 0;
     scale_event se{ .type = scale_setting_indices::offset, .data = { .offset = scale_offset }};
-    global_store.write_event(se);
+    global_store->write_event(se);
 
     json_printf(&answer, "{ %Q : %Q}", "info", "OK");
     httpd_resp_sendstr(req, buf);

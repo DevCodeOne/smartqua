@@ -17,8 +17,7 @@
 DacDriver::DacDriver(const device_config *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
     if (dacResource && config != nullptr) {
         dac_output_enable(dacResource->channel_num());
-        const auto *dacConf = reinterpret_cast<DacDriverData *>(config->device_config.data());
-        write_value(device_values{ .voltage = dacConf->value });
+        write_value(device_values{ .voltage = m_value });
     }
 }
 
@@ -46,7 +45,6 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
         return DeviceOperationResult::failure;
     }
 
-    auto *dacConf = reinterpret_cast<DacDriverData *>(m_conf->device_config.data());
     decltype(value.voltage) voltageValue = value.voltage;
 
     if (!voltageValue.has_value() && value.percentage.has_value()) {
@@ -60,9 +58,9 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     }
 
     const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
-    dacConf->value = targetValue;
+    m_value = targetValue;
 
-    Logger::log(LogLevel::Info, "Setting new value %d", targetValue);
+    Logger::log(LogLevel::Info, "Setting new value %d from voltage %d.%d", targetValue, (int) (*voltageValue * 100));
 
     esp_err_t result = dac_output_voltage(m_dac->channel_num(), targetValue);
 
@@ -74,7 +72,7 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult DacDriver::read_value(device_values &value) const {
+DeviceOperationResult DacDriver::read_value(std::string_view what, device_values &value) const {
     return DeviceOperationResult::not_supported;
 }
 
@@ -94,13 +92,11 @@ DeviceOperationResult DacDriver::update_runtime_data() {
 std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
     DacDriverData newConf{};
     int channel = static_cast<int>(newConf.channel);
-    int value = static_cast<int>(newConf.value);
 
-    json_scanf(input.data(), input.size(), "{ channel : %d, value : %d }", &channel, &value);
+    json_scanf(input.data(), input.size(), "{ channel : %d }", &channel);
 
     bool assignResult = true;
     assignResult &= check_assign(newConf.channel, std::clamp<int>(channel - 1, 0, 1));
-    assignResult &= check_assign(newConf.value, value);
 
     if (!assignResult) {
         Logger::log(LogLevel::Warning, "Some value(s) were out of range");

@@ -4,7 +4,6 @@
 #include <optional>
 #include <array>
 
-#include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 
 template<size_t CertBufferLen, size_t KeyBufferLen>

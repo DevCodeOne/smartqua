@@ -12,7 +12,7 @@
 #include "nvs_flash.h"
 #include "nvs_flash_utils.h"
 
-#include "utils/sd_filesystem.h"
+// #include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
 #include "utils/logger.h"
@@ -124,15 +124,11 @@ class NvsSetting {
 };
 #endif
 
-template<typename SettingType, auto InitType = SettingInitType::lazy_load>
+template<typename SettingType, ConstexprPath Path, typename FilesystemType, auto InitType = SettingInitType::lazy_load>
 class FilesystemSetting {
     public:
-        static inline constexpr char folder_name [] = "binary_data";
-
         static_assert(std::is_standard_layout_v<SettingType>, 
             "SettingType has to conform to the standard layout concept");
-
-        using setting_type = SettingType;
 
         FilesystemSetting() { initialize(); }
 
@@ -140,45 +136,45 @@ class FilesystemSetting {
 
         void initialize() {
             if (InitType == SettingInitType::instant) {
-                init_sd_card();
+                initFilesystem();
             }
         }
 
         template<typename T>
         FilesystemSetting &set_value(T new_value) {
-            init_sd_card();
+            initFilesystem();
 
             m_setting = new_value;
 
             if (m_initialized) {
-                store_to_sd_card();
+                storeToFilesystem();
             }
 
             return *this;
         }
 
         const auto &get_value() {
-            init_sd_card();
+            initFilesystem();
 
             return m_setting;
         }
 
     private:
         template<typename ArrayType>
-        bool copy_tmp_filename_to_buffer(ArrayType &dst) {
-            auto result = snprintf(dst.data(), dst.size(), "%s/%s/%s.bin.tmp", sd_filesystem::mount_point, folder_name, SettingType::name);
+        bool copyTmpFilenameToBuffer(ArrayType &dst) {
+            auto result = snprintf(dst.data(), dst.size(), "%s/%s.bin.tmp", FilesystemType::MountPointPath, Path.value);
             return result > 0 && result < dst.size();
         }
 
         template<typename ArrayType>
-        bool copy_filename_to_buffer(ArrayType &dst) {
-            auto result = snprintf(dst.data(), dst.size(), "%s/%s/%s.bin", sd_filesystem::mount_point, folder_name, SettingType::name);
+        bool copyFilenameToBuffer(ArrayType &dst) {
+            auto result = snprintf(dst.data(), dst.size(), "%s/%s.bin", FilesystemType::MountPointPath, Path.value);
             return result > 0 && result < dst.size();
         }
 
-        FILE *open_tmp_file() {
+        FILE *openTmpFile() {
             stack_string<64> filename;
-            copy_tmp_filename_to_buffer(filename);
+            copyTmpFilenameToBuffer(filename);
 
             auto opened_file = std::fopen(filename.data(), "r+");
 
@@ -190,23 +186,24 @@ class FilesystemSetting {
             return opened_file;
         }
 
-        esp_err_t init_sd_card() {
+        esp_err_t initFilesystem() {
             if (m_initialized) {
                 return ESP_OK;
             }
 
-            Logger::log(LogLevel::Info, "Initializing sd card");
+            Logger::log(LogLevel::Info, "Initializing filesystem");
             if (!m_filesystem) {
-                m_filesystem = sd_filesystem{};
+                m_filesystem = FilesystemType::create();
             }
 
-            if (!m_filesystem.value()) {
+            if (!m_filesystem.has_value()) {
                 Logger::log(LogLevel::Error, "Filesystem is not valid");
                 return ESP_FAIL;
             }
 
+            /*
             std::array<char, name_length> out_path{'\0'};
-            auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", sd_filesystem::mount_point, folder_name);
+            auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", Path.value, FolderName);
 
             if (result < 0) {
                 Logger::log(LogLevel::Error, "Couldn't write folder path");
@@ -220,29 +217,29 @@ class FilesystemSetting {
                 return ESP_FAIL;
             }
 
-            auto target_file = open_tmp_file();
+            auto target_file = openTmpFile();
             DoFinally closeOp( [&target_file]() {
                 std::fclose(target_file);
             });
 
             if (!target_file) {
-                Logger::log(LogLevel::Error, "Couldn't open target file");
+                Logger::log(LogLevel::Error, "Couldn't open target file %s", SettingType::name);
                 return ESP_FAIL;
-            }
+            }*/
 
             m_initialized = true;
 
-            return load_from_sd_card();
+            return loadFromFilesystem();
         }
 
-        esp_err_t load_from_sd_card() {
+        esp_err_t loadFromFilesystem() {
             if (!m_initialized) {
                 return ESP_FAIL;
             }
 
-            Logger::log(LogLevel::Info, "Loading from sd card");
+            Logger::log(LogLevel::Info, "Loading from filesystem");
             std::array<char, 64> filename{'\0'};
-            copy_filename_to_buffer(filename);
+            copyFilenameToBuffer(filename);
             auto opened_file = std::fopen(filename.data(), "r+");
             DoFinally closeOp( [&opened_file]() {
                 std::fclose(opened_file);
@@ -256,43 +253,48 @@ class FilesystemSetting {
             std::fseek(opened_file, 0, SEEK_END);
             auto file_size = std::ftell(opened_file);
 
-            if (file_size != sizeof(setting_type)) {
+            if (file_size != sizeof(SettingType)) {
                 Logger::log(LogLevel::Warning, "File size of %s is %d and that isn't the correct size %d", 
                     SettingType::name,
                     static_cast<int>(file_size),
-                    static_cast<int>(sizeof(setting_type)));
+                    static_cast<int>(sizeof(SettingType)));
                 return ESP_FAIL;
             }
 
             std::fseek(opened_file, 0, SEEK_SET);
-            auto read_size = fread(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, opened_file);
+            auto read_size = std::fread(reinterpret_cast<void *>(&m_setting), sizeof(SettingType), 1, opened_file);
 
-            Logger::log(LogLevel::Info, "Read %d bytes from the sd card", read_size * sizeof(setting_type));
+            Logger::log(LogLevel::Info, "Read %d bytes from the sd card", read_size * sizeof(SettingType));
 
             return read_size == 1;
         }
 
-        esp_err_t store_to_sd_card() {
+        esp_err_t storeToFilesystem() {
             if (!m_initialized) {
                 return ESP_FAIL;
             }
 
-            Logger::log(LogLevel::Info, "Writing to sd card");
+            Logger::log(LogLevel::Info, "Writing to filesystem");
 
-            auto target_file = open_tmp_file();
-            rewind(target_file);
+            if (std::memcmp(reinterpret_cast<void *>(&m_written), reinterpret_cast<void *>(&m_setting), sizeof(SettingType)) == 0) {
+                Logger::log(LogLevel::Info, "Setting didn't change -> don't write to flash %s", Path);
+                return ESP_OK;
+            }
 
-            auto written_size = fwrite(reinterpret_cast<void *>(&m_setting), sizeof(setting_type), 1, target_file);
-            fclose(target_file);
-            Logger::log(LogLevel::Info, "Wrote %d bytes to the sd card", written_size * sizeof(setting_type));
+            auto target_file = openTmpFile();
+            std::rewind(target_file);
+
+            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(SettingType), 1, target_file);
+            std::fclose(target_file);
+            Logger::log(LogLevel::Info, "Wrote %d bytes to the filesystem", written_size * sizeof(SettingType));
 
             int rename_result = -1;
             if (written_size == 1) {
                 stack_string<64> tmp_filename;
                 stack_string<64> filename;
                 // TODO: check results of both methods
-                copy_tmp_filename_to_buffer(tmp_filename);
-                copy_filename_to_buffer(filename);
+                copyTmpFilenameToBuffer(tmp_filename);
+                copyFilenameToBuffer(filename);
                 std::remove(filename.data());
                 Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename.data(), filename.data());
                 rename_result = std::rename(tmp_filename.data(), filename.data());
@@ -304,12 +306,18 @@ class FilesystemSetting {
                 Logger::log(LogLevel::Error, "Couldn't rename file");
             }
 
-            return written_size == 1 && rename_result >= 0;
+            if (written_size != 1 || rename_result < 0) {
+                return false;
+            }
+
+            m_written = m_setting;
+            return true;
         }
     
         bool m_initialized = false;
-        std::optional<sd_filesystem> m_filesystem = std::nullopt;
-        setting_type m_setting;
+        std::optional<FilesystemType> m_filesystem = std::nullopt;
+        SettingType m_setting;
+        SettingType m_written;
 };
 
 template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>

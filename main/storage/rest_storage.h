@@ -9,6 +9,7 @@
 
 #include "utils/rest_client.h"
 #include "network/network_info.h"
+#include "utils/utils.h"
 
 // TODO: add setting to close the connection for storage, that's rarely updated
 template<typename SettingType, RestDataType StorageType>
@@ -25,13 +26,6 @@ class RestStorage {
             }
 
             clientConfig.url = restTarget.data();
-            client = esp_http_client_init(&clientConfig);
-
-            if (client == nullptr) {
-                ESP_LOGW("RestStorage", "Couldn't create client with target %s", clientConfig.url);
-                isValid = false;
-                return;
-            }
 
             ESP_LOGI("RestStorage", "Created client with target %s", clientConfig.url);
         }
@@ -48,13 +42,6 @@ class RestStorage {
             }
 
             clientConfig.url = restTarget.data();
-            client = esp_http_client_init(&clientConfig);
-
-            if (client == nullptr) {
-                ESP_LOGW("RestStorage", "Couldn't create client with target %s", clientConfig.url);
-                isValid = false;
-                return;
-            }
 
             ESP_LOGI("RestStorage", "Created client with target %s", clientConfig.url);
         }
@@ -81,16 +68,27 @@ class RestStorage {
         }
 
         ~RestStorage() {
-            if (client != nullptr) {
-                esp_http_client_cleanup(client);
-            }
         }
 
         bool retrieveData(char *dst, size_t len) {
-            if (!isValid || !NetworkInfo::canUseNetwork()) {
+            if (!NetworkInfo::canUseNetwork()) {
                 ESP_LOGW("RestStorage", "RestStorage is not valid (%d)", isValid);
                 return false;
             }
+
+            client = esp_http_client_init(&clientConfig);
+
+            if (client == nullptr) {
+                ESP_LOGW("RestStorage", "Couldn't create client with target %s", clientConfig.url);
+                isValid = false;
+                return false;
+            }
+
+            DoFinally cleanup([this]() {
+                esp_http_client_close(this->client);
+                esp_http_client_cleanup(this->client);
+                this->client = nullptr;
+            });
 
             ESP_LOGI("RestStorage", "Try to read %d bytes from %s", (int) len, clientConfig.url);
 
@@ -129,8 +127,6 @@ class RestStorage {
                 return false; 
             }
 
-            error = esp_http_client_close(client);
-
             if (error != ESP_OK) { 
                 ESP_LOGW("RestStorage", "Connection close returned -1, ignoring");
             }
@@ -147,7 +143,19 @@ class RestStorage {
                 return false;
             }
 
-            // ESP_LOGI("RestStorage", "Try to write %d bytes to %s", (int) len, clientConfig.url);
+            clientConfig.url = restTarget.data();
+            client = esp_http_client_init(&clientConfig);
+
+            if (client == nullptr) {
+                ESP_LOGW("RestStorage", "Couldn't create client with target %s", clientConfig.url);
+                isValid = false;
+                return false;
+            }
+
+            DoFinally cleanup([this]() {
+                esp_http_client_close(this->client);
+                esp_http_client_cleanup(this->client);
+            });
 
             auto error = esp_http_client_set_method(client, Method);
 
@@ -201,7 +209,7 @@ class RestStorage {
         }
 
     private:
-        esp_http_client_handle_t client{};
+        esp_http_client_handle_t client = nullptr;
         esp_http_client_config_t clientConfig{};
         bool isValid;
         std::array<char, 128> restTarget{};

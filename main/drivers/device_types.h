@@ -59,25 +59,57 @@ struct device_values {
 template<typename ValueType> 
 device_values device_values::create_from_unit(DeviceValueUnit unit, ValueType value) {
     switch (unit) {
+        case DeviceValueUnit::temperature:
+            return device_values { .temperature = value };
+        case DeviceValueUnit::ph:
+            return device_values { .voltage = value };
+        case DeviceValueUnit::humidity:
+            return device_values { .humidity = value };
+        case DeviceValueUnit::voltage:
+            return device_values { .voltage = value };
+        case DeviceValueUnit::ampere:
+            return device_values { .ampere = value };
+        case DeviceValueUnit::watt:
+            return device_values { .watt = value };
+        case DeviceValueUnit::tds:
+            return device_values { .tds = value };
+        case DeviceValueUnit::generic_analog:
+            return device_values { .generic_analog = value };
+        case DeviceValueUnit::milligramms:
+            return device_values { .milligramms = value };
         case DeviceValueUnit::milliliter:
             return device_values { .milliliter = value };
-            break;
         case DeviceValueUnit::percentage:
         default:
             return device_values{ .percentage = value };
     }
 }
 
-// TODO: implement the rest
 template<>
 struct read_from_json<DeviceValueUnit> {
     static void read(const char *str, int len, DeviceValueUnit &unit) {
         std::string_view input(str, len);
 
-        if (input == "percentage") {
+        if (input == "percentage" || input == "%") {
             unit = DeviceValueUnit::percentage;
+        } else if (input == "degc") {
+            unit = DeviceValueUnit::temperature;
         } else if (input == "ml" || input == "milliliter") {
             unit = DeviceValueUnit::milliliter;
+        } else if (input == "mg" || input == "milligramms") {
+            unit = DeviceValueUnit::milligramms;
+        } else if (input == "ph") {
+            unit = DeviceValueUnit::ph;
+        } else if (input == "humidity") {
+            unit = DeviceValueUnit::humidity;
+        } else if (input == "volt" || input == "v") {
+            unit = DeviceValueUnit::voltage;
+        } else if (input == "amp" || input == "a") {
+            unit = DeviceValueUnit::ampere;
+        } else if (input == "tds") {
+            unit = DeviceValueUnit::tds;
+        } else if (input == "analog") {
+            unit = DeviceValueUnit::generic_analog;
         }
     }
 };

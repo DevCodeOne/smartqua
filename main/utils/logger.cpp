@@ -24,6 +24,7 @@ bool HttpLogSink::install() { return true; }
 
 bool HttpLogSink::uninstall() { return true; }
 
+/*
 bool SdCardSink::install() { return true; }
 
 bool SdCardSink::uninstall() { return true; }
@@ -82,3 +83,4 @@ FILE *SdCardSink::open_current_log() {
 
     return _log_output_file;
 }
+*/
