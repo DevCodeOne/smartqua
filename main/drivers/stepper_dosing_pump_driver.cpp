@@ -137,7 +137,7 @@ void StepperDosingPumpDriver::updatePumpThread(std::stop_token token, StepperDos
     const StepperDosingConfig *const stepperConfig = reinterpret_cast<const StepperDosingConfig *>(
             instance->mConf->device_config.data());
 
-    Logger::log(LogLevel::Info, "Did it start ?");
+    Logger::log(LogLevel::Info, "Starting Stepper dosing thread");
     auto result = gpio_set_level(static_cast<gpio_num_t>(stepperConfig->enGPIONum), 1);
     Logger::log(LogLevel::Info, "Result setting enable to 1 %d", result);
 
@@ -206,18 +206,20 @@ StepperDosingPumpDriver::StepperDosingPumpDriver(StepperDosingPumpDriver &&other
 
 StepperDosingPumpDriver &StepperDosingPumpDriver::operator=(StepperDosingPumpDriver &&other)
 {
+    Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
+    other.mStepsLeft = 1;
+    other.mPumpThread.request_stop();
+    if (other.mPumpThread.joinable()) {
+        other.mPumpThread.join();
+    }
+    Logger::log(LogLevel::Info, "Done");
+
     using std::swap;
     swap(mRmtHandles, other.mRmtHandles);
     swap(mConf, other.mConf);
     swap(mStepGPIO, other.mStepGPIO);
     Logger::log(LogLevel::Info, "Done");
     mStepsLeft = 0;
-
-    Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
-    other.mStepsLeft = 1;
-    other.mPumpThread.request_stop();
-    other.mPumpThread.join();
-    Logger::log(LogLevel::Info, "Done");
 
     mPumpThread = std::jthread(&StepperDosingPumpDriver::updatePumpThread, this);
 

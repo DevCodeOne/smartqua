@@ -1,25 +1,39 @@
 #include "device_actions.h"
 
 #include "actions/action_types.h"
+#include "drivers/device_types.h"
 #include "frozen.h"
 
 #include "aq_main.h"
+
+// TODO: add the equivalent for the other actions
+std::optional<device_values> readDeviceValue(unsigned int index, std::string_view input) {
+    read_from_device single_device_value{ .index = index, .what = input };
+    global_store->readEvent(single_device_value);
+
+    if (single_device_value.result.collection_result != DeviceCollectionOperation::ok
+        || single_device_value.result.op_result != DeviceOperationResult::ok) {
+        return std::nullopt;
+    }
+
+    return std::make_optional(single_device_value.read_value);
+}
 
 json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result{ 0, json_action_result_value::failed };
 
     if (!index.has_value()) {
-        std::array<char, 1024> overview_buffer;
+        auto overview_buffer = LargeBufferPoolType::get_free_buffer();
         retrieve_device_overview overview{};
-        overview.output_dst = overview_buffer.data();
-        overview.output_len = overview_buffer.size();
+        overview.output_dst = overview_buffer->data();
+        overview.output_len = overview_buffer->size();
 
         global_store->readEvent(overview);
 
         if (overview.result.collection_result != DeviceCollectionOperation::failed) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
-                result.answer_len = json_printf(&answer, "{ data : %s }", overview_buffer.data());
+                result.answer_len = json_printf(&answer, "{ data : %s }", overview_buffer->data());
             }
             result.result = json_action_result_value::successfull;
         }
@@ -49,16 +63,16 @@ json_action_result get_device_info(unsigned int index, const char *input, size_t
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result{ 0, json_action_result_value::failed };
 
-    std::array<char, 1024> info_buffer;
+    auto info_buffer = LargeBufferPoolType::get_free_buffer();
     retrieve_device_info info{ .index = static_cast<unsigned int>(index) };
-    info.output_dst = info_buffer.data();
-    info.output_len = info_buffer.size();
+    info.output_dst = info_buffer->data();
+    info.output_len = info_buffer->size();
 
     global_store->readEvent(info);
 
     if (info.result.collection_result == DeviceCollectionOperation::ok && info.result.op_result == DeviceOperationResult::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
-            result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer.data());
+            result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer->data());
         }
         result.result = json_action_result_value::successfull;
     } else {
@@ -87,7 +101,7 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
         return result;
     }
 
-    if (description_token.ptr == nullptr || description_token.len > name_length || description_token.len <= 2) {
+    if (description_token.ptr == nullptr || description_token.len > name_length) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q }", "Description was too long or not existing");
         }
@@ -171,24 +185,24 @@ json_action_result set_device_action(unsigned int index, const device_values &va
     return result;
 }
 
-
 json_action_result write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result{ 0, json_action_result_value::failed };
 
-    std::array<char, 1024> info_buffer{'\0'};
+    auto info_buffer = LargeBufferPoolType::get_free_buffer();
+
     write_device_options info{ 
         .index = static_cast<unsigned int>(index), 
         .action = action,
         .input = std::string_view{input, input_len},
-        .output_dst = info_buffer.data(),
-        .output_len = info_buffer.size()};
+        .output_dst = info_buffer->data(),
+        .output_len = info_buffer->size()};
 
     global_store->writeEvent(info);
 
     if (info.result.collection_result == DeviceCollectionOperation::ok && info.result.op_result == DeviceOperationResult::ok) {
         if (output_buffer != nullptr && output_buffer[0] != '\0' && output_buffer_len != 0) {
-            result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer.data());
+            result.answer_len = json_printf(&answer, "{ data : %s }", info_buffer->data());
         }
         result.result = json_action_result_value::successfull;
     } else {

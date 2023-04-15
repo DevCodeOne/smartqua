@@ -1,7 +1,9 @@
 #include "ds18x20_driver.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <thread>
 
 #include "frozen.h"
 #include "ds18x20.h"
@@ -90,26 +92,52 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     return Ds18x20Driver(&device_conf_out, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { }
+Ds18x20Driver::Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { 
+    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
+}
 
 Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) : m_conf(other.m_conf), m_pin(other.m_pin) {
+
+    other.mTemperatureThread.request_stop();
+    if (other.mTemperatureThread.joinable()) {
+        other.mTemperatureThread.join();
+    }
+
     other.m_conf = nullptr;
     other.m_pin = nullptr;
+    
+    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
  }
 
  Ds18x20Driver &Ds18x20Driver::operator=(Ds18x20Driver &&other) {
     using std::swap;
 
+    Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
+    other.mTemperatureThread.request_stop();
+    if (other.mTemperatureThread.joinable()) {
+        other.mTemperatureThread.join();
+    }
+    Logger::log(LogLevel::Info, "Done");
+
     swap(m_conf, other.m_conf);
     swap(m_pin, other.m_pin);
+
+    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 
     return *this;
 }
 
 Ds18x20Driver::~Ds18x20Driver() { 
-    if (m_conf) {
-        remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
+    if (m_conf == nullptr) {
+        return;
     }
+
+    Logger::log(LogLevel::Info, "Deleting instance of stepperdosingpumpdriver");
+    if (mTemperatureThread.joinable()) {
+        mTemperatureThread.request_stop();
+        mTemperatureThread.join();
+    }
+    remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
 }
 
 DeviceOperationResult Ds18x20Driver::write_value(const device_values &value) { 
@@ -118,22 +146,33 @@ DeviceOperationResult Ds18x20Driver::write_value(const device_values &value) {
 
 // TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
 DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, device_values &value) const {
-    const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&m_conf->device_config);
-    float temperature = 0.0f;
-    Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
-        static_cast<uint32_t>(config->addr >> 32),
-        static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
-
-    auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
-
-    Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
-
-    if (result != ESP_OK) {
-        return DeviceOperationResult::failure;
-    }
-
-    value.temperature = temperature;
+    value.temperature = mTemperatureReadings.average();
     return DeviceOperationResult::ok;
+}
+
+void Ds18x20Driver::updateTempThread(std::stop_token token, Ds18x20Driver *instance) {
+    using namespace std::chrono_literals;
+
+    const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&instance->m_conf->device_config);
+    while (!token.stop_requested()) {
+        auto beforeReading = std::chrono::steady_clock::now();
+
+        float temperature = 0.0f;
+        Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
+            static_cast<uint32_t>(config->addr >> 32),
+            static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
+
+        auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
+        instance->mTemperatureReadings.put_sample(temperature);
+
+        if (result == ESP_OK) {
+            Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
+        }
+
+        const auto duration = std::chrono::steady_clock::now() - beforeReading;
+        std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);
+    }
+    Logger::log(LogLevel::Info, "Exiting temperature thread");
 }
 
 // TODO: implement both

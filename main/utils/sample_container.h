@@ -4,7 +4,7 @@
 
 #include "ring_buffer.h"
 
-template <typename T, typename AvgType, uint32_t n_samples = 10u>
+template <typename T, typename AvgType = T, uint32_t n_samples = 10u>
 class sample_container final {
    public:
     sample_container() = default;

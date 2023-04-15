@@ -2,10 +2,12 @@
 #include "utils/logger.h"
 
 #include <algorithm>
+#include <chrono>
 #include <thread>
 #include <utility>
 #include <string_view>
 #include <optional>
+#include <bit>
 
 #include <ads111x.h>
 
@@ -113,65 +115,70 @@ std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const device_config *dev
 }
 
 Ads111xDriver::Ads111xDriver(const device_config *conf, i2c_dev_t device) 
-    : m_conf(conf), m_device(std::move(device)) { }
+    : m_conf(conf), m_device(std::move(device)) { 
+    mAnalogReadingsThread = std::jthread(&Ads111xDriver::updateAnalogThread, this);
+}
 
 Ads111xDriver::Ads111xDriver(Ads111xDriver &&other) : m_conf(other.m_conf), m_device(other.m_device) {
+    other.mAnalogReadingsThread.request_stop();
+    if (other.mAnalogReadingsThread.joinable()) {
+        other.mAnalogReadingsThread.join();
+    }
+
     other.m_conf = nullptr;
     std::memset(reinterpret_cast<void *>(&other.m_device), 0, sizeof(i2c_dev_t));
+
+    mAnalogReadingsThread = std::jthread(&Ads111xDriver::updateAnalogThread, this);
  }
 
  Ads111xDriver &Ads111xDriver::operator=(Ads111xDriver &&other) {
     using std::swap;
 
+    other.mAnalogReadingsThread.request_stop();
+    if (other.mAnalogReadingsThread.joinable()) {
+        other.mAnalogReadingsThread.join();
+    }
+
     swap(m_conf, other.m_conf);
     swap(m_device, other.m_device);
+
+    mAnalogReadingsThread = std::jthread(&Ads111xDriver::updateAnalogThread, this);
 
     return *this;
 }
 
 Ads111xDriver::~Ads111xDriver() { 
-    if (m_conf) {
-        remove_address(reinterpret_cast<Ads111xDriverData *>(m_conf->device_config.data())->addr);
+    if (!m_conf) {
+        return;
     }
+
+    if (mAnalogReadingsThread.joinable()) {
+        mAnalogReadingsThread.request_stop();
+        mAnalogReadingsThread.join();
+    }
+    remove_address(reinterpret_cast<Ads111xDriverData *>(m_conf->device_config.data())->addr);
 }
 
 DeviceOperationResult Ads111xDriver::write_value(const device_values &value) { 
     return DeviceOperationResult::not_supported;
 }
 
-// TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
-// TODO: This device can read four channels, this has to return 4 device_values
 DeviceOperationResult Ads111xDriver::read_value(std::string_view what, device_values &value) const {
     const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&m_conf->device_config);
     int16_t analog = 0;
-    Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", static_cast<uint32_t>(config->addr), what.size(), what.data());
+    Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", 
+        static_cast<uint32_t>(config->addr), what.size(), what.data());
 
     if (what == "a0") {
-        ads111x_set_input_mux(&m_device, ADS111X_MUX_0_GND);
+        analog = mAnalogReadings[0].average();
     } else if (what == "a1") {
-        ads111x_set_input_mux(&m_device, ADS111X_MUX_1_GND);
+        analog = mAnalogReadings[1].average();
     } else if (what == "a2") {
-        ads111x_set_input_mux(&m_device, ADS111X_MUX_2_GND);
+        analog = mAnalogReadings[2].average();
     } else if (what == "a3") {
-        ads111x_set_input_mux(&m_device, ADS111X_MUX_3_GND);
+        analog = mAnalogReadings[3].average();
     }
 
-    bool busy = false;
-
-    for (int i = 0; i < 3 && !busy; ++i) { 
-        using namespace std::chrono_literals;
-        ads111x_is_busy(&m_device, &busy); 
-        std::this_thread::sleep_for(1s);
-    }
-
-    auto result = ads111x_get_value(&m_device, &analog);
-
-    if (result != ESP_OK) {
-        return DeviceOperationResult::failure;
-    }
-
-    Logger::log(LogLevel::Info, "Read analog value : %u", static_cast<uint32_t>(analog));
-    
     value.generic_analog = analog;
 
     return DeviceOperationResult::ok;
@@ -189,7 +196,54 @@ DeviceOperationResult Ads111xDriver::call_device_action(device_config *conf, con
 }
 
 DeviceOperationResult Ads111xDriver::update_runtime_data() {
-    return DeviceOperationResult::ok;
+    return DeviceOperationResult::not_supported;
+}
+
+void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *instance) {
+    using namespace std::chrono_literals;
+
+    constexpr std::array muxLookUp{
+            ADS111X_MUX_0_GND,
+            ADS111X_MUX_1_GND,
+            ADS111X_MUX_2_GND,
+            ADS111X_MUX_3_GND
+    };
+
+    const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&instance->m_conf->device_config);
+    unsigned int i = 0;
+
+    for(; !token.stop_requested() ;i = (i + 1) % MaxChannels) {
+        auto beforeReading = std::chrono::steady_clock::now();
+        
+        ads111x_set_input_mux(&instance->m_device, muxLookUp[i]);
+
+        bool busy = false;
+        for (unsigned int numWait = 0; numWait < 3 && busy; ++numWait) {
+            std::this_thread::sleep_for(1s);
+            ads111x_is_busy(&instance->m_device, &busy); 
+        }
+
+        if (busy) {
+            // Wait for next iteration
+            Logger::log(LogLevel::Info, "Device is busy");
+            continue;
+        }
+
+        int16_t analog = 0;
+        auto result = ads111x_get_value(&instance->m_device, &analog);
+
+        if (result == ESP_OK) {
+            Logger::log(LogLevel::Info, "Read analog value : %u in channel %u", static_cast<uint32_t>(analog),
+            static_cast<uint32_t>(i));
+        } else {
+            continue;
+        }
+
+        instance->mAnalogReadings[i].put_sample(std::bit_cast<uint16_t>(analog));
+
+        const auto duration = std::chrono::steady_clock::now() - beforeReading;
+        std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);
+    }
 }
 
 bool Ads111xDriver::add_address(Ads111xAddress address) {

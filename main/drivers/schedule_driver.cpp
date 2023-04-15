@@ -310,7 +310,7 @@ bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tup
 std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> ScheduleDriver::retrieveCurrentValues() {
     // TODO: change data type for something more sensible
     std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> values;
-    Logger::log(LogLevel::Info, __PRETTY_FUNCTION__);
+    Logger::log(LogLevel::Info, "Schedule::retrieveCurrentValues");
     if (mConf == nullptr) {
         return values;
     }

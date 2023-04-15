@@ -89,7 +89,7 @@ class FlashStorage {
         wl_handle_t handleOut;
         esp_vfs_fat_mount_config_t fatMountConfig{
             .format_if_mount_failed = true,
-            .max_files = 4,
+            .max_files = 3,
             .allocation_unit_size = 0
         };
 

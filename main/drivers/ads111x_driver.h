@@ -6,10 +6,13 @@
 #include <string_view>
 #include <optional>
 #include <memory>
+#include <thread>
+#include <cstdint>
 #include <shared_mutex>
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
+#include "utils/sample_container.h"
 #include "smartqua_config.h"
 
 enum struct Ads111xAddress : std::decay_t<decltype(ADS111X_ADDR_GND)> {
@@ -51,6 +54,7 @@ struct Ads111xDriverData final {
 class Ads111xDriver final {
     public:
         static inline constexpr char name[] = "ads111x_driver";
+        static inline constexpr uint8_t MaxChannels = 4;
 
         Ads111xDriver(const Ads111xDriver &other) = delete;
         Ads111xDriver(Ads111xDriver &&other);
@@ -71,11 +75,16 @@ class Ads111xDriver final {
         Ads111xDriver(const device_config *conf, i2c_dev_t device);
         static std::optional<Ads111xDriver> setupDevice(const device_config *conf, i2c_dev_t device);
 
+        static void updateAnalogThread(std::stop_token token, Ads111xDriver *instance);
+
         static bool add_address(Ads111xAddress address);
         static bool remove_address(Ads111xAddress address);
 
         const device_config *m_conf;
+
         mutable i2c_dev_t m_device;
+        std::jthread mAnalogReadingsThread;
+        std::array<sample_container<uint16_t, uint16_t, 5>, MaxChannels> mAnalogReadings;
 
         static inline std::array<std::optional<Ads111xAddress>, 4> _device_addresses;
         static inline std::shared_mutex _instance_mutex;

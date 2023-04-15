@@ -117,7 +117,7 @@ void app_main() {
 
     pthread_attr_init(&attributes);
 
-    constexpr size_t stackSize = 4096 * 6;
+    constexpr size_t stackSize = 4096 * 4;
 
     //pthread_attr_setstack(&attributes, pthreadStack.get(), stackSize);
     // Only stack size can be set on esp-idf

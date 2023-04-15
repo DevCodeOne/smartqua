@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "drivers/ph_probe_driver.h"
 #include "storage/store.h"
 #include "storage/flash_storage.h"
 #include "storage/settings.h"
@@ -39,15 +40,15 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         DacDriver,
                                         ScheduleDriver, 
                                         //Q30Driver, 
-                                        StepperDosingPumpDriver>;
+                                        StepperDosingPumpDriver,
+                                        PhProbeDriver>;
 using StatCollectionType = StatCollection<max_stat_size>;
 // using SettingType = settings<max_setting_size>;
 
 // TODO: add settings
 using GlobalStoreType = Store<
-    SingleSetting<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, "devices.bin"> >,
-    SingleSetting<StatCollectionType, LocalSaveType<StatCollectionType::trivial_representation, "stats.bin"> >
-    // SingleSetting<SettingType, DefaultSafeType<SettingType::trivial_representation> >
+    SingleSetting<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, "devices.bin"> >
+    /*, SingleSetting<StatCollectionType, LocalSaveType<StatCollectionType::trivial_representation, "stats.bin"> >*/
     >;
 extern std::optional<GlobalStoreType> global_store;
 

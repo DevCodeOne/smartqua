@@ -43,11 +43,11 @@ struct device_values {
     std::optional<float> voltage;
     std::optional<float> ampere;
     std::optional<float> watt;
-    std::optional<int16_t> tds;
-    std::optional<int16_t> generic_analog;
-    std::optional<int16_t> generic_pwm;
-    std::optional<int16_t> milligramms;
-    std::optional<int16_t> milliliter;
+    std::optional<uint16_t> tds;
+    std::optional<uint16_t> generic_analog;
+    std::optional<uint16_t> generic_pwm;
+    std::optional<uint16_t> milligramms;
+    std::optional<uint16_t> milliliter;
     /* Used to set possible values regardless of their unit e.g. set dac oder pwm signal from 0 - 100 % */
     std::optional<uint8_t> percentage;
 
