@@ -1,6 +1,7 @@
 #pragma once
 
 #include <shared_mutex>
+#include <type_traits>
 
 #include "ring_buffer.h"
 
@@ -68,11 +69,13 @@ class sample_container final {
             return *this;
         }
 
-        int32_t summed_up_values = m_samples.front();
+        using SumType = std::conditional_t<std::is_floating_point_v<AvgType> 
+            || std::is_floating_point_v<T>, float, int32_t>;
+        SumType summed_up_values = static_cast<SumType>(m_samples.front());
 
         for (typename decltype(m_samples)::size_type i = 1;
              i < m_samples.size(); ++i) {
-            summed_up_values += m_samples[i];
+            summed_up_values += static_cast<SumType>(m_samples[i]);
         }
 
         m_avg = static_cast<AvgType>(summed_up_values) /

@@ -14,7 +14,7 @@
 
 #include "ctre.hpp"
 
-static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9]+)(?:\/(?<what>\w+)|\/)?)"};
+static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9]+)(?:\/(?<what>[\w\-]+)|\/)?)"};
 
 esp_err_t do_devices(httpd_req *req) {
     Logger::log(LogLevel::Info, "This thread id %d", std::this_thread::get_id());

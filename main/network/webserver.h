@@ -48,8 +48,8 @@ namespace Detail {
             bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
-                config.stack_size = 4096 * 1;
-                config.max_uri_handlers = 12;
+                config.stack_size = 2048;
+                config.max_uri_handlers = 6;
                 config.max_open_sockets = 1;
 
                 esp_err_t serverStart;
@@ -176,7 +176,7 @@ class WebServer final {
     // void unregisterHandler() { }
 
     void registerFileHandler() {
-        m_handler[15] = Handler{
+        m_handler[m_handler.size() - 1] = Handler{
             .prefix = "",
             .methods = 1 << static_cast<uint8_t>(HTTP_GET),
             .handler = &getFile

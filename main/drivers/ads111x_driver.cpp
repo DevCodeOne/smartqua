@@ -100,7 +100,7 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view
 }
 
 std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const device_config *device_conf_out, i2c_dev_t device) {
-    auto result = ads111x_set_mode(&device, ADS111X_MODE_CONTINUOUS);
+    auto result = ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't set ads111x to continous mode");
@@ -210,16 +210,14 @@ void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *ins
     };
 
     const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&instance->m_conf->device_config);
-    unsigned int i = 0;
-
-    for(; !token.stop_requested() ;i = (i + 1) % MaxChannels) {
+    for(unsigned int i = 0; !token.stop_requested(); i = (i + 1) % MaxChannels) {
         auto beforeReading = std::chrono::steady_clock::now();
         
         ads111x_set_input_mux(&instance->m_device, muxLookUp[i]);
 
-        bool busy = false;
+        bool busy = true;
         for (unsigned int numWait = 0; numWait < 3 && busy; ++numWait) {
-            std::this_thread::sleep_for(1s);
+            std::this_thread::sleep_for(500ms);
             ads111x_is_busy(&instance->m_device, &busy); 
         }
 
@@ -244,6 +242,7 @@ void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *ins
         const auto duration = std::chrono::steady_clock::now() - beforeReading;
         std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);
     }
+    Logger::log(LogLevel::Info, "Exiting updateAnalogThread");
 }
 
 bool Ads111xDriver::add_address(Ads111xAddress address) {
