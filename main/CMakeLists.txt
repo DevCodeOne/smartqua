@@ -1,7 +1,6 @@
 idf_component_register(SRCS     "aq_main.cpp"
                                 "actions/device_actions.cpp"
                                 "actions/stats_actions.cpp"
-                                "rest/scale_rest.cpp"
                                 "rest/devices_rest.cpp"
                                 "rest/stats_rest.cpp"
                                 "drivers/device_resource.cpp"

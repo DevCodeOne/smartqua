@@ -2,6 +2,7 @@
 
 #include <shared_mutex>
 #include <type_traits>
+#include <cmath>
 
 #include "ring_buffer.h"
 
@@ -69,17 +70,18 @@ class sample_container final {
             return *this;
         }
 
-        using SumType = std::conditional_t<std::is_floating_point_v<AvgType> 
-            || std::is_floating_point_v<T>, float, int32_t>;
-        SumType summed_up_values = static_cast<SumType>(m_samples.front());
+        const auto divisor = 1.0f / m_samples.size();
+        float summed_up_values = m_samples.front() * divisor;
 
-        for (typename decltype(m_samples)::size_type i = 1;
-             i < m_samples.size(); ++i) {
-            summed_up_values += static_cast<SumType>(m_samples[i]);
+        for (typename decltype(m_samples)::size_type i = 1; i < m_samples.size(); ++i) {
+            summed_up_values += m_samples[i] * divisor;
         }
 
-        m_avg = static_cast<AvgType>(summed_up_values) /
-                static_cast<AvgType>(m_samples.size());
+        if constexpr (std::is_integral_v<AvgType>) {
+            m_avg = static_cast<AvgType>(std::lround(summed_up_values));
+        } else {
+            m_avg = summed_up_values;
+        }
 
         return *this;
     }

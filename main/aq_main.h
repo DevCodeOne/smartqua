@@ -7,7 +7,6 @@
 #include "storage/store.h"
 #include "storage/flash_storage.h"
 #include "storage/settings.h"
-#include "rest/scale_rest.h"
 #include "actions/device_actions.h"
 #include "actions/stats_actions.h"
 #include "actions/setting_actions.h"
