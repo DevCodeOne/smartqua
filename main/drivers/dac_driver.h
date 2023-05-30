@@ -14,7 +14,7 @@ struct DacDriverData final {
 class DacDriver final {
     public:
         static inline constexpr char name[] = "dac_driver";
-        static inline constexpr float maxVoltage = 3.3;
+        static inline constexpr float MaxVoltage = 3.3;
 
         DacDriver(const DacDriver &other) = delete;
         DacDriver(DacDriver &&other) = default;

@@ -47,7 +47,7 @@ struct device_values {
     std::optional<uint16_t> generic_analog;
     std::optional<uint16_t> generic_pwm;
     std::optional<uint16_t> milligramms;
-    std::optional<uint16_t> milliliter;
+    std::optional<float> milliliter;
     /* Used to set possible values regardless of their unit e.g. set dac oder pwm signal from 0 - 100 % */
     std::optional<uint8_t> percentage;
 
@@ -60,28 +60,39 @@ template<typename ValueType>
 device_values device_values::create_from_unit(DeviceValueUnit unit, ValueType value) {
     switch (unit) {
         case DeviceValueUnit::temperature:
-            return device_values { .temperature = value };
+            using TempType = decltype(std::declval<device_values>().temperature);
+            return device_values { .temperature = static_cast<TempType>(value) };
         case DeviceValueUnit::ph:
-            return device_values { .voltage = value };
+            using PhType = decltype(std::declval<device_values>().ph);
+            return device_values { .ph = static_cast<PhType>(value) };
         case DeviceValueUnit::humidity:
-            return device_values { .humidity = value };
+            using HumidType = decltype(std::declval<device_values>().humidity);
+            return device_values { .humidity = static_cast<HumidType>(value) };
         case DeviceValueUnit::voltage:
-            return device_values { .voltage = value };
+            using VoltType = decltype(std::declval<device_values>().voltage);
+            return device_values { .voltage = static_cast<VoltType>(value) };
         case DeviceValueUnit::ampere:
-            return device_values { .ampere = value };
+            using AmpType = decltype(std::declval<device_values>().ampere);
+            return device_values { .ampere = static_cast<AmpType>(value) };
         case DeviceValueUnit::watt:
-            return device_values { .watt = value };
+            using WattType = decltype(std::declval<device_values>().watt);
+            return device_values { .watt = static_cast<WattType>(value) };
         case DeviceValueUnit::tds:
-            return device_values { .tds = value };
+            using TdsType = decltype(std::declval<device_values>().tds);
+            return device_values { .tds = static_cast<TdsType>(value) };
         case DeviceValueUnit::generic_analog:
-            return device_values { .generic_analog = value };
+            using GenericAnalogType = decltype(std::declval<device_values>().generic_analog);
+            return device_values { .generic_analog = static_cast<GenericAnalogType>(value) };
         case DeviceValueUnit::milligramms:
-            return device_values { .milligramms = value };
+            using MilliGrammsType = decltype(std::declval<device_values>().milligramms);
+            return device_values { .milligramms = static_cast<MilliGrammsType>(value) };
         case DeviceValueUnit::milliliter:
-            return device_values { .milliliter = value };
+            using MilliLiterType = decltype(std::declval<device_values>().milliliter);
+            return device_values { .milliliter = static_cast<MilliLiterType>(value) };
         case DeviceValueUnit::percentage:
         default:
-            return device_values{ .percentage = value };
+            using PercentageType = decltype(std::declval<device_values>().percentage);
+            return device_values{ .percentage = static_cast<PercentageType>(value) };
     }
 }
 

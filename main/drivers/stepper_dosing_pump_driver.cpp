@@ -101,21 +101,21 @@ DeviceOperationResult StepperDosingPumpDriver::call_device_action(device_config 
     StepperDosingConfig *const stepperConfig = reinterpret_cast<StepperDosingConfig *>(conf->device_config.data());
     if (action == "manual") {
         int steps = 0;
-        int milliliter = 0;
-        json_scanf(json.data(), json.size(), "{ steps : %d, ml : %d}", &steps, &milliliter);
+        float milliliter = 0;
+        json_scanf(json.data(), json.size(), "{ steps : %d, ml : %f}", &steps, &milliliter);
 
         if ( milliliter != 0) {
-            steps = milliliter * (stepperConfig->stepsTimesTenPerMl / 10);
+            steps = static_cast<int>(milliliter * (stepperConfig->stepsTimesTenPerMl / 10.0f));
         }
 
         mStepsLeft.fetch_add(steps);
     } else if (action == "callibrate") {
         int steps = 200;
-        int milliliter = 1;
-        json_scanf(json.data(), json.size(), "{ steps : %d, ml : %d }", &steps, &milliliter);
+        float milliliter = 1.0f;
+        json_scanf(json.data(), json.size(), "{ steps : %d, ml : %f }", &steps, &milliliter);
 
         Logger::log(LogLevel::Info, "%.*s, %d, %d", (int) json.size(), json.data(), steps, milliliter);
-        stepperConfig->stepsTimesTenPerMl = (steps * 10) / milliliter;
+        stepperConfig->stepsTimesTenPerMl = static_cast<uint16_t>((steps * 10) / milliliter);
     }
 
     return DeviceOperationResult::ok;

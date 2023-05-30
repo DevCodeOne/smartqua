@@ -50,17 +50,17 @@ DeviceOperationResult DacDriver::write_value(const device_values &value) {
     if (!voltageValue.has_value() && value.percentage.has_value()) {
         static constexpr auto MaxPercentageValue = 100;
         const auto clampedPercentage = std::clamp<decltype(value.percentage)::value_type>(*value.percentage, 0, MaxPercentageValue);
-        voltageValue = static_cast<decltype(value.voltage)::value_type>((maxVoltage / MaxPercentageValue) * clampedPercentage);
+        voltageValue = static_cast<decltype(value.voltage)::value_type>((MaxVoltage / MaxPercentageValue) * clampedPercentage);
     }
 
     if (!voltageValue.has_value()) {
         return DeviceOperationResult::not_supported;
     }
 
-    const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / maxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
+    const auto targetValue = static_cast<uint8_t>(std::clamp(*voltageValue / MaxVoltage, 0.0f, 1.0f) * std::numeric_limits<uint8_t>::max());
     m_value = targetValue;
 
-    Logger::log(LogLevel::Info, "Setting new value %d from voltage %d.%d", targetValue, (int) (*voltageValue * 100));
+    Logger::log(LogLevel::Info, "Setting new value %d from voltage %f", targetValue, *voltageValue);
 
     esp_err_t result = dac_output_voltage(m_dac->channel_num(), targetValue);
 

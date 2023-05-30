@@ -10,6 +10,7 @@
 #include "driver/dac.h"
 #include "driver/i2c.h"
 #include "hal/dac_types.h"
+#include "hal/ledc_types.h"
 
 enum struct gpio_purpose {
     bus, gpio

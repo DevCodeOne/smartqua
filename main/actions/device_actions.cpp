@@ -190,6 +190,8 @@ json_action_result write_device_options_action(unsigned int index, const char *a
     json_action_result result{ 0, json_action_result_value::failed };
 
     auto info_buffer = LargeBufferPoolType::get_free_buffer();
+    // TODO: check if this fixes the issue
+    std::memset(info_buffer->data(), 0, info_buffer->size());
 
     write_device_options info{ 
         .index = static_cast<unsigned int>(index), 

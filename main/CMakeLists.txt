@@ -16,7 +16,7 @@ idf_component_register(SRCS     "aq_main.cpp"
                                 "drivers/ph_probe_driver.cpp"
                                 "drivers/rmt_stepper_driver.cpp"
                                 "utils/idf_utils.cpp"
-                                # "utils/sd_filesystem.cpp"
+                                # "storage/sd_filesystem.cpp"
                                 "utils/filesystem_utils.cpp"
                                 "utils/time_utils.cpp"
                                 "utils/logger.cpp"
@@ -32,3 +32,4 @@ add_custom_target(deletebloat ALL
             || true)
 
 # spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)
+fatfs_create_spiflash_image(values ../values FLASH_IN_PROJECT)

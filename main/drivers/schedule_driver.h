@@ -26,7 +26,7 @@ enum struct DriverType {
     Interpolate, Action, ActionHold
 };
 
-static inline constexpr auto MaxLocalPathLength = 16;
+static inline constexpr auto MaxLocalPathLength = 24;
 
 // TODO: consider own datatype for channelNames + deviceIndices
 struct ScheduleDriverData final {
@@ -46,7 +46,7 @@ struct ScheduleState {
 
 // TODO: Create percentage class, static_lookuptable
 struct ValueTimePoint {
-    std::array<std::optional<uint16_t>, NumChannels> values;
+    std::array<std::optional<float>, NumChannels> values;
 };
 
 /*
@@ -98,8 +98,8 @@ class ScheduleDriver final {
         DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
         DeviceOperationResult update_values(
-                const std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> &channel_data);
-        std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> retrieveCurrentValues();
+                const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &channel_data);
+        std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> retrieveCurrentValues();
 
         std::optional<uint8_t> channelIndex(std::string_view channelName) const;
 
@@ -107,7 +107,7 @@ class ScheduleDriver final {
         ScheduleDriver(const device_config *conf);
 
         bool loadAndUpdateSchedule(const std::string_view &input);
-        bool updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> &values);
+        bool updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values);
         const device_config *mConf;
         ScheduleType schedule;
         ScheduleState scheduleState;

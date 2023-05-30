@@ -16,8 +16,8 @@
 #include "utils/idf_utils.h"
 #include "utils/task_pool.h"
 #include "utils/utils.h"
-#include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
+#include "storage/sd_filesystem.h"
 
 // TODO: replace with new update runtime stuff like devices class
 template<typename DriverType>

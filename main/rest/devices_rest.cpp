@@ -8,6 +8,7 @@
 #include "aq_main.h"
 #include "actions/device_actions.h"
 #include "drivers/device_types.h"
+#include "esp_http_server.h"
 #include "utils/logger.h"
 #include "utils/web_utils.h"
 #include "smartqua_config.h"
@@ -67,6 +68,7 @@ esp_err_t do_devices(httpd_req *req) {
 
     Logger::log(LogLevel::Debug, "Sending response from device");
     if (result.answer_len && buffer->data()[0] != '\0') {
+        httpd_resp_set_type(req, "application/json");
         send_in_chunks(req, buffer->data(), result.answer_len);
     } else if (result.answer_len == 0 && result.result == json_action_result_value::successfull) {
         httpd_resp_set_status(req, HTTPD_204);

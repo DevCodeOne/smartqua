@@ -172,14 +172,15 @@ class FilesystemSetting {
             return result > 0 && result < dst.size();
         }
 
-        FILE *openTmpFile() {
+        FILE *openTmpFile(bool createIfNotExists = true) {
             stack_string<64> filename;
             copyTmpFilenameToBuffer(filename);
 
             auto opened_file = std::fopen(filename.data(), "r+");
 
-            if (opened_file == nullptr) {
+            if (opened_file == nullptr && createIfNotExists) {
                 // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
+                Logger::log(LogLevel::Info, "Couldn't open tmp file");
                 opened_file = std::fopen(filename.data(), "w+");
             }
 
@@ -246,8 +247,13 @@ class FilesystemSetting {
             });
 
             if (!opened_file) {
-                Logger::log(LogLevel::Warning, "There is no file to read from");
-                return ESP_FAIL;
+                Logger::log(LogLevel::Warning, "There is no file to read from ... trying to read temporary file");
+                opened_file = openTmpFile(false);
+
+                if (opened_file == nullptr) {
+                    Logger::log(LogLevel::Warning, "Couldn't open tmp file");
+                    return ESP_FAIL;
+                }
             }
 
             std::fseek(opened_file, 0, SEEK_END);

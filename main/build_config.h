@@ -13,7 +13,7 @@
 #endif
 
 #ifndef MAX_NUM_DEVICES
-#define MAX_NUM_DEVICES 16
+#define MAX_NUM_DEVICES 12
 #endif
 
 #ifndef MAX_NUM_TIMERS
@@ -81,7 +81,9 @@ static inline constexpr char remote_setting_host [] = REMOTE_SETTING_HOST;
 
 static inline constexpr char default_host_name [] = DEFAULT_HOST_NAME;
 
-static inline constexpr size_t num_large_buffers = 4;
+static inline constexpr size_t num_large_buffers = 3;
 
 static inline constexpr size_t large_buffer_size = 2048;
+
+static inline constexpr size_t stack_size = 6 * 4096;
 

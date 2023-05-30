@@ -4,8 +4,11 @@
 #include <cstring>
 
 #include "driver/ledc.h"
+#include "drivers/device_resource.h"
 #include "drivers/device_types.h"
 #include "frozen.h"
+#include "hal/ledc_types.h"
+#include "utils/logger.h"
 #include "utils/utils.h"
 
 PwmDriver::PwmDriver(const device_config *conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
@@ -39,13 +42,23 @@ DeviceOperationResult PwmDriver::write_value(const device_values &value) {
         m_current_value = pwm_conf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pwm_conf->max_value);
     }
 
-    Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
-
+    result = ESP_OK;
     if (!pwm_conf->fade) {
-        result = ledc_set_duty_and_update(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, m_current_value, 0);
+        if (ledc_get_duty(pwm_conf->timer_conf.speed_mode, pwm_conf->channel) != m_current_value) {
+            result = ledc_set_duty(pwm_conf->timer_conf.speed_mode, pwm_conf->channel, m_current_value);
+            result = ledc_update_duty(pwm_conf->timer_conf.speed_mode, pwm_conf->channel);
+            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
+        } else {
+            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        }
     } else {
         // Maybe do the fading in a dedicated thread, and block that thread ?
-        result = ledc_set_fade_time_and_start(LEDC_HIGH_SPEED_MODE, pwm_conf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+        if (ledc_get_duty(pwm_conf->timer_conf.speed_mode, pwm_conf->channel) != m_current_value) {
+            result = ledc_set_fade_time_and_start(pwm_conf->timer_conf.speed_mode, pwm_conf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
+        } else {
+            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        }
     }
 
     return result == ESP_OK ? DeviceOperationResult::ok : DeviceOperationResult::failure;
@@ -103,7 +116,7 @@ std::optional<PwmDriver> PwmDriver::create_driver(const device_config *config) {
     // TODO: do this differently, in led_channel 
     ledc_channel_config_t ledc_channel{};
     ledc_channel.gpio_num = gpio->gpio_num();
-    ledc_channel.speed_mode = LEDC_HIGH_SPEED_MODE;
+    ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_HIGH_SPEED_MODE : LEDC_LOW_SPEED_MODE;
     ledc_channel.channel = channel->channel_num();
     pwm_conf->channel = ledc_channel.channel;
     ledc_channel.timer_sel = timer->timer_num();
@@ -150,6 +163,10 @@ std::optional<PwmDriver> PwmDriver::create_driver(const std::string_view input, 
     if (!assign_result) {
         Logger::log(LogLevel::Error, "Some value(s) were out of range");
         return std::nullopt;
+    }
+
+    if (new_conf.timer_conf.frequency < 1000 ) {
+        new_conf.timer_conf.speed_mode = LEDC_LOW_SPEED_MODE;
     }
 
     std::memcpy(reinterpret_cast<pwm_config *>(device_conf_out.device_config.data()), &new_conf, sizeof(pwm_config));

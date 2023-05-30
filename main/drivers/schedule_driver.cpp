@@ -2,6 +2,7 @@
 
 #include <charconv>
 #include <chrono>
+#include <cstdio>
 
 #include "build_config.h"
 #include "ctre.hpp"
@@ -19,8 +20,8 @@
 #include "utils/time_utils.h"
 
 // TODO: maybe fix target value range 0-100
-static constexpr inline ctll::fixed_string schedule_regexp{R"((?<hours>[0-1][\d]|[2][0-3])-(?<mins>[0-5][0-9]):(?<vars>(?:\w{0,10}=\d*,?)*);?)"};
-static constexpr inline ctll::fixed_string varextraction_regexp{R"((?:(?<variable>\w{0,10})=(?<value>\d*),?))"};
+static constexpr inline ctll::fixed_string schedule_regexp{R"((?<hours>[0-1][\d]|[2][0-3])-(?<mins>[0-5][0-9]):(?<vars>(?:\w{0,10}=[\d.]*,?)*);?)"};
+static constexpr inline ctll::fixed_string varextraction_regexp{R"((?:(?<variable>\w{0,10})=(?<value>[\d.]*),?))"};
 
 static constexpr inline ctll::fixed_string hours_name{"hours"};
 static constexpr inline ctll::fixed_string mins_name{"mins"};
@@ -53,13 +54,20 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
         for (auto variableMatch : ctre::range<varextraction_regexp>(timePointMatch.get<vars_name>())) {
             const auto variableView = variableMatch.get<variable_name>().to_view();
             const auto valueView = variableMatch.get<value_name>().to_view();
-            uint8_t valueAsInt = 0;
 
-            std::from_chars(valueView.data(), valueView.data() + valueView.size(), valueAsInt);
+            // TODO: check if this is safe
+            const stack_string<16> terminatedCopy{valueView};
+            char *end = 0;
+            float value = std::strtof(terminatedCopy.data(), &end);
+
+            // TODO: think what to do on error
+            if (end == terminatedCopy.data()) {
+                Logger::log(LogLevel::Warning, "Couldn't parse float value in ScheduleDriver data");
+            }
 
             // TODO: if this fails, should the whole op fail ?
             if (auto channelIndex = driver.channelIndex(variableView)) {
-                timePointData.values[*channelIndex] = valueAsInt;
+                timePointData.values[*channelIndex] = value;
             } else {
                 Logger::log(LogLevel::Warning, "Couldn't find channel %.*s", variableView.length(), variableView.data());
             }
@@ -257,7 +265,7 @@ DeviceOperationResult ScheduleDriver::update_runtime_data() {
     return update_values(retrieveCurrentValues());
 }
 
-DeviceOperationResult ScheduleDriver::update_values(const std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> &values) {
+DeviceOperationResult ScheduleDriver::update_values(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values) {
     auto scheduleDriverConf = reinterpret_cast<const ScheduleDriverData *>(mConf->device_config.data());
 
     for (int i = 0; i < NumChannels; ++i) {
@@ -279,7 +287,7 @@ DeviceOperationResult ScheduleDriver::update_values(const std::array<std::option
 
 }
 
-bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> &values) {
+bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values) {
     auto scheduleDriverConf = reinterpret_cast<const ScheduleDriverData *>(mConf->device_config.data());
 
     // All types except the single shot action type, don't need to store their state
@@ -307,9 +315,9 @@ bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tup
     return true;
 }
 
-std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> ScheduleDriver::retrieveCurrentValues() {
+std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> ScheduleDriver::retrieveCurrentValues() {
     // TODO: change data type for something more sensible
-    std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannels> values;
+    std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> values;
     Logger::log(LogLevel::Info, "Schedule::retrieveCurrentValues");
     if (mConf == nullptr) {
         return values;
@@ -334,7 +342,7 @@ std::array<std::optional<std::tuple<int, std::chrono::seconds, int>>, NumChannel
             if (currentChannelName.has_value() && currentDeviceIndex.has_value()) {
                 if (currentTimePoint && currentTimePoint->second.values[i]
                     && nextTimePoint && nextTimePoint->second.values[i]) {
-                    const auto difference = static_cast<int>(*nextTimePoint->second.values[i]) - static_cast<int>(*currentTimePoint->second.values[i]);
+                    const auto difference = *nextTimePoint->second.values[i] - *currentTimePoint->second.values[i];
                     std::chrono::seconds timeDifference = currentTimePoint->first - nextTimePoint->first;
                     if (std::abs(timeDifference.count()) < 1) {
                         timeDifference = decltype(timeDifference)(1);

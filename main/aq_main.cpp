@@ -117,11 +117,9 @@ void app_main() {
 
     pthread_attr_init(&attributes);
 
-    constexpr size_t stackSize = 4096 * 4;
-
     //pthread_attr_setstack(&attributes, pthreadStack.get(), stackSize);
     // Only stack size can be set on esp-idf
-    pthread_attr_setstacksize(&attributes, stackSize);
+    pthread_attr_setstacksize(&attributes, stack_size);
     if (auto result = pthread_create(&mainThreadHandle, &attributes, networkTask, nullptr); result != 0) {
         ESP_LOGE("Main", "Couldn start main thread");
     }
