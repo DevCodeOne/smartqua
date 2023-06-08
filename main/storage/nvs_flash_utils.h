@@ -6,7 +6,7 @@
 #include "nvs_flash.h"
 
 #include "utils/logger.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 class nvs_flash {
    public:

@@ -10,7 +10,7 @@
 #include "utils/utils.h"
 #include "frozen.h"
 
-LoadcellDriver::LoadcellDriver(const device_config *conf, 
+LoadcellDriver::LoadcellDriver(const DeviceConfig*conf, 
     std::shared_ptr<gpio_resource> doutGPIO, 
     std::shared_ptr<gpio_resource> sckGPIO,
     hx711_t &&dev) : mConf(conf), mDoutGPIO(doutGPIO), mSckGPIO(sckGPIO), mDev(dev) {}
@@ -29,7 +29,7 @@ LoadcellDriver &LoadcellDriver::operator=(LoadcellDriver &&other) {
     return *this;
 }
 
-DeviceOperationResult LoadcellDriver::write_value(const device_values &value) const {
+DeviceOperationResult LoadcellDriver::write_value(std::string_view what, const device_values &value) const {
     return DeviceOperationResult::failure;
 }
 
@@ -40,11 +40,11 @@ int32_t LoadcellDriver::convertToRealValue(int32_t rawValue, int32_t offset, int
 DeviceOperationResult LoadcellDriver::read_value(std::string_view what, device_values &out) const {
     const auto config = reinterpret_cast<LoadcellConfig *>(mConf->device_config.data());
     // TODO: prevent scale from being zero
-    out.milligramms = convertToRealValue(m_values.average(), config->offset, config->scale);
+    out.milligramms(convertToRealValue(m_values.average(), config->offset, config->scale));
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult LoadcellDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult LoadcellDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     auto cellConfig = reinterpret_cast<LoadcellConfig *>(conf->device_config.data());
     // TODO: prevent this from happening when there are no samples
     if (action == "tare") {
@@ -78,7 +78,7 @@ DeviceOperationResult LoadcellDriver::get_info(char *output, size_t output_buffe
     return DeviceOperationResult::failure;
 }
 
-std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     LoadcellConfig newConf;
     int offset = newConf.offset;
     int scale = newConf.scale;
@@ -103,7 +103,7 @@ std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_vi
     return create_driver(&device_conf_out);
 }
 
-std::optional<LoadcellDriver> LoadcellDriver::create_driver(const device_config *config) {
+std::optional<LoadcellDriver> LoadcellDriver::create_driver(const DeviceConfig*config) {
     LoadcellConfig *const loadcellConf = reinterpret_cast<LoadcellConfig *>(config->device_config.data());
 
     auto doutGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->doutGPIONum), gpio_purpose::gpio);

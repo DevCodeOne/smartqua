@@ -1,6 +1,6 @@
 #include "stats_actions.h"
 
-#include "aq_main.h"
+#include "smartqua_config.h"
 
 json_action_result get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_action_result result{ 0, json_action_result_value::failed };

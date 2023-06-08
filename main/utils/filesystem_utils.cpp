@@ -11,7 +11,7 @@
 #include "utils/utils.h"
 #include "utils/logger.h"
 #include "utils/stack_string.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 

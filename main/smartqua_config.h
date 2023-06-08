@@ -3,12 +3,58 @@
 #include <cstdint>
 
 #include "build_config.h"
+
+#include "drivers/ph_probe_driver.h"
+#include "storage/store.h"
+#include "storage/flash_storage.h"
+#include "storage/settings.h"
+#include "actions/device_actions.h"
+#include "actions/stats_actions.h"
+#include "actions/setting_actions.h"
 #include "utils/logger.h"
 
-using Logger = ApplicationLogger<VoidSink>;
+#include "drivers/ds18x20_driver.h"
+#include "drivers/ads111x_driver.h"
+#include "drivers/pin_driver.h"
+#include "drivers/pcf8575_driver.h"
+#include "drivers/scale_driver.h"
+#include "drivers/dac_driver.h"
+#include "drivers/schedule_driver.h"
+#include "drivers/q30_driver.h"
+#include "drivers/stepper_dosing_pump_driver.h"
+#include "drivers/switch_driver.h"
+#include "drivers/setting_types.h"
 
 #include "storage/flash_storage.h"
 #include "storage/local_flash_storage.h"
 
 // using DefaultFlashStorage = FlashStorage<"/values">;
 using DefaultFlashStorage = LocalFlashStorage<"/values">;
+
+template<typename SettingType, ConstexprPath path>
+using LocalSaveType = FilesystemSetting<SettingType, path, DefaultFlashStorage>;
+
+template<typename SettingType>
+using RemoteSaveType = RestRemoteSetting<SettingType>;
+
+using DeviceSettingsType = DeviceSettings<max_num_devices, 
+                                        Ds18x20Driver, 
+                                        Ads111xDriver,
+                                        Pcf8575Driver,
+                                        PinDriver, 
+                                        LoadcellDriver,
+                                        DacDriver,
+                                        ScheduleDriver, 
+                                        //Q30Driver, 
+                                        StepperDosingPumpDriver,
+                                        SwitchDriver,
+                                        PhProbeDriver>;
+using StatCollectionType = StatCollection<max_stat_size>;
+// using SettingType = settings<max_setting_size>;
+
+// TODO: add settings
+using GlobalStoreType = Store<
+    SingleSetting<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, "devices.bin"> >
+    /*, SingleSetting<StatCollectionType, LocalSaveType<StatCollectionType::trivial_representation, "stats.bin"> >*/
+    >;
+extern std::optional<GlobalStoreType> global_store;

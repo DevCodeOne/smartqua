@@ -1,5 +1,3 @@
-#pragma once
-
 #pragma once 
 
 #include <cstdint>
@@ -10,11 +8,9 @@
 #include "build_config.h"
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 #include "driver/rmt_types.h"
-
-static uint8_t constexpr MaxArgumentLength = 32;
 
 struct PhValuePair {
     uint16_t analogReading;
@@ -41,21 +37,21 @@ class PhProbeDriver final {
         PhProbeDriver &operator=(const PhProbeDriver &other) = delete;
         PhProbeDriver &operator=(PhProbeDriver &&other);
 
-        static std::optional<PhProbeDriver> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<PhProbeDriver> create_driver(const device_config *config);
+        static std::optional<PhProbeDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<PhProbeDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
-        DeviceOperationResult write_value(const device_values &value) { return DeviceOperationResult::not_supported; }
+        DeviceOperationResult write_value(std::string_view what, const device_values &value) { return DeviceOperationResult::not_supported; }
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const { return DeviceOperationResult::not_supported; }
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data() { return DeviceOperationResult::not_supported; }
 
     private:
         static void updatePhValue(std::stop_token token, PhProbeDriver *instance);
 
-        PhProbeDriver(const device_config *conf);
+        PhProbeDriver(const DeviceConfig*conf);
 
-        const device_config *mConf;
+        const DeviceConfig*mConf;
 
         std::jthread mPhThread;
 };

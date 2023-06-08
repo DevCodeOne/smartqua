@@ -5,13 +5,13 @@
 #include <thread>
 
 #include "actions/action_types.h"
-#include "aq_main.h"
+#include "smartqua_config.h"
 #include "actions/device_actions.h"
 #include "drivers/device_types.h"
 #include "esp_http_server.h"
 #include "utils/logger.h"
 #include "utils/web_utils.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 #include "ctre.hpp"
 

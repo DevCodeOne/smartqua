@@ -8,7 +8,7 @@
 
 #include "frozen.h"
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "device_types.h"
 #include "utils/utils.h"
 
@@ -37,9 +37,9 @@ public:
     device &operator=(const device &other) = default;
     device &operator=(device &&other) = default;
 
-    DeviceOperationResult write_value(const device_values &value);
+    DeviceOperationResult write_value(std::string_view what, const device_values &value);
     // To calibrate something or execute actions
-    DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+    DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
     DeviceOperationResult update_runtime_data();
     DeviceOperationResult read_value(std::string_view what, device_values &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
@@ -52,7 +52,7 @@ private:
 // the correct driver will be found by the device_name
 // device_conf_out will contain the necessary data for the driver to be initialized from storage
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, device_config &device_conf_out) {
+std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, DeviceConfig&device_conf_out) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
     Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
@@ -81,7 +81,7 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
 }
 
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(const device_config *device_conf) {
+std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig*device_conf) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
 
     constexpr_for_index<sizeof...(DeviceDrivers) - 1>::doCall([&found_device_driver, &device_conf](auto current_index){
@@ -110,11 +110,11 @@ device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver
 
 // TODO: same thing as in read_value
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::write_value(const device_values &value) {
+DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view what, const device_values &value) {
     return std::visit(
-        [&value](auto &current_driver) { 
+        [&what, &value](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_value to driver");
-            return current_driver.write_value(value); 
+            return current_driver.write_value(what, value); 
         }, m_driver);
 }
 
@@ -137,7 +137,7 @@ DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, s
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult device<DeviceDrivers ...>::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return std::visit(
         [&conf, &action, &json](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_options to driver");

@@ -11,7 +11,7 @@
 
 #include <ads111x.h>
 
-std::optional<Ads111xDriver> Ads111xDriver::create_driver(const device_config *config) {
+std::optional<Ads111xDriver> Ads111xDriver::create_driver(const DeviceConfig*config) {
     auto driver_data = reinterpret_cast<const Ads111xDriverData *>(config->device_config.data());
     auto sdaPin = device_resource::get_gpio_resource(driver_data->sdaPin, gpio_purpose::bus);
     auto sclPin = device_resource::get_gpio_resource(driver_data->sclPin, gpio_purpose::bus);
@@ -43,10 +43,10 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const device_config *c
 }
 
 // TODO: maybe make pins configureable
-std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     Ads111xAddress address = Ads111xAddress::INVALID;
-    unsigned int scl = static_cast<uint8_t>(Ads111xDriverData::sclDefaultPin);
-    unsigned int sda = static_cast<uint8_t>(Ads111xDriverData::sdaDefaultPin);
+    unsigned int scl = static_cast<uint8_t>(sclDefaultPin);
+    unsigned int sda = static_cast<uint8_t>(sdaDefaultPin);
 
     Logger::log(LogLevel::Info, "%.*s", input.size(), input.data());
     // TODO: write json_scanf_single
@@ -99,7 +99,7 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view
     return setupDevice(&device_conf_out, std::move(device));
 }
 
-std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const device_config *device_conf_out, i2c_dev_t device) {
+std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const DeviceConfig*device_conf_out, i2c_dev_t device) {
     auto result = ads111x_set_mode(&device, ADS111X_MODE_SINGLE_SHOT);
 
     if (result != ESP_OK) {
@@ -114,7 +114,7 @@ std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const device_config *dev
     return Ads111xDriver(device_conf_out, std::move(device));
 }
 
-Ads111xDriver::Ads111xDriver(const device_config *conf, i2c_dev_t device) 
+Ads111xDriver::Ads111xDriver(const DeviceConfig*conf, i2c_dev_t device) 
     : m_conf(conf), m_device(std::move(device)) { 
     mAnalogReadingsThread = std::jthread(&Ads111xDriver::updateAnalogThread, this);
 }
@@ -152,14 +152,14 @@ Ads111xDriver::~Ads111xDriver() {
         return;
     }
 
+    mAnalogReadingsThread.request_stop();
     if (mAnalogReadingsThread.joinable()) {
-        mAnalogReadingsThread.request_stop();
         mAnalogReadingsThread.join();
     }
     remove_address(reinterpret_cast<Ads111xDriverData *>(m_conf->device_config.data())->addr);
 }
 
-DeviceOperationResult Ads111xDriver::write_value(const device_values &value) { 
+DeviceOperationResult Ads111xDriver::write_value(std::string_view what, const device_values &value) { 
     return DeviceOperationResult::not_supported;
 }
 
@@ -179,7 +179,7 @@ DeviceOperationResult Ads111xDriver::read_value(std::string_view what, device_va
         analog = mAnalogReadings[3].average();
     }
 
-    value.generic_analog = analog;
+    value.generic_analog(analog);
 
     return DeviceOperationResult::ok;
 }
@@ -191,7 +191,7 @@ DeviceOperationResult Ads111xDriver::get_info(char *output_buffer, size_t output
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult Ads111xDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult Ads111xDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::ok;
 }
 

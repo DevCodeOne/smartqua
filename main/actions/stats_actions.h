@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "drivers/stats_types.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "actions/action_types.h"
 #include "drivers/stats_driver.h"
 #include "storage/store.h"

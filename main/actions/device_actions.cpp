@@ -4,9 +4,21 @@
 #include "drivers/device_types.h"
 #include "frozen.h"
 
-#include "aq_main.h"
+#include "smartqua_config.h"
 
 // TODO: add the equivalent for the other actions
+bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value) {
+    write_to_device single_device_value{ .index = index, .what = input, .write_value = value };
+    global_store->writeEvent(single_device_value);
+
+    if (single_device_value.result.collection_result != DeviceCollectionOperation::ok
+        || single_device_value.result.op_result != DeviceOperationResult::ok) {
+        return false;
+    }
+
+    return true;
+}
+
 std::optional<device_values> readDeviceValue(unsigned int index, std::string_view input) {
     read_from_device single_device_value{ .index = index, .what = input };
     global_store->readEvent(single_device_value);

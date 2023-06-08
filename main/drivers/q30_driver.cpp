@@ -4,7 +4,7 @@
 #include "drivers/device_types.h"
 
 
-std::optional<Q30Driver> Q30Driver::create_driver(const std::string_view &input, device_config &device_conf_out) {
+std::optional<Q30Driver> Q30Driver::create_driver(const std::string_view &input, DeviceConfig&device_conf_out) {
     auto createdConf = reinterpret_cast<Q30Data *>(device_conf_out.device_config.data());
     std::optional<ScheduleDriver> createdLampDriver = std::nullopt;
     createdConf->fanDevice = -1;
@@ -33,7 +33,7 @@ std::optional<Q30Driver> Q30Driver::create_driver(const std::string_view &input,
     return Q30Driver(std::move(createdLampDriver), &device_conf_out);
 }
 
-std::optional<Q30Driver> Q30Driver::create_driver(const device_config *config) {
+std::optional<Q30Driver> Q30Driver::create_driver(const DeviceConfig*config) {
     if (config == nullptr) {
         return std::nullopt;
     }
@@ -48,9 +48,9 @@ std::optional<Q30Driver> Q30Driver::create_driver(const device_config *config) {
     return Q30Driver(std::move(createdLampDriver), config);
 }
 
-Q30Driver::Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const device_config *config) : mConf(config), mLampDriver(std::move(lampDriver)) { }
+Q30Driver::Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const DeviceConfig*config) : mConf(config), mLampDriver(std::move(lampDriver)) { }
 
-DeviceOperationResult Q30Driver::write_value(const device_values &value) {
+DeviceOperationResult Q30Driver::write_value(std::string_view what, const device_values &value) {
     return DeviceOperationResult::not_supported;
 }
 
@@ -62,7 +62,7 @@ DeviceOperationResult Q30Driver::get_info(char *output, size_t output_buffer_len
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult Q30Driver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult Q30Driver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::not_supported;
 }
 
@@ -87,7 +87,8 @@ DeviceOperationResult Q30Driver::update_runtime_data() {
     fanSpeed = std::min<uint16_t>(fanSpeed, 100u);
     Logger::log(LogLevel::Info, "Setting fanSpeed to %d percent", fanSpeed);
 
-    const auto fanSetResult = set_device_action(q30Conf->fanDevice, device_values{.percentage = fanSpeed}, nullptr, 0);
+    // TODO: fix if needed later
+    // const auto fanSetResult = set_device_action(q30Conf->fanDevice, device_values{.percentage = fanSpeed}, nullptr, 0);
 
     if (fanSetResult.result != json_action_result_value::successfull) {
         return DeviceOperationResult::failure;

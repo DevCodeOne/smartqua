@@ -19,9 +19,9 @@
 #include "smartqua_config.h"
 #include "utils/idf_utils.h"
 #include "utils/logger.h"
-#include "aq_main.h"
 
 #include <chrono>
+#include <optional>
 #include <cstdint>
 #include <pthread.h>
 #include <thread>

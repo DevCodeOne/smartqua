@@ -24,21 +24,21 @@ class Q30Driver final {
         Q30Driver &operator=(const Q30Driver &other) = delete;
         Q30Driver &operator=(Q30Driver &&other) = default;
 
-        static std::optional<Q30Driver> create_driver(const std::string_view &input, device_config &device_conf_out);
-        static std::optional<Q30Driver> create_driver(const device_config *config);
+        static std::optional<Q30Driver> create_driver(const std::string_view &input, DeviceConfig&device_conf_out);
+        static std::optional<Q30Driver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult write_value(const device_values &value);
+        DeviceOperationResult write_value(std::string_view what, const device_values &value);
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json);
 
         DeviceOperationResult update_runtime_data();
     
     private:
 
-        Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const device_config *config);
+        Q30Driver(std::optional<ScheduleDriver> &&lampDriver, const DeviceConfig *config);
 
-        const device_config *mConf;
+        const DeviceConfig *mConf;
         std::optional<ScheduleDriver> mLampDriver;
 
         friend struct read_from_json<Q30Driver>;

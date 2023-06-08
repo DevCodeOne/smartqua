@@ -13,7 +13,7 @@
 
 #include "utils/thread_utils.h"
 #include "utils/logger.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 using task_func_type = void(*)(void *);
 

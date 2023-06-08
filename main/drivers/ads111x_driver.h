@@ -13,7 +13,7 @@
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
 #include "utils/sample_container.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 enum struct Ads111xAddress : std::decay_t<decltype(ADS111X_ADDR_GND)> {
     GND = ADS111X_ADDR_GND,
@@ -43,12 +43,9 @@ struct read_from_json<Ads111xAddress> {
 };
 
 struct Ads111xDriverData final {
-    constexpr static inline auto sdaDefaultPin = GPIO_NUM_21;
-    constexpr static inline auto sclDefaultPin = GPIO_NUM_22;
-
     Ads111xAddress addr;
-    gpio_num_t sdaPin = sdaDefaultPin;
-    gpio_num_t sclPin = sclDefaultPin;
+    gpio_num_t sdaPin = static_cast<gpio_num_t>(sdaDefaultPin);
+    gpio_num_t sclPin = static_cast<gpio_num_t>(sclDefaultPin);
 };
 
 class Ads111xDriver final {
@@ -63,24 +60,24 @@ class Ads111xDriver final {
         Ads111xDriver &operator=(const Ads111xDriver &other) = delete;
         Ads111xDriver &operator=(Ads111xDriver &&other);
 
-        static std::optional<Ads111xDriver> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<Ads111xDriver> create_driver(const device_config *config);
+        static std::optional<Ads111xDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<Ads111xDriver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult write_value(const device_values &value);
+        DeviceOperationResult write_value(std::string_view what, const device_values &value);
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
     private:
-        Ads111xDriver(const device_config *conf, i2c_dev_t device);
-        static std::optional<Ads111xDriver> setupDevice(const device_config *conf, i2c_dev_t device);
+        Ads111xDriver(const DeviceConfig*conf, i2c_dev_t device);
+        static std::optional<Ads111xDriver> setupDevice(const DeviceConfig*conf, i2c_dev_t device);
 
         static void updateAnalogThread(std::stop_token token, Ads111xDriver *instance);
 
         static bool add_address(Ads111xAddress address);
         static bool remove_address(Ads111xAddress address);
 
-        const device_config *m_conf;
+        const DeviceConfig*m_conf;
 
         mutable i2c_dev_t m_device;
         std::jthread mAnalogReadingsThread;

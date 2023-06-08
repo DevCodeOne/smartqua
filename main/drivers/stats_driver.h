@@ -11,7 +11,7 @@
 #include "esp_vfs.h"
 
 #include "stats_types.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "actions/device_actions.h"
 #include "utils/idf_utils.h"
 #include "utils/task_pool.h"

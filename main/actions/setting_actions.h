@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "actions/action_types.h"
 #include "drivers/setting_types.h"
 #include "drivers/setting_driver.h"
