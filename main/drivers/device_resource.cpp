@@ -1,9 +1,12 @@
 #include "device_resource.h"
+
+#include <algorithm>
+
 #include "driver/dac_common.h"
 #include "hal/dac_types.h"
 #include "hal/gpio_types.h"
 
-#include <algorithm>
+#include "build_config.h"
 
 gpio_resource::gpio_resource(gpio_num_t gpio_num, gpio_purpose purpose) : m_gpio_num(gpio_num), m_purpose(purpose) { }
 
@@ -200,7 +203,10 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
         return nullptr;
     }
 
-    
+    // Resource was already in use, but can be used again
+    if (found_resource->second != nullptr && found_resource->second.use_count() == 1) {
+        return found_resource->second;
+    }
 
     gpio_num_t used_pin = gpio_num_t::GPIO_NUM_0;
     esp_err_t result = dac_pad_get_io_num(channel, &used_pin);

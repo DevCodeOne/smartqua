@@ -25,7 +25,7 @@
 #include "utils/large_buffer_pool.h"
 #include "utils/ssl_credentials.h"
 #include "utils/logger.h"
-#include "aq_main.h"
+#include "build_config.h"
 
 enum struct WebServerSecurityLevel {
     unsecured,
@@ -51,6 +51,9 @@ namespace Detail {
                 config.stack_size = 2048;
                 config.max_uri_handlers = 6;
                 config.max_open_sockets = 1;
+                config.recv_wait_timeout = 30;
+                config.send_wait_timeout = 30;
+                config.lru_purge_enable = true;
 
                 esp_err_t serverStart;
                 if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {
@@ -349,7 +352,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     }
 
     struct stat tmp_stat{};
-    std::array<char, 516> filepath;
+    std::array<char, 128> filepath;
     std::string_view selected_path = "";
     std::string_view request_uri = req->uri;
 

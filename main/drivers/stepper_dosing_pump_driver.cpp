@@ -15,7 +15,7 @@
 #include "driver/rmt_types.h"
 #include "frozen.h"
 
-std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     StepperDosingConfig newConf;
 
     int stepPin = newConf.stepGPIONum;
@@ -37,7 +37,7 @@ std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(co
     return create_driver(&device_conf_out);
 }
 
-std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(const device_config *config) {
+std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(const DeviceConfig*config) {
     StepperDosingConfig *const stepperConfig = reinterpret_cast<StepperDosingConfig *>(config->device_config.data());
 
     auto stepGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->stepGPIONum), gpio_purpose::gpio);
@@ -84,20 +84,20 @@ std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(co
 }
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
-DeviceOperationResult StepperDosingPumpDriver::write_value(const device_values &value) {
+DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what, const device_values &value) {
     const StepperDosingConfig *const stepperConfig = reinterpret_cast<const StepperDosingConfig *>(mConf->device_config.data());
-    if (!value.milliliter) {
+    if (!value.milliliter()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports values in ml");
         return DeviceOperationResult::failure;
     }
 
-    Logger::log(LogLevel::Info, "Dosing %d ml", (int) *value.milliliter);
-    mStepsLeft.fetch_add(*value.milliliter * (stepperConfig->stepsTimesTenPerMl / 10));
+    Logger::log(LogLevel::Info, "Dosing %d ml", (int) *value.milliliter());
+    mStepsLeft.fetch_add(*value.milliliter() * (stepperConfig->stepsTimesTenPerMl / 10));
 
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult StepperDosingPumpDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult StepperDosingPumpDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     StepperDosingConfig *const stepperConfig = reinterpret_cast<StepperDosingConfig *>(conf->device_config.data());
     if (action == "manual") {
         int steps = 0;
@@ -180,7 +180,7 @@ StepperDosingPumpDriver::~StepperDosingPumpDriver() {
     }
 }
 
-StepperDosingPumpDriver::StepperDosingPumpDriver(const device_config *conf, std::shared_ptr<gpio_resource> stepGPIO, const RmtHandles &rmtHandle) : 
+StepperDosingPumpDriver::StepperDosingPumpDriver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> stepGPIO, const RmtHandles &rmtHandle) : 
     mRmtHandles(rmtHandle),
     mConf(conf),
     mStepGPIO(stepGPIO),

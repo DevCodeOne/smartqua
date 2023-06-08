@@ -9,7 +9,7 @@
 #include "utils/web_utils.h"
 #include "utils/logger.h"
 #include "actions/stats_actions.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/stats\/(?<index>[0-9]+)(?:\/(?<what>\w+)|\/)?)"};
 

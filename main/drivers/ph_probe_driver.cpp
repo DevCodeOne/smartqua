@@ -4,15 +4,15 @@
 #include <cmath>
 
 #include "actions/device_actions.h"
+#include "build_config.h"
 #include "drivers/device_types.h"
 #include "utils/utils.h"
 
 
-std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view input, device_config &device_conf_out) {
-    static constexpr unsigned int INVALID_DEVICE_ID = 0xFF;
+std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     PhProbeConfig newConf{
-        .analogDeviceId = INVALID_DEVICE_ID,
-        .temperatureDeviceId = INVALID_DEVICE_ID,
+        .analogDeviceId = InvalidDeviceId,
+        .temperatureDeviceId = InvalidDeviceId,
         .analogReadingArgument = "",
         .temperatureReadingArgument = ""
     };
@@ -36,12 +36,12 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
         return std::nullopt;
     }
 
-    if (newConf.analogDeviceId == INVALID_DEVICE_ID) {
+    if (newConf.analogDeviceId == InvalidDeviceId) {
         Logger::log(LogLevel::Error, "Invalid analog device id");
         return std::nullopt;
     }
 
-    if (newConf.temperatureDeviceId == INVALID_DEVICE_ID) {
+    if (newConf.temperatureDeviceId == InvalidDeviceId) {
         Logger::log(LogLevel::Error, "Invalid temperature device id");
         return std::nullopt;
     }
@@ -70,11 +70,11 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
     return create_driver(&device_conf_out);
 }
 
-std::optional<PhProbeDriver> PhProbeDriver::create_driver(const device_config *config) {
+std::optional<PhProbeDriver> PhProbeDriver::create_driver(const DeviceConfig*config) {
     return std::optional{PhProbeDriver{config}};
 }
 
-PhProbeDriver::PhProbeDriver(const device_config *config) : mConf(config) { }
+PhProbeDriver::PhProbeDriver(const DeviceConfig*config) : mConf(config) { }
 
 PhProbeDriver::PhProbeDriver(PhProbeDriver &&other) : mConf(std::move(other.mConf)) { }
 
@@ -91,7 +91,7 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, device_va
     // TODO: read actual ph and temperature correction
     const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
 
-    if (!result || !result->generic_analog) {
+    if (!result || !result->generic_analog()) {
         return DeviceOperationResult::failure;
     }
 
@@ -106,19 +106,19 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, device_va
     }
 
     Logger::log(LogLevel::Info, "current_reading : %u, lowerPhPair a : %u ph : %f, higherPhPair a : %u, ph : %f",
-        *result->generic_analog,
+        *result->generic_analog(),
         phConfig->lowerPhPair.analogReading, phConfig->lowerPhPair.ph,
         phConfig->higherPhPair.analogReading, phConfig->higherPhPair.ph);
 
     const float slope = dy / static_cast<float>(dx);
 
     Logger::log(LogLevel::Info, "slope: %f + offset: %f", slope, phConfig->lowerPhPair.ph);
-    value.ph = phConfig->lowerPhPair.ph + (*result->generic_analog - phConfig->lowerPhPair.analogReading) * slope;
+    value.ph(phConfig->lowerPhPair.ph + (*result->generic_analog() - phConfig->lowerPhPair.analogReading) * slope);
 
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult PhProbeDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult PhProbeDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     PhProbeConfig *phConfig = reinterpret_cast<PhProbeConfig *>(conf->device_config.data());
     // TODO: temperature correction
     if (action == "callibrate-lower" || action == "callibrate-higher") {
@@ -126,13 +126,13 @@ DeviceOperationResult PhProbeDriver::call_device_action(device_config *conf, con
         json_scanf(json.data(), json.size(), "{ ph_10x : %u}", &ph10x);
 
         const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
-        if (!result || !result->generic_analog) {
+        if (!result || !result->generic_analog()) {
             Logger::log(LogLevel::Error, "Device returned wrong type of measuremt or nothing at all");
             return DeviceOperationResult::failure;
         }
 
         const PhValuePair callibrationPoint{
-            .analogReading = *result->generic_analog,
+            .analogReading = *result->generic_analog(),
             .ph = ph10x / 10.0f
         };
 

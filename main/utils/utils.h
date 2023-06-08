@@ -4,6 +4,7 @@
 #include <tuple>
 #include <type_traits>
 #include <limits>
+#include <variant>
 
 template<typename Callable>
 class DoFinally {
@@ -60,6 +61,22 @@ struct count_type {
 template<typename T, typename Head>
 struct count_type<T, Head> {
     static inline constexpr auto value = std::is_same_v<T, Head> ? 1 : 0; 
+};
+
+template<typename T, typename Head, typename ... Tail>
+struct FindTypeInList {
+    static inline constexpr auto Index = std::is_same_v<T, Head> ? 0 : 1 + FindTypeInList<T, Tail ...>::Index;
+};
+
+template<typename T, typename Head>
+struct FindTypeInList<T, Head> {
+    static inline constexpr auto Index = std::is_same_v<T, Head> ? 0 : 1;
+};
+
+
+template<typename T, typename ... Types>
+struct FindTypeInList<T, std::variant<Types ...>> {
+    static inline constexpr auto Index = FindTypeInList<T, Types ...>::Index;
 };
 
 template<typename T, typename ... Types>

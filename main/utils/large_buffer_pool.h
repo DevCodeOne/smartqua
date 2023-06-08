@@ -3,13 +3,14 @@
 #include <array>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <cstdint>
 #include <optional>
 #include <chrono>
 #include <utility>
 #include <limits>
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "utils/logger.h"
 
 struct custom_delete {

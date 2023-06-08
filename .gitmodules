@@ -7,3 +7,6 @@
 [submodule "components/ctre"]
 	path = header_only/ctre
 	url = https://github.com/hanickadot/compile-time-regular-expressions
+[submodule "header_only/frozen"]
+	path = header_only/frozen
+	url = https://github.com/serge-sans-paille/frozen

@@ -9,7 +9,7 @@
 #include "driver/sdmmc_host.h"
 
 #include "utils/logger.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 sd_filesystem::sd_filesystem() {
     std::call_once(initializeFlag, []() {

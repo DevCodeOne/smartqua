@@ -8,9 +8,9 @@
 #include "frozen.h"
 #include "ds18x20.h"
 
-#include "smartqua_config.h"
+#include "build_config.h"
 
-std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const device_config *config) {
+std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*config) {
     auto driver_data = reinterpret_cast<const ds18x20_driver_data *>(config->device_config.data());
     auto pin = device_resource::get_gpio_resource(driver_data->gpio, gpio_purpose::bus);
 
@@ -43,7 +43,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const device_config *c
     return Ds18x20Driver(config, pin);
 }
 
-std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view input, device_config &device_conf_out) {
+std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
     int gpio_num = -1;
     json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpio_num);
@@ -92,7 +92,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     return Ds18x20Driver(&device_conf_out, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { 
+Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { 
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 }
 
@@ -140,13 +140,13 @@ Ds18x20Driver::~Ds18x20Driver() {
     remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
 }
 
-DeviceOperationResult Ds18x20Driver::write_value(const device_values &value) { 
+DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const device_values &value) { 
     return DeviceOperationResult::not_supported;
 }
 
 // TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
 DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, device_values &value) const {
-    value.temperature = mTemperatureReadings.average();
+    value.temperature(mTemperatureReadings.average());
     return DeviceOperationResult::ok;
 }
 
@@ -182,7 +182,7 @@ DeviceOperationResult Ds18x20Driver::get_info(char *output_buffer, size_t output
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult Ds18x20Driver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult Ds18x20Driver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::ok;
 }
 

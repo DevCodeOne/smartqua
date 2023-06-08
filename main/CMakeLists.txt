@@ -5,15 +5,17 @@ idf_component_register(SRCS     "aq_main.cpp"
                                 "rest/stats_rest.cpp"
                                 "drivers/device_resource.cpp"
                                 "drivers/devices.cpp"
-                                "drivers/pwm.cpp"
+                                "drivers/pin_driver.cpp"
                                 "drivers/dac_driver.cpp"
                                 "drivers/ds18x20_driver.cpp"
                                 "drivers/ads111x_driver.cpp"
+                                "drivers/pcf8575_driver.cpp"
                                 "drivers/scale_driver.cpp"
                                 "drivers/schedule_driver.cpp"
-                                "drivers/q30_driver.cpp"
+                                # "drivers/q30_driver.cpp"
                                 "drivers/stepper_dosing_pump_driver.cpp"
                                 "drivers/ph_probe_driver.cpp"
+                                "drivers/switch_driver.cpp"
                                 "drivers/rmt_stepper_driver.cpp"
                                 "utils/idf_utils.cpp"
                                 # "storage/sd_filesystem.cpp"
@@ -25,6 +27,7 @@ idf_component_register(SRCS     "aq_main.cpp"
                     INCLUDE_DIRS 
                     "."
                     "../components/frozen"
+                    "../header_only/frozen/include"
                     "../header_only/ctre/single-header")
 
 add_custom_target(deletebloat ALL
@@ -32,4 +35,4 @@ add_custom_target(deletebloat ALL
             || true)
 
 # spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)
-fatfs_create_spiflash_image(values ../values FLASH_IN_PROJECT)
+# fatfs_create_spiflash_image(values ../values FLASH_IN_PROJECT)

@@ -1,6 +1,6 @@
 #include "logger.h"
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "storage/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 #include "utils/stack_string.h"
@@ -20,9 +20,6 @@ const char *to_string(LogLevel level) {
     return "";
 }
 
-bool HttpLogSink::install() { return true; }
-
-bool HttpLogSink::uninstall() { return true; }
 
 /*
 bool SdCardSink::install() { return true; }

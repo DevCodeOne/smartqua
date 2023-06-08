@@ -11,7 +11,7 @@
 #include "frozen.h"
 
 #include "actions/action_types.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "utils/utils.h"
 #include "utils/stack_string.h"
 #include "storage/store.h"

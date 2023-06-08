@@ -14,7 +14,7 @@
 #include "utils/task_pool.h"
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 enum struct LoadcellStatus { uninitialized, success, failure };
 
@@ -36,20 +36,20 @@ class LoadcellDriver final {
         LoadcellDriver &operator=(const LoadcellDriver &other) = delete;
         LoadcellDriver &operator=(LoadcellDriver &&other);
 
-        static std::optional<LoadcellDriver> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<LoadcellDriver> create_driver(const device_config *config);
+        static std::optional<LoadcellDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<LoadcellDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
-        DeviceOperationResult write_value(const device_values &value) const;
+        DeviceOperationResult write_value(std::string_view what, const device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
 
     private:
-        LoadcellDriver(const device_config *conf, std::shared_ptr<gpio_resource> doutGPIO, std::shared_ptr<gpio_resource> sckGPIO, hx711_t &&dev);
+        LoadcellDriver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> doutGPIO, std::shared_ptr<gpio_resource> sckGPIO, hx711_t &&dev);
         static int32_t convertToRealValue(int32_t rawValue, int32_t offset, int32_t scale);
 
-        const device_config *mConf;
+        const DeviceConfig*mConf;
 
         sample_container<int32_t, float, max_sample_size> m_values{};
         std::shared_ptr<gpio_resource> mDoutGPIO = nullptr;

@@ -16,7 +16,7 @@
 #include "esp_partition.h"
 #include "esp_vfs_fat.h"
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
 

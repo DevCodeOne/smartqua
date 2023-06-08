@@ -5,7 +5,7 @@
 
 #include "utils/utils.h"
 #include "utils/logger.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 using IgnoredEvent = void;
 using ignored_event = IgnoredEvent;

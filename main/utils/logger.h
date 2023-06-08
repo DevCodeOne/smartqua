@@ -13,11 +13,11 @@
 #include "esp_mac.h"
 #include "frozen.h"
 
-#include "build_config.h"
 #include "network/network_info.h"
 #include "utils/thread_utils.h"
 #include "storage/rest_storage.h"
 #include "utils/utils.h"
+#include "utils/filesystem_utils.h"
 
 enum struct LogLevel {
     Debug, Info, Warning, Error
@@ -109,7 +109,9 @@ bool ApplicationLogger<Sinks ...>::log(LogLevel level, const char *fmt, Argument
     return loggedSuccessfully;
 }
 
+template<ConstexprPath RemoteSettingPath>
 struct HttpLogSinkPathGenerator {
+    static constexpr const char *Path = RemoteSettingPath.value;
 
     template<size_t DstSize>
     static bool generateRestTarget(std::array<char, DstSize> &dst);
@@ -127,6 +129,7 @@ class VoidSink final {
     private:
 };
 
+template<ConstexprPath RemoteSettingPath>
 class HttpLogSink final {
     public:
         bool install();
@@ -136,7 +139,7 @@ class HttpLogSink final {
         template<typename ... Arguments>
         bool log(LogLevel level, const char *fmt, Arguments && ... args);
     private:
-        static inline RestStorage<HttpLogSinkPathGenerator, RestDataType::Json> logSink;
+        static inline RestStorage<HttpLogSinkPathGenerator<RemoteSettingPath>, RestDataType::Json> logSink;
 };
 
 /*
@@ -159,16 +162,24 @@ class SdCardSink final {
 };
 */
 
+template<ConstexprPath RemoteSettingPath>
 template<size_t DstSize>
-bool HttpLogSinkPathGenerator::generateRestTarget(std::array<char, DstSize> &dst) {
-    snprintf(dst.data(), dst.size(), "http://%s/log", remote_setting_host);
+bool HttpLogSinkPathGenerator<RemoteSettingPath>::generateRestTarget(std::array<char, DstSize> &dst) {
+    snprintf(dst.data(), dst.size(), "http://%s/log", Path);
 
     // TODO: check return value
     return true;
 }
 
+template<ConstexprPath RemoteSettingPath>
+bool HttpLogSink<RemoteSettingPath>::install() { return true; }
+
+template<ConstexprPath RemoteSettingPath>
+bool HttpLogSink<RemoteSettingPath>::uninstall() { return true; }
+
+template<ConstexprPath RemoteSettingPath>
 template<typename ... Arguments>
-bool HttpLogSink::log(LogLevel level, const char *fmt, Arguments && ... args) {
+bool HttpLogSink<RemoteSettingPath>::log(LogLevel level, const char *fmt, Arguments && ... args) {
     if (!NetworkInfo::canUseNetwork()) {
         return false;
     }

@@ -3,7 +3,7 @@
 #include "esp_sntp.h"
 
 #include "utils/logger.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 sntp_clock::sntp_clock() {
     std::call_once(_init_flag, &sntp_clock::init_sntp);

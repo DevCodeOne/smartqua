@@ -11,7 +11,7 @@
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "utils/sample_container.h"
 
 struct ds18x20_driver_data final {
@@ -30,23 +30,23 @@ class Ds18x20Driver final {
         Ds18x20Driver &operator=(const Ds18x20Driver &other) = delete;
         Ds18x20Driver &operator=(Ds18x20Driver &&other);
 
-        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, device_config &device_conf_out);
-        static std::optional<Ds18x20Driver> create_driver(const device_config *config);
+        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<Ds18x20Driver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult write_value(const device_values &value);
+        DeviceOperationResult write_value(std::string_view what, const device_values &value);
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
     private:
-        Ds18x20Driver(const device_config *conf, std::shared_ptr<gpio_resource> pin);
+        Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> pin);
 
         static void updateTempThread(std::stop_token token, Ds18x20Driver *instance);
 
         static bool add_address(ds18x20_addr_t address);
         static bool remove_address(ds18x20_addr_t address);
 
-        const device_config *m_conf;
+        const DeviceConfig*m_conf;
 
         std::shared_ptr<gpio_resource> m_pin;
         std::jthread mTemperatureThread;

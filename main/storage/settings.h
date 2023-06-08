@@ -18,7 +18,7 @@
 #include "utils/logger.h"
 #include "utils/stack_string.h"
 #include "storage/rest_storage.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 enum struct SettingInitType { instant, lazy_load };
 

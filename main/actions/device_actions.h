@@ -5,7 +5,7 @@
 #include <string_view>
 #include <mutex>
 
-#include "smartqua_config.h"
+#include "build_config.h"
 #include "actions/action_types.h"
 #include "drivers/device_types.h"
 #include "drivers/devices.h"
@@ -15,6 +15,7 @@
 #include "storage/store.h"
 
 std::optional<device_values> readDeviceValue(unsigned int index, std::string_view input);
+bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value);
 json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
@@ -28,13 +29,13 @@ using DeviceCollectionOperation = collection_operation_result;
 
 static inline constexpr size_t device_uid = 30;
 
-struct add_device : public SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid> { 
+struct add_device : public SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> { 
     std::string_view driver_name;
 };
 
-using remove_single_device = SmartAq::Utils::ArrayActions::RemoveValue<device_config, device_uid>;
+using remove_single_device = SmartAq::Utils::ArrayActions::RemoveValue<DeviceConfig, device_uid>;
 
-using retrieve_device_overview = SmartAq::Utils::ArrayActions::GetValueOverview<device_config, device_uid>;
+using retrieve_device_overview = SmartAq::Utils::ArrayActions::GetValueOverview<DeviceConfig, device_uid>;
 
 struct read_from_device {
     unsigned int index = std::numeric_limits<unsigned int>::max();
@@ -49,6 +50,7 @@ struct read_from_device {
 
 struct write_to_device { 
     unsigned int index = std::numeric_limits<unsigned int>::max();
+    std::string_view what = "";
     device_values write_value;
     
     struct {
@@ -91,7 +93,7 @@ public:
     DeviceSettings() = default;
     ~DeviceSettings() = default;
 
-    using EventAccessArrayType = SmartAq::Utils::EventAccessArray<device_config, device<DeviceDrivers ...>, N, device_uid>;
+    using EventAccessArrayType = SmartAq::Utils::EventAccessArray<DeviceConfig, device<DeviceDrivers ...>, N, device_uid>;
     using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
     template<typename T>
@@ -178,7 +180,7 @@ void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
 
 template<size_t N, typename ... DeviceDrivers>
 auto DeviceSettings<N, DeviceDrivers ...>::dispatch(add_device &event) -> FilterReturnType<add_device> {
-    using ArrayEventType = SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid>;
+    using ArrayEventType = SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid>;
     return m_data.dispatch(static_cast<ArrayEventType &>(event), 
         [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
             // First delete possible old device and recreate it
@@ -199,7 +201,7 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_to_device &event) -> F
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
         Logger::log(LogLevel::Info, "Writing to device ...");
-        event.result.op_result = currentDevice.write_value(event.write_value);
+        event.result.op_result = currentDevice.write_value(event.what, event.write_value);
         event.result.collection_result = DeviceCollectionOperation::ok;
     });
 
@@ -212,7 +214,7 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(write_device_options &event)
     event.output_dst = nullptr;
     event.output_len = 0;
 
-    SmartAq::Utils::ArrayActions::SetValue<device_config, device_uid> setEvent{
+    SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> setEvent{
         .index = event.index,
     };
 

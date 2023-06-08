@@ -16,8 +16,8 @@
 // #include "utils/sd_filesystem.h"
 #include "utils/idf_utils.h"
 #include "utils/logger.h"
-#include "aq_main.h"
 #include "utils/time_utils.h"
+#include "smartqua_config.h"
 
 // TODO: maybe fix target value range 0-100
 static constexpr inline ctll::fixed_string schedule_regexp{R"((?<hours>[0-1][\d]|[2][0-3])-(?<mins>[0-5][0-9]):(?<vars>(?:\w{0,10}=[\d.]*,?)*);?)"};
@@ -93,7 +93,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
     return generatedSchedule;
 }
 
-std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
+std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_view &input, DeviceConfig &device_conf_out) {
     // Only use temporary variable to initialize the real storage
     auto createdConf = reinterpret_cast<ScheduleDriverData *>(device_conf_out.device_config.data());
     {
@@ -173,7 +173,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     return driver;
 }
 
-std::optional<ScheduleDriver> ScheduleDriver::create_driver(const device_config *device_conf_out) {
+std::optional<ScheduleDriver> ScheduleDriver::create_driver(const DeviceConfig *device_conf_out) {
     if (device_conf_out == nullptr) {
         return std::nullopt;
     }
@@ -243,9 +243,9 @@ std::optional<uint8_t> ScheduleDriver::channelIndex(std::string_view channelName
     return std::nullopt;
 }
 
-ScheduleDriver::ScheduleDriver(const device_config *conf) : mConf(conf) {}
+ScheduleDriver::ScheduleDriver(const DeviceConfig *conf) : mConf(conf) {}
 
-DeviceOperationResult ScheduleDriver::write_value(const device_values &value) {
+DeviceOperationResult ScheduleDriver::write_value(std::string_view what, const device_values &value) {
     return DeviceOperationResult::not_supported;
 }
 
@@ -257,7 +257,7 @@ DeviceOperationResult ScheduleDriver::get_info(char *output, size_t output_buffe
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult ScheduleDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult ScheduleDriver::call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::not_supported;
 }
 

@@ -15,7 +15,7 @@
 #include "utils/json_utils.h"
 #include "utils/logger.h"
 #include "storage/rest_storage.h"
-#include "smartqua_config.h"
+#include "build_config.h"
 
 // TODO: make configurable
 static inline constexpr uint8_t NumChannels = 4;
@@ -89,13 +89,13 @@ class ScheduleDriver final {
         ScheduleDriver &operator=(const ScheduleDriver &other) = delete;
         ScheduleDriver &operator=(ScheduleDriver &&other) = default;
 
-        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, device_config &device_conf_out);
-        static std::optional<ScheduleDriver> create_driver(const device_config *config);
+        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig&device_conf_out);
+        static std::optional<ScheduleDriver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult write_value(const device_values &value);
+        DeviceOperationResult write_value(std::string_view what, const device_values &value);
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json);
+        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
         DeviceOperationResult update_values(
                 const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &channel_data);
@@ -104,11 +104,11 @@ class ScheduleDriver final {
         std::optional<uint8_t> channelIndex(std::string_view channelName) const;
 
     private:
-        ScheduleDriver(const device_config *conf);
+        ScheduleDriver(const DeviceConfig*conf);
 
         bool loadAndUpdateSchedule(const std::string_view &input);
         bool updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values);
-        const device_config *mConf;
+        const DeviceConfig*mConf;
         ScheduleType schedule;
         ScheduleState scheduleState;
 

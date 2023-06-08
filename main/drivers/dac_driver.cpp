@@ -14,14 +14,15 @@
 #include "drivers/device_types.h"
 #include "utils/utils.h"
 
-DacDriver::DacDriver(const device_config *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
+DacDriver::DacDriver(const DeviceConfig*config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
     if (dacResource && config != nullptr) {
         dac_output_enable(dacResource->channel_num());
-        write_value(device_values{ .voltage = m_value });
+        device_values toSet = device_values::create_from_unit(DeviceValueUnit::voltage, m_value);
+        write_value("", toSet);
     }
 }
 
-std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
+std::optional<DacDriver> DacDriver::create_driver(const DeviceConfig*config) {
     auto *dacConf = reinterpret_cast<DacDriverData *>(config->device_config.data());
     auto dacResource = device_resource::get_dac_resource(dacConf->channel);
 
@@ -40,17 +41,17 @@ std::optional<DacDriver> DacDriver::create_driver(const device_config *config) {
     return std::make_optional(DacDriver{config, dacResource});
 }
 
-DeviceOperationResult DacDriver::write_value(const device_values &value) {
+DeviceOperationResult DacDriver::write_value(std::string_view what, const device_values &value) {
     if (m_conf == nullptr || m_dac == nullptr) {
         return DeviceOperationResult::failure;
     }
 
-    decltype(value.voltage) voltageValue = value.voltage;
+    auto voltageValue = value.voltage();
 
-    if (!voltageValue.has_value() && value.percentage.has_value()) {
+    if (!voltageValue.has_value() && value.percentage().has_value()) {
         static constexpr auto MaxPercentageValue = 100;
-        const auto clampedPercentage = std::clamp<decltype(value.percentage)::value_type>(*value.percentage, 0, MaxPercentageValue);
-        voltageValue = static_cast<decltype(value.voltage)::value_type>((MaxVoltage / MaxPercentageValue) * clampedPercentage);
+        const auto clampedPercentage = std::clamp<decltype(value.percentage())::value_type>(*value.percentage(), 0, MaxPercentageValue);
+        voltageValue = static_cast<decltype(value.voltage())::value_type>((MaxVoltage / MaxPercentageValue) * clampedPercentage);
     }
 
     if (!voltageValue.has_value()) {
@@ -80,7 +81,7 @@ DeviceOperationResult DacDriver::get_info(char *output, size_t output_buffer_len
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult DacDriver::call_device_action(device_config *conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult DacDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return DeviceOperationResult::not_supported;
 }
 
@@ -89,7 +90,7 @@ DeviceOperationResult DacDriver::update_runtime_data() {
     return DeviceOperationResult::ok;
 }
 
-std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, device_config &device_conf_out) {
+std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input, DeviceConfig&device_conf_out) {
     DacDriverData newConf{};
     int channel = static_cast<int>(newConf.channel);
 
