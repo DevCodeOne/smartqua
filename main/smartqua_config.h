@@ -4,7 +4,6 @@
 
 #include "build_config.h"
 
-#include "drivers/ph_probe_driver.h"
 #include "storage/store.h"
 #include "storage/flash_storage.h"
 #include "storage/settings.h"
@@ -16,6 +15,7 @@
 #include "drivers/ds18x20_driver.h"
 #include "drivers/ads111x_driver.h"
 #include "drivers/pin_driver.h"
+#include "drivers/ph_probe_driver.h"
 #include "drivers/pcf8575_driver.h"
 #include "drivers/scale_driver.h"
 #include "drivers/dac_driver.h"

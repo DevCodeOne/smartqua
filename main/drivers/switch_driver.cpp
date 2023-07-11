@@ -33,6 +33,7 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view i
 
     // TODO: add parsing for default value and switch type
     // TODO: both low and highValue, as well as targetValue have to be set, check that
+    // TODO: prevent target_id or reading_id, to be the id of the switch 
     json_scanf(input.data(), input.size(), "{ target_id : %d, reading_id : %d, reading_argument : %T, target_argument : %T, \
     target_value : %M, low_value : %M, high_value : %M, allowed_difference : %M }",
         &targetDeviceId,
@@ -86,6 +87,7 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view i
     return create_driver(&device_conf_out);
 }
 
+// This doesn't work for some reason
 std::optional<SwitchDriver> SwitchDriver::create_driver(const DeviceConfig *config) {
     return std::optional{SwitchDriver{config}};
 }
@@ -93,8 +95,10 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const DeviceConfig *conf
 
 void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
     const SwitchConfig *const switchConfig = reinterpret_cast<const SwitchConfig *>(instance->mConf->device_config.data());
+    // TODO: really check valueChanged
     bool valueChanged = true;
 
+    Logger::log(LogLevel::Info, "SwitchDriver::watchValues entry");
     while (!token.stop_requested()) {
         using namespace std::chrono_literals;
 
@@ -106,18 +110,24 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
         if (result.has_value()) {
             using DifferenceType = float;
             const auto difference = switchConfig->targetValue.difference<DifferenceType>(*result);
+            const auto allowedDifference = switchConfig->maxAllowedDifference.getAsUnit<DifferenceType>();
             
-            if (switchConfig->maxAllowedDifference.getAsUnit<DifferenceType>() < difference) {
+            if (difference.has_value() && std::fabs(*allowedDifference) < std::fabs(*difference)) {
+                Logger::log(LogLevel::Info, "Difference is large enough for this switch to do something %f < %f", 
+                    *allowedDifference, *difference);
                 valueChanged = true;
                 // targetValue > currentValue => lowValue
-                if (difference > 0) {
+                if (difference < 0) {
                     valueToSet = switchConfig->lowValue;
                 } else {
                     valueToSet = switchConfig->highValue;
                 }
+            } else {
+                Logger::log(LogLevel::Info, "Difference is too small for this switch to do anything %f < %f", *allowedDifference, *difference);
             }
             // If the values couldn't be compared, there should be some kind of error handling, best at the creation of the object
         } else {
+            Logger::log(LogLevel::Error, "Couldn't read from the device, setting default values ...");
             // Error reading state => default values
             if (switchConfig->defaultValue == SwitchDefaultValue::Low) {
                 valueToSet = switchConfig->lowValue;
@@ -129,10 +139,10 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
         if (valueChanged) {
             auto view = switchConfig->targetArgument.getStringView();
-            const auto result =  writeDeviceValue(switchConfig->targetDeviceId, switchConfig->targetArgument, valueToSet);
+            const auto result = writeDeviceValue(switchConfig->targetDeviceId, switchConfig->targetArgument, valueToSet, true);
 
             if (result) {
-                Logger::log(LogLevel::Error, "Set new value to device");
+                Logger::log(LogLevel::Info, "Set new value to device %d", switchConfig->targetDeviceId);
             } else {
                 Logger::log(LogLevel::Error, "Couldn't execute action");
             }
@@ -143,24 +153,15 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
         const auto timeDiff = std::chrono::steady_clock::now() - startTime;
 
         // TODO: make this tuneable
-        std::this_thread::sleep_for(timeDiff < 1s ? 1s - timeDiff : 250ms);
+         std::this_thread::sleep_for(timeDiff < 5s ? 5s - timeDiff : 500ms);
     }
+    Logger::log(LogLevel::Info, "SwitchDriver::watchValues exit");
 
 }
 
-SwitchDriver::SwitchDriver(const DeviceConfig *config) : mConf(config) { 
-    mWatchValueThread = std::jthread(&SwitchDriver::watchValues, this);
-}
+SwitchDriver::SwitchDriver(const DeviceConfig *config) : mConf(config) { }
 
-SwitchDriver::SwitchDriver(SwitchDriver &&other) : mConf(std::move(other.mConf)) {
-    other.mWatchValueThread.request_stop();
-    if(other.mWatchValueThread.joinable()) {
-        other.mWatchValueThread.join();
-    }
-
-    other.mConf = nullptr;
-    mWatchValueThread = std::jthread(&SwitchDriver::watchValues, this);
- }
+SwitchDriver::SwitchDriver(SwitchDriver &&other) : mConf(std::move(other.mConf)) { other.mConf = nullptr; }
 
 SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other) {
     using std::swap;
@@ -171,8 +172,6 @@ SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other) {
     }
 
     swap(mConf, other.mConf);
-
-    mWatchValueThread = std::jthread(&SwitchDriver::watchValues, this);
 
     return *this;
 }
@@ -191,6 +190,16 @@ SwitchDriver::~SwitchDriver() {
 DeviceOperationResult SwitchDriver::read_value(std::string_view what, device_values &value) const {
     const SwitchConfig *const switchConfig = reinterpret_cast<const SwitchConfig *>(mConf->device_config.data());
     return DeviceOperationResult::ok;
+}
+
+// TODO: Fix thread start, maybe specific method for after initialization things
+DeviceOperationResult SwitchDriver::update_runtime_data() { 
+    Logger::log(LogLevel::Info, "SwitchDriver::update_runtime_data ");
+    if (!mWatchValueThread.joinable()) {
+        Logger::log(LogLevel::Info, "SwitchDriver::update_runtime_data start thread");
+        mWatchValueThread = std::jthread(&SwitchDriver::watchValues, this);
+    }
+    return DeviceOperationResult::ok; 
 }
 
 DeviceOperationResult SwitchDriver::call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json) {

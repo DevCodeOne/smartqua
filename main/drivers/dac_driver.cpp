@@ -14,7 +14,7 @@
 #include "drivers/device_types.h"
 #include "utils/utils.h"
 
-DacDriver::DacDriver(const DeviceConfig*config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
+DacDriver::DacDriver(const DeviceConfig *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
     if (dacResource && config != nullptr) {
         dac_output_enable(dacResource->channel_num());
         device_values toSet = device_values::create_from_unit(DeviceValueUnit::voltage, m_value);
@@ -22,7 +22,7 @@ DacDriver::DacDriver(const DeviceConfig*config, std::shared_ptr<dac_resource> da
     }
 }
 
-std::optional<DacDriver> DacDriver::create_driver(const DeviceConfig*config) {
+std::optional<DacDriver> DacDriver::create_driver(const DeviceConfig *config) {
     auto *dacConf = reinterpret_cast<DacDriverData *>(config->device_config.data());
     auto dacResource = device_resource::get_dac_resource(dacConf->channel);
 

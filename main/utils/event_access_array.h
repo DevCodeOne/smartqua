@@ -96,7 +96,7 @@ namespace SmartAq::Utils {
             ArrayActions::RemoveValue<ElementType, UID>,
             ArrayActions::GetValue<ElementType, UID>,
             ArrayActions::GetValueOverview<ElementType, UID>>, 
-            TrivialRepresentationType, ignored_event>;
+            const TrivialRepresentationType &, ignored_event>;
 
         static inline constexpr size_t NumElements = Size;
         static inline constexpr size_t UniqueIdentifier = UID;
@@ -140,7 +140,7 @@ namespace SmartAq::Utils {
             TrivialRepresentationType data;
             std::array<std::optional<RuntimeType>, NumElements> runtimeData;
 
-            mutable std::recursive_mutex instanceMutex;
+            mutable std::shared_mutex instanceMutex;
     };
 
     // TODO: add return value to indicate if it is a newly created value
@@ -178,7 +178,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename CreationHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::initialize(const TrivialRepresentationType &newValue, const CreationHook &createRuntime) -> EventAccessArray & {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
         data = newValue;
 
         for (unsigned int i = 0; i < data.initialized.size(); ++i) {
@@ -204,7 +204,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename UpdateHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         std::optional<unsigned int> foundIndex = findIndex(event.index, event.settingName, true);
 
@@ -232,7 +232,7 @@ namespace SmartAq::Utils {
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::RemoveValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::RemoveValue<BaseType, UID>> {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         std::optional<unsigned int> indexToDelete = findIndex(event.index, event.settingName);
 
@@ -254,7 +254,8 @@ namespace SmartAq::Utils {
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValue<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValue<BaseType, UID>> {
-        std::lock_guard instanceGuard{instanceMutex};
+        Logger::log(LogLevel::Info, "Try locking to read");
+        std::shared_lock instanceGuard{instanceMutex};
 
         auto foundIndex = findIndex(event.index, event.settingName);
 
@@ -283,7 +284,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename PrintHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::shared_lock  instanceGuard{instanceMutex};
 
         unsigned int start_index = 0;
         if (event.index.has_value()) {
@@ -320,7 +321,7 @@ namespace SmartAq::Utils {
 
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::getTrivialRepresentation() const -> const TrivialRepresentationType & {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         return data;
     }
@@ -328,7 +329,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) const {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         if (hasValidRuntimeData(index)) {
             callable(*runtimeData[index]);
@@ -338,7 +339,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
         if (hasValidRuntimeData(index)) {
             callable(*runtimeData[index]);
         }
@@ -347,7 +348,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnAllRuntimeData(Callable callable) {
-        std::lock_guard instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         for (int i = 0; i < NumElements; ++i) {
             if (hasValidRuntimeData(i)) {

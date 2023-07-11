@@ -4,6 +4,7 @@
 #include <optional>
 #include <string_view>
 #include <mutex>
+#include <thread>
 
 #include "build_config.h"
 #include "actions/action_types.h"
@@ -14,8 +15,9 @@
 #include "utils/task_pool.h"
 #include "storage/store.h"
 
+bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value, bool deferSaving = false);
 std::optional<device_values> readDeviceValue(unsigned int index, std::string_view input);
-bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value);
+
 json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
@@ -102,7 +104,7 @@ public:
             add_device,
             remove_single_device,
             write_to_device,
-            write_device_options>, TrivialRepresentationType, ignored_event>;
+            write_device_options>, const TrivialRepresentationType &, ignored_event>;
 
     DeviceSettings &operator=(const TrivialRepresentationType &new_value);
     

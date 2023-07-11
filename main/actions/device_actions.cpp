@@ -7,9 +7,9 @@
 #include "smartqua_config.h"
 
 // TODO: add the equivalent for the other actions
-bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value) {
+bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value, bool deferSaving) {
     write_to_device single_device_value{ .index = index, .what = input, .write_value = value };
-    global_store->writeEvent(single_device_value);
+    global_store->writeEvent(single_device_value, deferSaving);
 
     if (single_device_value.result.collection_result != DeviceCollectionOperation::ok
         || single_device_value.result.op_result != DeviceOperationResult::ok) {
