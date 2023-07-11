@@ -54,7 +54,7 @@ struct read_from_json<SwitchDefaultValue> {
 };
 
 // TODO: optional add backup probe and control device
-// TODO: allowed difference
+// TODO: also add some kind of alarm, when both devices report different values, which are too different
 struct SwitchConfig {
     SwitchType type;
     SwitchDefaultValue defaultValue;
@@ -87,7 +87,7 @@ class SwitchDriver final {
         DeviceOperationResult write_value(std::string_view what, const device_values &value) { return DeviceOperationResult::not_supported; }
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const { return DeviceOperationResult::not_supported; }
         DeviceOperationResult call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json);
-        DeviceOperationResult update_runtime_data() { return DeviceOperationResult::not_supported; }
+        DeviceOperationResult update_runtime_data(); 
 
     private:
         SwitchDriver(const DeviceConfig *conf);

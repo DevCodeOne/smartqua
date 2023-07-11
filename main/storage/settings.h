@@ -135,6 +135,7 @@ class FilesystemSetting {
         ~FilesystemSetting() = default;
 
         void initialize() {
+            std::unique_lock instanceGard{instanceMutex};
             if (InitType == SettingInitType::instant) {
                 initFilesystem();
             }
@@ -142,6 +143,7 @@ class FilesystemSetting {
 
         template<typename T>
         FilesystemSetting &set_value(T new_value) {
+            std::unique_lock instanceGard{instanceMutex};
             initFilesystem();
 
             m_setting = new_value;
@@ -154,6 +156,7 @@ class FilesystemSetting {
         }
 
         const auto &get_value() {
+            std::unique_lock instanceGard{instanceMutex};
             initFilesystem();
 
             return m_setting;
@@ -162,26 +165,27 @@ class FilesystemSetting {
     private:
         template<typename ArrayType>
         bool copyTmpFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst.data(), dst.size(), "%s/%s.bin.tmp", FilesystemType::MountPointPath, Path.value);
-            return result > 0 && result < dst.size();
+            auto result = snprintf(dst->data(), dst->size(), "%s/%s.bin.tmp", FilesystemType::MountPointPath, Path.value);
+            return result > 0 && result < dst->size();
         }
 
         template<typename ArrayType>
         bool copyFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst.data(), dst.size(), "%s/%s.bin", FilesystemType::MountPointPath, Path.value);
-            return result > 0 && result < dst.size();
+            auto result = snprintf(dst->data(), dst->size(), "%s/%s.bin", FilesystemType::MountPointPath, Path.value);
+            return result > 0 && result < dst->size();
         }
 
         FILE *openTmpFile(bool createIfNotExists = true) {
-            stack_string<64> filename;
+            auto filename = SmallerBufferPoolType::get_free_buffer();
             copyTmpFilenameToBuffer(filename);
 
-            auto opened_file = std::fopen(filename.data(), "r+");
+            Logger::log(LogLevel::Info, "Trying to open tmp file");
+            auto opened_file = std::fopen(filename->data(), "r+");
 
             if (opened_file == nullptr && createIfNotExists) {
                 // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
                 Logger::log(LogLevel::Info, "Couldn't open tmp file");
-                opened_file = std::fopen(filename.data(), "w+");
+                opened_file = std::fopen(filename->data(), "w+");
             }
 
             return opened_file;
@@ -239,9 +243,9 @@ class FilesystemSetting {
             }
 
             Logger::log(LogLevel::Info, "Loading from filesystem");
-            std::array<char, 64> filename{'\0'};
+            auto filename = SmallerBufferPoolType::get_free_buffer();
             copyFilenameToBuffer(filename);
-            auto opened_file = std::fopen(filename.data(), "r+");
+            auto opened_file = std::fopen(filename->data(), "r+");
             DoFinally closeOp( [&opened_file]() {
                 std::fclose(opened_file);
             });
@@ -288,7 +292,15 @@ class FilesystemSetting {
             }
 
             auto target_file = openTmpFile();
+
+            if (!target_file) {
+                Logger::log(LogLevel::Info, "Couldn't open tmp file");
+                return ESP_FAIL;
+            }
+
             std::rewind(target_file);
+
+            Logger::log(LogLevel::Info, "Opened tmp file");
 
             auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(SettingType), 1, target_file);
             std::fclose(target_file);
@@ -296,14 +308,14 @@ class FilesystemSetting {
 
             int rename_result = -1;
             if (written_size == 1) {
-                stack_string<64> tmp_filename;
-                stack_string<64> filename;
+                auto filename = SmallerBufferPoolType::get_free_buffer();
+                auto tmp_filename = SmallerBufferPoolType::get_free_buffer();
                 // TODO: check results of both methods
                 copyTmpFilenameToBuffer(tmp_filename);
                 copyFilenameToBuffer(filename);
-                std::remove(filename.data());
-                Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename.data(), filename.data());
-                rename_result = std::rename(tmp_filename.data(), filename.data());
+                std::remove(filename->data());
+                Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename->data(), filename->data());
+                rename_result = std::rename(tmp_filename->data(), filename->data());
             } else {
                 Logger::log(LogLevel::Warning, "Setting couldn't be written skipping renaming to real file to avoid issues");
             }
@@ -322,6 +334,7 @@ class FilesystemSetting {
     
         bool m_initialized = false;
         std::optional<FilesystemType> m_filesystem = std::nullopt;
+        std::mutex instanceMutex;
         SettingType m_setting;
         SettingType m_written;
 };

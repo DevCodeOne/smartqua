@@ -133,23 +133,23 @@ class device_values {
 
     // TODO: return device_values with unit
     template<typename T>
-    std::optional<T> difference(device_values &other) const {
+    std::optional<T> difference(const device_values &other) const {
         // Not compatible
         if (index != other.index) {
             return std::nullopt;
         }
 
-        return getAsUnit<T>() - other.getAsUnit<T>();
+        return *getAsUnit<T>() - *other.getAsUnit<T>();
     }
 
     template<typename T>
-    std::optional<T> sum(device_values &other) const {
+    std::optional<T> sum(const device_values &other) const {
         // Not compatible
         if (index != other.index) {
             return std::nullopt;
         }
 
-        return getAsUnit<T>() + other.getAsUnit<T>();
+        return *getAsUnit<T>() + *other.getAsUnit<T>();
     }
 
     template<typename T>
@@ -206,6 +206,7 @@ class device_values {
 
     template<DeviceValueUnit unit, typename T>
     void setToUnit(T value) {
+        index = unit;
         switch (unit) {
             case DeviceValueUnit::temperature:
                 values.temperature = value;
@@ -425,35 +426,37 @@ struct read_from_json<DeviceValueUnit> {
     }
 };
 
+// TODO: map the units to strings
 template<>
 struct read_from_json<device_values> {
     static void read(const char *str, int len, device_values &values) {
-        auto read_and_write_to_optional = [](const char *input, int input_len, const char *format, auto &unit_value) {
+        auto read_and_write_to_optional = [](const char *input, int input_len, const char *format, auto &unit_value, DeviceValueUnit &index) {
             typename std::decay_t<decltype(unit_value)>::UnderlyingDataType read_value;
             int result = json_scanf(input, input_len, format, &read_value);
             if (result > 0) {
                 unit_value = read_value;
+                index = unit_value.Unit;
                 Logger::log(LogLevel::Info, "Writing to %s", format);
             }
         };
 
-        read_and_write_to_optional(str, len, "{ degrees : %f } ", values.values.temperature);
-        read_and_write_to_optional(str, len, "{ ph : %f } ", values.values.ph);
-        read_and_write_to_optional(str, len, "{ humidity : %f } ", values.values.humidity);
-        read_and_write_to_optional(str, len, "{ voltage : %f } ", values.values.voltage);
-        read_and_write_to_optional(str, len, "{ v : %f } ", values.values.voltage);
-        read_and_write_to_optional(str, len, "{ ampere : %f } ", values.values.ampere);
-        read_and_write_to_optional(str, len, "{ a : %f } ", values.values.ampere);
-        read_and_write_to_optional(str, len, "{ watt : %f } ", values.values.watt);
-        read_and_write_to_optional(str, len, "{ tds : %hd } ", values.values.tds);
-        read_and_write_to_optional(str, len, "{ generic_analog : %hd } ", values.values.generic_analog);
-        read_and_write_to_optional(str, len, "{ analog : %hd } ", values.values.generic_analog);
-        read_and_write_to_optional(str, len, "{ generic_pwm : %hd } ", values.values.generic_pwm);
-        read_and_write_to_optional(str, len, "{ pwm : %hd } ", values.values.generic_pwm);
-        read_and_write_to_optional(str, len, "{ mg : %hd } ", values.values.milligramms);
-        read_and_write_to_optional(str, len, "{ milliliter : %hd } ", values.values.milliliter);
-        read_and_write_to_optional(str, len, "{ ml : %hd } ", values.values.milliliter);
-        read_and_write_to_optional(str, len, "{ percentage : %hd } ", values.values.percentage);
+        read_and_write_to_optional(str, len, "{ temperature : %f } ", values.values.temperature, values.index);
+        read_and_write_to_optional(str, len, "{ ph : %f } ", values.values.ph, values.index);
+        read_and_write_to_optional(str, len, "{ humidity : %f } ", values.values.humidity, values.index);
+        read_and_write_to_optional(str, len, "{ voltage : %f } ", values.values.voltage, values.index);
+        read_and_write_to_optional(str, len, "{ v : %f } ", values.values.voltage, values.index);
+        read_and_write_to_optional(str, len, "{ ampere : %f } ", values.values.ampere, values.index);
+        read_and_write_to_optional(str, len, "{ a : %f } ", values.values.ampere, values.index);
+        read_and_write_to_optional(str, len, "{ watt : %f } ", values.values.watt, values.index);
+        read_and_write_to_optional(str, len, "{ tds : %hd } ", values.values.tds, values.index);
+        read_and_write_to_optional(str, len, "{ generic_analog : %hd } ", values.values.generic_analog, values.index);
+        read_and_write_to_optional(str, len, "{ analog : %hd } ", values.values.generic_analog, values.index);
+        read_and_write_to_optional(str, len, "{ generic_pwm : %hd } ", values.values.generic_pwm, values.index);
+        read_and_write_to_optional(str, len, "{ pwm : %hd } ", values.values.generic_pwm, values.index);
+        read_and_write_to_optional(str, len, "{ mg : %hd } ", values.values.milligramms, values.index);
+        read_and_write_to_optional(str, len, "{ milliliter : %hd } ", values.values.milliliter, values.index);
+        read_and_write_to_optional(str, len, "{ ml : %hd } ", values.values.milliliter, values.index);
+        read_and_write_to_optional(str, len, "{ percentage : %hd } ", values.values.percentage, values.index);
     }
 };
 

@@ -11,7 +11,7 @@
 #endif
 
 #ifndef MAX_NUM_DEVICES
-#define MAX_NUM_DEVICES 12
+#define MAX_NUM_DEVICES 14
 #endif
 
 #ifndef MAX_NUM_TIMERS
@@ -35,7 +35,7 @@
 #endif
 
 #ifndef MAX_ARGUMENT_LENGTH
-#define MAX_ARGUMENT_LENGTH 32
+#define MAX_ARGUMENT_LENGTH 16 
 #endif
 
 #ifndef REMOTE_SETTING_HOST
@@ -97,3 +97,4 @@ using Logger = ApplicationLogger<VoidSink>;
 
 // TODO: make configurable
 using LargeBufferPoolType = LargeBufferPool<num_large_buffers, large_buffer_size, BufferLocation::heap>;
+using SmallerBufferPoolType = LargeBufferPool<20, 64, BufferLocation::heap>;

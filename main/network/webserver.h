@@ -53,7 +53,6 @@ namespace Detail {
                 config.max_open_sockets = 1;
                 config.recv_wait_timeout = 30;
                 config.send_wait_timeout = 30;
-                config.lru_purge_enable = true;
 
                 esp_err_t serverStart;
                 if ((serverStart = httpd_start(&m_http_server_handle, &config)) != ESP_OK) {
