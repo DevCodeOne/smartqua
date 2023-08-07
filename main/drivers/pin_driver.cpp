@@ -151,7 +151,9 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
         // TODO: do this differently, in led_channel 
         ledc_channel_config_t ledc_channel{};
         ledc_channel.gpio_num = gpio->gpio_num();
-        ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_HIGH_SPEED_MODE : LEDC_LOW_SPEED_MODE;
+        // TODO: enable for older esp32
+        // ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_LOW_SPEED_MODE : LEDC_LOW_SPEED_MODE;
+        ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
         ledc_channel.channel = channel->channel_num();
         pinConf->channel = ledc_channel.channel;
         ledc_channel.timer_sel = timer->timer_num();

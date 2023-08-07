@@ -6,7 +6,7 @@
 template <typename T, size_t N>
 class ring_buffer {
    public:
-    static_assert(N < 100, "N has to be an unsigned type");
+    static_assert(N > 0, "N has to be an unsigned type");
 
     using size_type = decltype(N);
 

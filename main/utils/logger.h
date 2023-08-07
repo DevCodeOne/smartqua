@@ -220,7 +220,7 @@ bool HttpLogSink<RemoteSettingPath>::log(LogLevel level, const char *fmt, Argume
         return false;
     }
 
-    const auto successful = logSink.writeData<HTTP_METHOD_POST>(json_buf.data(), close_json + 1);
+    const auto successful = logSink.template writeData<HTTP_METHOD_POST>(json_buf.data(), close_json + 1);
 
     if (!successful) {
         ESP_LOGI("HttpLogSink", "Couldn't write to stream");

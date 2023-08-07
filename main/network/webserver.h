@@ -48,7 +48,8 @@ namespace Detail {
             bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
-                config.stack_size = 2048;
+                config.stack_size = 4096 * 6;
+                // config.core_id = 1;
                 config.max_uri_handlers = 6;
                 config.max_open_sockets = 1;
                 config.recv_wait_timeout = 30;
@@ -236,7 +237,6 @@ class WebServer final {
     }
 
     static esp_err_t main_handler(httpd_req *req) {
-
         std::string_view uri_view = req->uri;
         auto *thiz = reinterpret_cast<WebServer *>(req->user_ctx);
 

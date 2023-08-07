@@ -72,6 +72,10 @@ class Store {
             Logger::log(LogLevel::Info, "Read event from store exit");
         }
 
+        void reloadFromFileSystem() {
+
+        }
+
         void initValues() {
             Logger::log(LogLevel::Info, "Entry initValues");
             static std::once_flag _init_flag;

@@ -50,14 +50,14 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
             result.result = json_action_result_value::successfull;
         }
     } else {
-        read_from_device single_device_value{ .index = static_cast<size_t>(*index), .what = std::string_view(input, input_len) };
+        read_from_device single_device_value{ .index = static_cast<size_t>(*index), .what = std::string_view(input, input_len), .read_value{} };
         global_store->readEvent(single_device_value);
 
         if (single_device_value.result.collection_result == DeviceCollectionOperation::ok &&
                 single_device_value.result.op_result == DeviceOperationResult::ok ) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %M }",
-                    json_printf_single<std::decay_t<decltype(single_device_value.read_value)>>, &single_device_value.read_value);
+                    json_printf_single<decltype(single_device_value.read_value)>, &single_device_value.read_value);
             }
             result.result = json_action_result_value::successfull;
         } else {
@@ -165,20 +165,23 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
     return result;
 }
 
-json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {  
+json_action_result set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len) {  
     device_values value;
 
-    json_scanf(input, input_len, "%M", json_scanf_single<decltype(value)>, &value);
+    json_scanf(deviceValueInput, deviceValueLen, "%M", json_scanf_single<decltype(value)>, &value);
 
-    return set_device_action(index, value, output_buffer, output_buffer_len);
+    return set_device_action(index, input, value, output_buffer, output_buffer_len);
 }
 
-json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len) {  
+// TODO: rename this method
+json_action_result set_device_action(unsigned int index, std::string_view what, const device_values &value, char *output_buffer, size_t output_buffer_len) {  
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
-    write_to_device to_write {};
-    to_write.index = static_cast<size_t>(index);
-    to_write.write_value = value;
+    write_to_device to_write {
+        .index = static_cast<size_t>(index),
+        .what = what,
+        .write_value = value
+    };
 
     global_store->writeEvent(to_write);
 

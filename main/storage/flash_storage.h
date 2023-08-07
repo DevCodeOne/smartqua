@@ -7,6 +7,7 @@
 #include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_flash.h"
+#include "esp_intr_alloc.h"
 #include "esp_partition.h"
 #include "esp_vfs_fat.h"
 #include "hal/spi_flash_types.h"
@@ -47,8 +48,9 @@ class FlashStorage {
             .mosi_io_num = 23,
             .miso_io_num = 19,
             .sclk_io_num = 18,
+            .intr_flags = ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_SHARED
         };
-        auto result = spi_bus_initialize(SPI3_HOST, &spi_config, SPI_DMA_CH1);
+        auto result = spi_bus_initialize(SPI3_HOST, &spi_config, SPI_DMA_CH_AUTO);
 
         if (result != ESP_OK) {
             Logger::log(LogLevel::Error, "Couldn't initialize spi bus");

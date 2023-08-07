@@ -13,22 +13,21 @@
 #include "driver/rmt_types.h"
 
 struct StepperDosingConfig {
-    uint8_t stepGPIONum = 14; 
-    uint8_t enGPIONum = 17;
-    uint16_t stepsTimesTenPerMl = 200;
-    uint16_t maxFrequency = 2000;
+    unsigned int deviceId = -1;
+    int stepsTimesTenPerMl = 0;
+    stack_string<MaxArgumentLength> writeArgument;
 };
 
 class StepperDosingPumpDriver final {
     public:
-        static inline constexpr char name[] = "StepDosingPump";
+        static inline constexpr char name[] = "dosing_pump";
 
         StepperDosingPumpDriver(const StepperDosingPumpDriver &other) = delete;
-        StepperDosingPumpDriver(StepperDosingPumpDriver &&other);
-        ~StepperDosingPumpDriver();
+        StepperDosingPumpDriver(StepperDosingPumpDriver &&other) = default;
+        ~StepperDosingPumpDriver() = default;
 
         StepperDosingPumpDriver &operator=(const StepperDosingPumpDriver &other) = delete;
-        StepperDosingPumpDriver &operator=(StepperDosingPumpDriver &&other);
+        StepperDosingPumpDriver &operator=(StepperDosingPumpDriver &&other) = default;
 
         static std::optional<StepperDosingPumpDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<StepperDosingPumpDriver> create_driver(const DeviceConfig*config);
@@ -40,17 +39,8 @@ class StepperDosingPumpDriver final {
         DeviceOperationResult update_runtime_data() { return DeviceOperationResult::not_supported; }
 
     private:
-        static void updatePumpThread(std::stop_token token, StepperDosingPumpDriver *instance);
 
-        struct RmtHandles {
-            rmt_channel_handle_t channel_handle;
-        } mRmtHandles;
+        StepperDosingPumpDriver(const DeviceConfig *conf);
 
-        StepperDosingPumpDriver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> stepGPIO, const RmtHandles &rmtHandle);
-
-        const DeviceConfig*mConf;
-
-        std::shared_ptr<gpio_resource> mStepGPIO = nullptr;
-        std::atomic_uint16_t mStepsLeft = 0;
-        std::jthread mPumpThread;
+        const DeviceConfig *mConf;
 };

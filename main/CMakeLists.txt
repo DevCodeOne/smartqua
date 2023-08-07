@@ -14,21 +14,25 @@ idf_component_register(SRCS     "aq_main.cpp"
                                 "drivers/schedule_driver.cpp"
                                 # "drivers/q30_driver.cpp"
                                 "drivers/stepper_dosing_pump_driver.cpp"
+                                "drivers/drv8825_driver.cpp"
                                 "drivers/ph_probe_driver.cpp"
                                 "drivers/switch_driver.cpp"
                                 "drivers/rmt_stepper_driver.cpp"
+                                "drivers/pico_device_driver.cpp"
                                 "utils/idf_utils.cpp"
                                 # "storage/sd_filesystem.cpp"
                                 "utils/filesystem_utils.cpp"
                                 "utils/time_utils.cpp"
                                 "utils/logger.cpp"
                                 "utils/web_utils.cpp"
-                            "../components/frozen/frozen.c"
+                            "../external_libs/frozen/frozen.c"
                     INCLUDE_DIRS 
                     "."
-                    "../components/frozen"
+                    "../external_libs/frozen"
                     "../header_only/frozen/include"
                     "../header_only/ctre/single-header")
+
+target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
 
 add_custom_target(deletebloat ALL
     COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map 

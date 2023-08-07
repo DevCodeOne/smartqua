@@ -13,7 +13,9 @@
 #include "build_config.h"
 #include "utils/logger.h"
 
-struct custom_delete {
+#include "esp_heap_caps_init.h"
+
+struct CustomDelete {
     void operator()(void *ptr) { 
         free(ptr); 
     }
@@ -69,12 +71,15 @@ class AllocatedBuffer;
 template<size_t BufferSize>
 class AllocatedBuffer<BufferSize, BufferLocation::heap> {
     public:
-    using buffer_type = std::unique_ptr<char, custom_delete>;
+    using buffer_type = std::unique_ptr<char, CustomDelete>;
 
     // TODO: specify malloc method later on heap_caps_malloc vs malloc
     AllocatedBuffer() {
-        // m_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(BufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+        #ifdef USE_PSRAM
+        m_buffer.reset(reinterpret_cast<char *>(heap_caps_malloc(BufferSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT)));
+        #else
         m_buffer.reset(reinterpret_cast<char *>(malloc(BufferSize)));
+        #endif
     }
 
     constexpr auto size() const { return BufferSize; }
@@ -107,7 +112,7 @@ class AllocatedBuffer<BufferSize, BufferLocation::heap> {
     }
 
 private:
-    std::unique_ptr<char, custom_delete> m_buffer = nullptr;
+    std::unique_ptr<char, CustomDelete> m_buffer = nullptr;
     BufferStatus m_status = BufferStatus::available;
 };
 

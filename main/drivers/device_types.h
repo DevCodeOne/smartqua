@@ -29,6 +29,7 @@ enum struct DeviceValueUnit {
     tds,
     generic_analog,
     generic_pwm,
+    generic_unsigned_integral,
     milligramms,
     milliliter,
     enable,
@@ -111,6 +112,11 @@ struct UnitTypeMapping<DeviceValueUnit::percentage> {
     using Type = bool;
 };
 
+template<>
+struct UnitTypeMapping<DeviceValueUnit::generic_unsigned_integral> {
+    using Type = uint16_t;
+};
+
 template<DeviceValueUnit U>
 struct UnitValue {
     static auto inline constexpr Unit = U;
@@ -177,6 +183,8 @@ class device_values {
                 return values.generic_analog.value;
             case DeviceValueUnit::generic_pwm:
                 return values.generic_pwm.value;
+            case DeviceValueUnit::generic_unsigned_integral:
+                return values.un_integral.value;
             case DeviceValueUnit::milligramms:
                 return values.milligramms.value;
             case DeviceValueUnit::milliliter:
@@ -235,6 +243,9 @@ class device_values {
             case DeviceValueUnit::generic_pwm:
                 values.generic_pwm = value;
                 break;
+            case DeviceValueUnit::generic_unsigned_integral:
+                values.un_integral = value;
+                break;
             case DeviceValueUnit::milligramms:
                 values.milligramms = value;
                 break;
@@ -267,6 +278,8 @@ class device_values {
     auto generic_analog() const { return getAsUnit<DeviceValueUnit::generic_analog>(); }
 
     auto generic_pwm() const { return getAsUnit<DeviceValueUnit::generic_pwm>(); }
+
+    auto generic_unsigned_integral() const { return getAsUnit<DeviceValueUnit::generic_unsigned_integral>(); }
 
     auto milligramms() const { return getAsUnit<DeviceValueUnit::milligramms>(); }
 
@@ -304,6 +317,9 @@ class device_values {
     void generic_pwm(T value) { return setToUnit<DeviceValueUnit::generic_pwm>(value); }
 
     template<typename T>
+    void generic_unsigned_integral(T value) { return setToUnit<DeviceValueUnit::generic_unsigned_integral>(value); }
+
+    template<typename T>
     void milligramms(T value) { return setToUnit<DeviceValueUnit::milligramms>(value); }
 
     template<typename T>
@@ -334,6 +350,7 @@ class device_values {
         UnitValue<DeviceValueUnit::milliliter> milliliter;
         UnitValue<DeviceValueUnit::enable> enable;
         UnitValue<DeviceValueUnit::percentage> percentage;
+        UnitValue<DeviceValueUnit::generic_unsigned_integral> un_integral;
     } values;
 
     DeviceValueUnit index;
@@ -376,6 +393,9 @@ device_values device_values::create_from_unit(DeviceValueUnit unit, ValueType va
             break;
         case DeviceValueUnit::generic_analog:
             createdObject.values.generic_analog = value;
+            break;
+        case DeviceValueUnit::generic_unsigned_integral:
+            createdObject.values.un_integral = value;
             break;
         case DeviceValueUnit::milligramms:
             createdObject.values.milligramms = value;
@@ -422,6 +442,10 @@ struct read_from_json<DeviceValueUnit> {
             unit = DeviceValueUnit::generic_analog;
         } else if (input == "bool" || input == "switch" || input == "enable") {
             unit = DeviceValueUnit::enable;
+        } else if (input == "un_integral") {
+            unit = DeviceValueUnit::generic_unsigned_integral;
+        } else if (input == "pwm") {
+            unit = DeviceValueUnit::generic_pwm;
         }
     }
 };
@@ -457,6 +481,7 @@ struct read_from_json<device_values> {
         read_and_write_to_optional(str, len, "{ milliliter : %hd } ", values.values.milliliter, values.index);
         read_and_write_to_optional(str, len, "{ ml : %hd } ", values.values.milliliter, values.index);
         read_and_write_to_optional(str, len, "{ percentage : %hd } ", values.values.percentage, values.index);
+        read_and_write_to_optional(str, len, "{ un_integral : %hd } ", values.values.un_integral, values.index);
     }
 };
 
@@ -479,19 +504,19 @@ struct print_to_json<device_values> {
             written += newly_written;
         };
 
-        write_optional(out, ", temperature : %f", DeviceValueUnit::temperature, values.values.temperature);
-        write_optional(out, ", ph : %f", DeviceValueUnit::ph, values.values.ph);
-        write_optional(out, ", humidity : %f", DeviceValueUnit::humidity, values.values.humidity);
-        write_optional(out, ", voltage : %f", DeviceValueUnit::voltage, values.values.voltage);
-        write_optional(out, ", ampere : %f", DeviceValueUnit::ampere, values.values.ampere);
-        write_optional(out, ", watt : %f", DeviceValueUnit::watt, values.values.watt);
-        write_optional(out, ", tds : %u", DeviceValueUnit::tds, values.values.tds);
-        write_optional(out, ", generic_analog : %u", DeviceValueUnit::generic_analog, values.values.generic_analog);
-        write_optional(out, ", generic_pwm : %u", DeviceValueUnit::generic_pwm, values.values.generic_pwm);
-        write_optional(out, ", milliliter : %f", DeviceValueUnit::milliliter, values.values.milliliter);
-        write_optional(out, ", milligramms : %d", DeviceValueUnit::milligramms, values.values.milligramms);
-        write_optional(out, ", enable : %u", DeviceValueUnit::percentage, values.values.enable);
-        write_optional(out, ", percentage : %u", DeviceValueUnit::percentage, values.values.percentage);
+        write_optional(out, ", temperature : %f", values.index, values.values.temperature);
+        write_optional(out, ", ph : %f", values.index, values.values.ph);
+        write_optional(out, ", humidity : %f", values.index, values.values.humidity);
+        write_optional(out, ", voltage : %f", values.index, values.values.voltage);
+        write_optional(out, ", ampere : %f", values.index, values.values.ampere);
+        write_optional(out, ", watt : %f", values.index, values.values.watt);
+        write_optional(out, ", tds : %u", values.index, values.values.tds);
+        write_optional(out, ", generic_analog : %u", values.index, values.values.generic_analog);
+        write_optional(out, ", generic_pwm : %u", values.index, values.values.generic_pwm);
+        write_optional(out, ", milliliter : %f", values.index, values.values.milliliter);
+        write_optional(out, ", milligramms : %d", values.index, values.values.milligramms);
+        write_optional(out, ", enable : %u", values.index, values.values.enable);
+        write_optional(out, ", percentage : %u", values.index, values.values.percentage);
 
         written += json_printf(out, "}");
         return written;

@@ -1,3 +1,4 @@
+#include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "spi_flash_mmap.h"
 #include "esp_spiffs.h"
@@ -12,6 +13,7 @@
 // clang-format off
 // #include "utils/sd_filesystem.h"
 #include "auth.h"
+#include "drivers/system_info.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
 #include "rest/stats_rest.h"
@@ -29,7 +31,7 @@
 
 std::atomic_bool canUseNetwork{false};
 
-std::optional<GlobalStoreType> global_store;
+std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;
 
 void init_timezone() {
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", true);
@@ -37,7 +39,7 @@ void init_timezone() {
 }
 
 void print_health(void *) {
-    static auto earlierHeapUsage = decltype(xPortGetFreeHeapSize()){};
+    auto buffer = LargeBufferPoolType::get_free_buffer();
 
     std::time_t now;
     std::tm timeinfo;
@@ -46,18 +48,17 @@ void print_health(void *) {
     localtime_r(&now, &timeinfo);
     strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
 
-    const auto currentFreeHeap = xPortGetFreeHeapSize();
-    Logger::log(LogLevel::Warning, "Current free heap space is %d, free heap down by %d bytes, time is %s", 
-        currentFreeHeap,
-        currentFreeHeap - earlierHeapUsage,
-        timeout.data());
-    earlierHeapUsage = currentFreeHeap;
+    auto bytesWritten = CurrentSystem::printSystemHealthToString(buffer->data(), buffer->size());
+
+    Logger::log(LogLevel::Warning, "%s", buffer->data());
+    Logger::log(LogLevel::Warning, "%s", timeout.data());
 }
 
 void *networkTask(void *pvParameters) {
     // TODO: This first log should consider the device we are running this on (don't use esp-idf here)
     ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
-    i2cdev_init();
+
+     i2cdev_init();
 
     Logger::log(LogLevel::Info, "Installed general logger");
 
@@ -81,7 +82,10 @@ void *networkTask(void *pvParameters) {
     // Logger::ignoreLogsBelow(LogLevel::Warning);
 
     Logger::log(LogLevel::Info, "Init global store now");
-    global_store = std::make_optional<GlobalStoreType>();
+    
+    void *globalStoreMemory = heap_caps_malloc(sizeof(GlobalStoreType), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    global_store = std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>>(
+        new (globalStoreMemory) GlobalStoreType, SPIRAMDeleter<GlobalStoreType>{});
     global_store->initValues();
 
     // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues

@@ -9,12 +9,13 @@ sntp_clock::sntp_clock() {
     std::call_once(_init_flag, &sntp_clock::init_sntp);
 }
 
+// TODO: add special snowflow method for esp
 void sntp_clock::init_sntp() {
     Logger::log(LogLevel::Info, "Initializing sntp");
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
     sntp_set_time_sync_notification_cb(sntp_clock::sync_callback);
-    sntp_init();
+    esp_sntp_init();
 }
 
 void sntp_clock::sync_callback(timeval *val) { 

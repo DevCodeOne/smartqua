@@ -22,13 +22,14 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
 json_action_result get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result set_device_action(unsigned int index, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result set_device_action(unsigned int index, const device_values &value, char *output_buffer, size_t output_buffer_len);
+json_action_result set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len);
+json_action_result set_device_action(unsigned int index, std::string_view input, const device_values &value, char *output_buffer, size_t output_buffer_len);
 
 json_action_result write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 
 using DeviceCollectionOperation = collection_operation_result;
 
+// TODO: Fix thid
 static inline constexpr size_t device_uid = 30;
 
 struct add_device : public SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> { 

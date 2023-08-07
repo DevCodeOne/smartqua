@@ -26,9 +26,9 @@ static size_t encodeStepperMotorUniform(rmt_encoder_t *encoder, rmt_channel_hand
     uint32_t symbolDuration = motorEncoder->resolution / targetFreqHz / 2;
 
     rmt_symbol_word_t freqSample = {
-        .duration0 = symbolDuration,
+        .duration0 = static_cast<uint16_t>(symbolDuration),
         .level0 = 0,
-        .duration1 = symbolDuration,
+        .duration1 = static_cast<uint16_t>(symbolDuration),
         .level1 = 1
     };
 

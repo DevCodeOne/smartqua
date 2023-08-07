@@ -1,12 +1,15 @@
-[submodule "components/esp-idf-lib"]
-	path = components/esp-idf-lib
-	url = https://github.com/UncleRus/esp-idf-lib
-[submodule "components/frozen"]
-	path = components/frozen
-	url = https://github.com/cesanta/frozen
-[submodule "components/ctre"]
+[submodule "header_only/ctre"]
 	path = header_only/ctre
 	url = https://github.com/hanickadot/compile-time-regular-expressions
 [submodule "header_only/frozen"]
 	path = header_only/frozen
 	url = https://github.com/serge-sans-paille/frozen
+[submodule "components/esp-idf-lib"]
+	path = components/esp-idf-lib
+	url = https://github.com/UncleRus/esp-idf-lib
+[submodule "external_libs/frozen"]
+	path = external_libs/frozen
+	url = https://github.com/cesanta/frozen
+[submodule "external_libs/pico-driver"]
+	path = external_libs/pico-driver
+	url = https://github.com/DevCodeOne/pico-driver
