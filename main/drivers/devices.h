@@ -39,7 +39,7 @@ public:
 
     DeviceOperationResult write_value(std::string_view what, const device_values &value);
     // To calibrate something or execute actions
-    DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
+    DeviceOperationResult call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json);
     DeviceOperationResult update_runtime_data();
     DeviceOperationResult read_value(std::string_view what, device_values &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
@@ -52,7 +52,7 @@ private:
 // the correct driver will be found by the device_name
 // device_conf_out will contain the necessary data for the driver to be initialized from storage
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, DeviceConfig &device_conf_out) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
     Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
@@ -71,9 +71,11 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
             
             // Driver creation wasn't successfull
             if (!result.has_value()) {
+                Logger::log(LogLevel::Warning, "Device couldn't be created");
                 return;
             }
 
+            Logger::log(LogLevel::Info, "Device was created successfully");
             found_device_driver = std::move(*result);
         });
 
@@ -81,7 +83,7 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
 }
 
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig*device_conf) {
+std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *device_conf) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
 
     constexpr_for_index<sizeof...(DeviceDrivers) - 1>::doCall([&found_device_driver, &device_conf](auto current_index){

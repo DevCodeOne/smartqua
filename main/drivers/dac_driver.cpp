@@ -1,3 +1,7 @@
+#include "build_config.h"
+
+#ifdef ENABLE_DAC_DRIVER
+
 #include "dac_driver.h"
 
 #include <optional>
@@ -107,3 +111,5 @@ std::optional<DacDriver> DacDriver::create_driver(const std::string_view &input,
     std::memcpy(reinterpret_cast<DacDriverData *>(device_conf_out.device_config.data()), &newConf, sizeof(DacDriverData));
     return create_driver(&device_conf_out);
 };
+
+#endif

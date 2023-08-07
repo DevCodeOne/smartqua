@@ -1,12 +1,11 @@
+#include "build_config.h"
+
 #include "device_resource.h"
 
 #include <algorithm>
 
-#include "driver/dac_common.h"
 #include "hal/dac_types.h"
 #include "hal/gpio_types.h"
-
-#include "build_config.h"
 
 gpio_resource::gpio_resource(gpio_num_t gpio_num, gpio_purpose purpose) : m_gpio_num(gpio_num), m_purpose(purpose) { }
 
@@ -136,6 +135,32 @@ led_channel &led_channel::operator=(led_channel &&other) {
     return *this;
 }
 
+std::shared_ptr<gpio_resource> device_resource::get_gpio_resource(gpio_num_t pin, gpio_purpose mode) {
+    std::lock_guard instance_guard{_instance_mutex};
+
+    auto found_resource = std::find_if(_gpios.begin(), _gpios.end(), [pin](auto &current_entry) {
+        return current_entry.first == pin;
+    });
+
+    if (found_resource == _gpios.cend()) {
+        return nullptr;
+    }
+
+    if (found_resource->second == nullptr) {
+        found_resource->second = std::shared_ptr<gpio_resource>(new gpio_resource(pin, mode));
+    }
+
+    // GPIO mode can't be shared, maybe input only
+    if (found_resource->second->purpose() != mode 
+        || (found_resource->second->purpose() == gpio_purpose::gpio && found_resource->second.use_count() > 1)) {
+        return nullptr;
+    }
+
+    return found_resource->second;
+}
+
+#ifdef ENABLE_DAC_DRIVER
+
 dac_resource::dac_resource(dac_channel_t channel, std::shared_ptr<gpio_resource> &pin_resource) : m_channel_num(channel), m_pin_resource(pin_resource) { }
 
 dac_resource::dac_resource(dac_resource &&other) : m_channel_num(other.m_channel_num), m_pin_resource(other.m_pin_resource) {
@@ -162,30 +187,6 @@ dac_channel_t dac_resource::channel_num() const {
 
 // TODO: reset dac
 dac_resource::~dac_resource() { }
-
-std::shared_ptr<gpio_resource> device_resource::get_gpio_resource(gpio_num_t pin, gpio_purpose mode) {
-    std::lock_guard instance_guard{_instance_mutex};
-
-    auto found_resource = std::find_if(_gpios.begin(), _gpios.end(), [pin](auto &current_entry) {
-        return current_entry.first == pin;
-    });
-
-    if (found_resource == _gpios.cend()) {
-        return nullptr;
-    }
-
-    if (found_resource->second == nullptr) {
-        found_resource->second = std::shared_ptr<gpio_resource>(new gpio_resource(pin, mode));
-    }
-
-    // GPIO mode can't be shared, maybe input only
-    if (found_resource->second->purpose() != mode 
-        || (found_resource->second->purpose() == gpio_purpose::gpio && found_resource->second.use_count() > 1)) {
-        return nullptr;
-    }
-
-    return found_resource->second;
-}
 
 std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t channel)  {
     std::lock_guard instance_guard{_instance_mutex};
@@ -225,6 +226,8 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
 
     return found_resource->second;
 }
+
+#endif
 
 // TODO: fix search for free resources
 std::shared_ptr<timer_resource> device_resource::get_timer_resource(const timer_config &config) {

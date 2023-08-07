@@ -1,6 +1,10 @@
 #pragma once
 
 #include <limits>
+#include <cstddef>
+#include <cstdint>
+
+#define USE_PSRAM 1
 
 #ifndef NAME_LENGTH
 #define NAME_LENGTH 16
@@ -10,8 +14,14 @@
 #define MAX_DEVICE_CONFIG_SIZE 128
 #endif
 
-#ifndef MAX_NUM_DEVICES
-#define MAX_NUM_DEVICES 14
+#ifndef USE_PSRAM
+    #ifndef MAX_NUM_DEVICES
+    #define MAX_NUM_DEVICES 14
+    #endif
+#else
+    #ifndef MAX_NUM_DEVICES
+    #define MAX_NUM_DEVICES 14 
+    #endif
 #endif
 
 #ifndef MAX_NUM_TIMERS
@@ -43,10 +53,6 @@
 // #define REMOTE_SETTING_HOST "chris-pc.fritz.box:9000"
 #endif
 
-#ifndef DEFAULT_HOST_NAME
-#define DEFAULT_HOST_NAME CONFIG_LWIP_LOCAL_HOSTNAME
-#endif
-
 #define RPI0        0
 #define ESP32       1
 
@@ -73,21 +79,19 @@ static inline constexpr uint8_t max_setting_size = MAX_SETTING_SIZE;
 
 static inline constexpr char remote_setting_host [] = REMOTE_SETTING_HOST;
 
-static inline constexpr char default_host_name [] = DEFAULT_HOST_NAME;
-
 static inline uint8_t constexpr MaxArgumentLength = MAX_ARGUMENT_LENGTH;
 
 static constexpr unsigned int InvalidDeviceId = std::numeric_limits<unsigned int>::max();
 
-static inline constexpr size_t num_large_buffers = 3;
+static inline constexpr size_t num_large_buffers = 8;
 
 static inline constexpr size_t large_buffer_size = 2048;
 
 static inline constexpr size_t stack_size = 6 * 4096;
 
-constexpr static inline auto sdaDefaultPin = 21;
+constexpr static inline auto sdaDefaultPin = 15;
 
-constexpr static inline auto sclDefaultPin = 22;
+constexpr static inline auto sclDefaultPin = 16;
 
 #include "utils/logger.h"
 
@@ -98,3 +102,22 @@ using Logger = ApplicationLogger<VoidSink>;
 // TODO: make configurable
 using LargeBufferPoolType = LargeBufferPool<num_large_buffers, large_buffer_size, BufferLocation::heap>;
 using SmallerBufferPoolType = LargeBufferPool<20, 64, BufferLocation::heap>;
+
+// Device specific section
+#if __has_include("sdkconfig.h")
+    #include "sdkconfig.h"
+#endif
+
+#ifndef DEFAULT_HOST_NAME
+#ifdef CONFIG_LWIP_LOCAL_HOSTNAME
+#define DEFAULT_HOST_NAME CONFIG_LWIP_LOCAL_HOSTNAME
+#else
+#define DEFAULT_HOST_NAME "devboard"
+#endif
+#endif
+
+#if __has_include("driver/dac.h") && !defined(CONFIG_IDF_TARGET_ESP32S3)
+    #define ENABLE_DAC_DRIVER 1
+#endif
+
+static inline constexpr char default_host_name [] = DEFAULT_HOST_NAME;

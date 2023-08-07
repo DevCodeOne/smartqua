@@ -165,13 +165,13 @@ class FilesystemSetting {
     private:
         template<typename ArrayType>
         bool copyTmpFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%s/%s.bin.tmp", FilesystemType::MountPointPath, Path.value);
+            auto result = snprintf(dst->data(), dst->size(), "%s/%s.tmp", FilesystemType::MountPointPath, Path.value);
             return result > 0 && result < dst->size();
         }
 
         template<typename ArrayType>
         bool copyFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%s/%s.bin", FilesystemType::MountPointPath, Path.value);
+            auto result = snprintf(dst->data(), dst->size(), "%s/%s", FilesystemType::MountPointPath, Path.value);
             return result > 0 && result < dst->size();
         }
 
@@ -179,13 +179,17 @@ class FilesystemSetting {
             auto filename = SmallerBufferPoolType::get_free_buffer();
             copyTmpFilenameToBuffer(filename);
 
-            Logger::log(LogLevel::Info, "Trying to open tmp file");
-            auto opened_file = std::fopen(filename->data(), "r+");
+            Logger::log(LogLevel::Info, "Trying to open tmp file : %s", filename->data());
+            auto opened_file = fopen(filename->data(), "r+");
 
             if (opened_file == nullptr && createIfNotExists) {
                 // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
-                Logger::log(LogLevel::Info, "Couldn't open tmp file");
-                opened_file = std::fopen(filename->data(), "w+");
+                Logger::log(LogLevel::Info, "Couldn't open tmp file -> creating file");
+                opened_file = fopen(filename->data(), "w+");
+
+                if (!opened_file) {
+                    Logger::log(LogLevel::Info, "Couldn't create tmp file");
+                }
             }
 
             return opened_file;

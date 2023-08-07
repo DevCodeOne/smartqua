@@ -7,10 +7,13 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
-#include "driver/dac.h"
 #include "driver/i2c.h"
-#include "hal/dac_types.h"
+
 #include "hal/ledc_types.h"
+#ifdef ENABLE_DAC_DRIVER
+#include "driver/dac.h"
+#include "hal/dac_types.h"
+#endif
 
 enum struct gpio_purpose {
     bus, gpio
@@ -47,7 +50,7 @@ class gpio_resource final {
 void swap(gpio_resource &lhs, gpio_resource &rhs);
 
 struct timer_config {
-    ledc_mode_t speed_mode = ledc_mode_t::LEDC_HIGH_SPEED_MODE;
+    ledc_mode_t speed_mode = ledc_mode_t::LEDC_LOW_SPEED_MODE;
     ledc_timer_bit_t resolution = ledc_timer_bit_t::LEDC_TIMER_10_BIT;
     uint16_t frequency = 1000;
 };
@@ -102,6 +105,8 @@ class led_channel final {
         friend class device_resource;
 };
 
+#ifdef ENABLE_DAC_DRIVER
+
 class dac_resource final {
     public:
         dac_resource(const dac_resource &) = delete;
@@ -122,12 +127,13 @@ class dac_resource final {
 
         friend class device_resource;
 };
+#endif
 
 // TODO: implement
 class i2c_resource final {
     public:
         i2c_resource(const i2c_resource &) = delete;
-        i2c_resource(dac_resource &&);
+        i2c_resource(i2c_resource &&);
         ~i2c_resource();
 
         i2c_resource &operator=(const i2c_resource &) = delete;
@@ -152,7 +158,9 @@ class device_resource final {
     public:
         static std::shared_ptr<gpio_resource> get_gpio_resource(gpio_num_t pin, gpio_purpose mode);
         static std::shared_ptr<timer_resource> get_timer_resource(const timer_config &config);
+        #ifdef ENABLE_DAC_DRIVER
         static std::shared_ptr<dac_resource> get_dac_resource(dac_channel_t channel);
+        #endif
         static std::shared_ptr<led_channel> get_led_channel();
         // TODO: implement
         static std::shared_ptr<i2c_resource> get_i2c_port(i2c_port_t port, i2c_mode_t mode, gpio_num_t sda, gpio_num_t scl);
@@ -175,16 +183,20 @@ class device_resource final {
             std::make_pair(gpio_num_t::GPIO_NUM_12, std::shared_ptr<gpio_resource>(nullptr)),
             // std::make_pair(gpio_num_t::GPIO_NUM_13, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_14, std::shared_ptr<gpio_resource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_15, std::shared_ptr<gpio_resource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_15, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_16, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_17, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_18, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_19, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_20, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_21, std::shared_ptr<gpio_resource>(nullptr)),
+
+            #ifndef CONFIG_IDF_TARGET_ESP32S3
             std::make_pair(gpio_num_t::GPIO_NUM_22, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_23, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_25, std::shared_ptr<gpio_resource>(nullptr)),
+            #endif
+
             std::make_pair(gpio_num_t::GPIO_NUM_26, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_27, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_28, std::shared_ptr<gpio_resource>(nullptr)),
@@ -195,10 +207,12 @@ class device_resource final {
             std::make_pair(gpio_num_t::GPIO_NUM_33, std::shared_ptr<gpio_resource>(nullptr)),
         };
 
+        #ifdef ENABLE_DAC_DRIVER
         static inline std::array _dacs {
             std::make_pair(dac_channel_t::DAC_CHANNEL_1, std::shared_ptr<dac_resource>(nullptr)),
             std::make_pair(dac_channel_t::DAC_CHANNEL_2, std::shared_ptr<dac_resource>(nullptr))
         };
+        #endif
 
         static inline std::array _timers {
             std::make_pair(ledc_timer_t::LEDC_TIMER_0, std::shared_ptr<timer_resource>(nullptr)),

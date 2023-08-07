@@ -32,7 +32,7 @@ struct read_from_json<Pcf8575Address> {
             str += 2;
             base = 16;
         } else if (input.starts_with("0")) {
-            str += 2;
+            str += 1;
             base = 8;
         } 
 
@@ -41,7 +41,7 @@ struct read_from_json<Pcf8575Address> {
         auto result = std::from_chars(start, end, asIntValue, base);
 
         if (result.ec == std::errc()) {
-            addr = static_cast<Pcf8575Address>(asIntValue);
+            addr = static_cast<Pcf8575Address>(asIntValue + 0x20);
         }
     }
 };

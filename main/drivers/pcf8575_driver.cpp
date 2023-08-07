@@ -1,4 +1,5 @@
 #include "pcf8575_driver.h"
+#include "drivers/device_resource.h"
 #include "drivers/device_types.h"
 #include "utils/logger.h"
 
@@ -30,7 +31,7 @@ std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const DeviceConfig*con
     i2c_dev_t device{};
     // Has to be set specificaly
     device.cfg.clk_flags = 0;
-    auto result = pcf8575_init_desc(&device, static_cast<uint8_t>(driver_data->addr), 0, 
+    auto result = pcf8575_init_desc(&device, static_cast<uint8_t>(driver_data->addr), I2C_NUM_0, 
                     static_cast<gpio_num_t>(driver_data->sdaPin), 
                     static_cast<gpio_num_t>(driver_data->sclPin));
 
@@ -78,7 +79,7 @@ std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const std::string_view
     i2c_dev_t device{};
     // Has to be set specificaly
     device.cfg.clk_flags = 0;
-    auto result = pcf8575_init_desc(&device, static_cast<uint8_t>(address), 0, static_cast<gpio_num_t>(sda), static_cast<gpio_num_t>(scl));
+    auto result = pcf8575_init_desc(&device, static_cast<uint8_t>(address), I2C_NUM_0, static_cast<gpio_num_t>(sda), static_cast<gpio_num_t>(scl));
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't find any pcf8575 devices on port %d with address %d", 

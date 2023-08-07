@@ -1,5 +1,9 @@
 #pragma once
 
+#include "build_config.h"
+
+#ifdef ENABLE_DAC_DRIVER
+
 #include <array>
 #include <optional>
 
@@ -40,3 +44,5 @@ class DacDriver final {
         std::shared_ptr<dac_resource> m_dac = nullptr;
 
 };
+
+#endif

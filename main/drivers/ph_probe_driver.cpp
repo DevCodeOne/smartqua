@@ -122,10 +122,15 @@ DeviceOperationResult PhProbeDriver::call_device_action(DeviceConfig*conf, const
     PhProbeConfig *phConfig = reinterpret_cast<PhProbeConfig *>(conf->device_config.data());
     // TODO: temperature correction
     if (action == "callibrate-lower" || action == "callibrate-higher") {
-        unsigned int ph10x = std::numeric_limits<unsigned int>::max();
-        json_scanf(json.data(), json.size(), "{ ph_10x : %u}", &ph10x);
+        float ph = std::numeric_limits<float>::infinity();
+        json_scanf(json.data(), json.size(), "{ ph : %f}", &ph);
+
+        if (ph == std::numeric_limits<float>::infinity()) {
+            return DeviceOperationResult::failure;
+        }
 
         const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
+        // TODO: support both voltage and generic_analog
         if (!result || !result->generic_analog()) {
             Logger::log(LogLevel::Error, "Device returned wrong type of measuremt or nothing at all");
             return DeviceOperationResult::failure;
@@ -133,7 +138,7 @@ DeviceOperationResult PhProbeDriver::call_device_action(DeviceConfig*conf, const
 
         const PhValuePair callibrationPoint{
             .analogReading = *result->generic_analog(),
-            .ph = ph10x / 10.0f
+            .ph = ph
         };
 
         if (action == "callibrate-lower") {

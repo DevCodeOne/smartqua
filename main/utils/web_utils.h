@@ -7,6 +7,7 @@
 #include <thread>
 #include <chrono>
 #include <string_view>
+#include <type_traits>
 
 #include "esp_http_server.h"
 
@@ -15,17 +16,61 @@
 
 std::optional<unsigned int> extract_index_from_uri(const char *uri);
 
-inline esp_err_t send_in_chunks(httpd_req *req, char *chunk, int32_t num_bytes_to_send) {
+namespace DetailsHelper {
+    template<typename T, typename SFINAE = void>
+    struct ReadToValue;
+
+    template<typename T>
+    struct ReadToValue<T, std::enable_if_t<std::is_arithmetic_v<T>>> {
+        static bool convert(const char *str, size_t size, T &dest) { 
+            auto [ptr, result] = std::from_chars(str, str + size, dest);
+            return result == std::errc();
+        }
+    };
+
+};
+
+// TODO: add transform method to transform string to type
+template<typename DestType>
+int getHeaderValue(httpd_req *req, const char *field, DestType dest, size_t len) {
+    const auto headerValueSize = httpd_req_get_hdr_value_len(req, field);
+
+    if (!headerValueSize || headerValueSize > len - 1) {
+        return 0;
+    }
+
+    httpd_req_get_hdr_value_str(req, field, dest, len);
+    return headerValueSize;
+}
+
+template<typename DestType>
+bool getHeaderValue(httpd_req *req, const char *field, DestType &dest) {
+    auto headerBuffer = SmallerBufferPoolType::get_free_buffer();
+    const auto headerValueSize = httpd_req_get_hdr_value_len(req, field);
+
+    if (!headerValueSize) {
+        return false;
+    }
+
+    httpd_req_get_hdr_value_str(req, field, headerBuffer->data(), headerBuffer->size());
+    return DetailsHelper::ReadToValue<DestType>::convert(headerBuffer->data(), headerValueSize, dest);
+}
+
+inline esp_err_t send_in_chunks(httpd_req *req, const char *chunk, int32_t num_bytes_to_send) {
     Logger::log(LogLevel::Info, "send_in_chunks");
-    int32_t left_to_send = num_bytes_to_send;
+    constexpr int32_t max_bytes_to_send = 1024;
     int32_t index = 0;
-    while (index < left_to_send) {
-        auto to_send = std::min<int32_t>(num_bytes_to_send, left_to_send - index);
+
+    httpd_resp_set_hdr(req, "Transfer-Encoding", "chunked");
+
+    while (index < num_bytes_to_send) {
+        auto to_send = std::min<int32_t>(std::min<int32_t>(num_bytes_to_send, num_bytes_to_send - index), max_bytes_to_send);
         auto result = httpd_resp_send_chunk(req, chunk + index, to_send);
 
-        if (result != ESP_OK) {
+        if (result != ESP_OK && result != 0x104) {
+            Logger::log(LogLevel::Info, "Error with %d %d, %x", to_send, static_cast<int>(result), static_cast<int>(result));
             // Abort sending chunks
-            httpd_resp_sendstr_chunk(req, nullptr);
+            httpd_resp_send_chunk(req, nullptr, 0);
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send remaining chunks");
             return result;
         }

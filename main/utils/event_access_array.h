@@ -140,7 +140,7 @@ namespace SmartAq::Utils {
             TrivialRepresentationType data;
             std::array<std::optional<RuntimeType>, NumElements> runtimeData;
 
-            mutable std::shared_mutex instanceMutex;
+            mutable std::recursive_mutex instanceMutex;
     };
 
     // TODO: add return value to indicate if it is a newly created value
@@ -255,7 +255,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValue<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValue<BaseType, UID>> {
         Logger::log(LogLevel::Info, "Try locking to read");
-        std::shared_lock instanceGuard{instanceMutex};
+        std::unique_lock instanceGuard{instanceMutex};
 
         auto foundIndex = findIndex(event.index, event.settingName);
 
@@ -284,7 +284,7 @@ namespace SmartAq::Utils {
     template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename PrintHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
-        std::shared_lock  instanceGuard{instanceMutex};
+        std::unique_lock  instanceGuard{instanceMutex};
 
         unsigned int start_index = 0;
         if (event.index.has_value()) {
@@ -340,6 +340,7 @@ namespace SmartAq::Utils {
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) {
         std::unique_lock instanceGuard{instanceMutex};
+
         if (hasValidRuntimeData(index)) {
             callable(*runtimeData[index]);
         }

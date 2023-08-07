@@ -148,7 +148,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     createdConf->creationId = createId(createdConf->deviceIndices);
 
     auto result = snprintf(createdConf->schedulePath.data(), decltype(createdConf->schedulePath)::ArrayCapacity, 
-        schedulePathFormat, DefaultFlashStorage::MountPointPath, createdConf->creationId);
+        schedulePathFormat, DefaultStorage::MountPointPath, createdConf->creationId);
 
     if (result < 0) {
         Logger::log(LogLevel::Error, "The schedule path was too long");
@@ -156,7 +156,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     }
 
     result = snprintf(createdConf->scheduleStatePath.data(), decltype(createdConf->scheduleStatePath)::ArrayCapacity, 
-        scheduleStatePathFormat, DefaultFlashStorage::MountPointPath, createdConf->creationId);
+        scheduleStatePathFormat, DefaultStorage::MountPointPath, createdConf->creationId);
 
     if (result < 0) {
         Logger::log(LogLevel::Error, "The schedule state path was too long");
@@ -275,7 +275,7 @@ DeviceOperationResult ScheduleDriver::update_values(const std::array<std::option
 
             Logger::log(LogLevel::Info, "Creating with channel_unit %d", (int) scheduleDriverConf->channelUnit[i]);
             const auto newValue = device_values::create_from_unit(scheduleDriverConf->channelUnit[i], valueToSet);
-            auto setResult = set_device_action(currentDeviceIndex, newValue, nullptr, 0);
+            auto setResult = set_device_action(currentDeviceIndex, std::string_view(), newValue, nullptr, 0);
         }   else {
             Logger::log(LogLevel::Debug, "Nothing to set");
         }
