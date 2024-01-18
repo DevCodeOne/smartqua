@@ -25,11 +25,8 @@
 #include <chrono>
 #include <optional>
 #include <cstdint>
-#include <pthread.h>
 #include <thread>
 // clang-format on
-
-std::atomic_bool canUseNetwork{false};
 
 std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;
 
@@ -74,6 +71,7 @@ void *networkTask(void *pvParameters) {
     esp_event_loop_create_default();
 
     wifi_manager<WIFI_MODE_STA> wifi(config);
+    // TODO: if unit has rtc, continue and cre
     wifi.await_connection();
 
     init_timezone();
@@ -92,10 +90,6 @@ void *networkTask(void *pvParameters) {
     // webserver<security_level::unsecured> app_server("/external/app_data");
     WebServer<WebServerSecurityLevel::unsecured> api_server("");
     api_server.registerHandler("/api/v1/devices",
-                            1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE | 1ULL << HTTP_PATCH,
-                            do_devices);
-
-    api_server.registerHandler("/api/v1/stats",
                             1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE | 1ULL << HTTP_PATCH,
                             do_devices);
 

@@ -1,16 +1,11 @@
 #pragma once 
 
 #include <cstdint>
-#include <memory>
-#include <thread>
 #include <string_view>
 
 #include "build_config.h"
 #include "drivers/device_types.h"
-#include "drivers/device_resource.h"
 #include "build_config.h"
-
-#include "driver/rmt_types.h"
 
 struct StepperDosingConfig {
     unsigned int deviceId = -1;
@@ -18,6 +13,8 @@ struct StepperDosingConfig {
     stack_string<MaxArgumentLength> writeArgument;
 };
 
+// TODO: rename class to better reflect its purpose,
+// this class should also be able to dose in time e.g. let the pump run for a specific time frame
 class StepperDosingPumpDriver final {
     public:
         static inline constexpr char name[] = "dosing_pump";

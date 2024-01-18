@@ -52,7 +52,6 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         DacDriver,
                                         #endif
                                         ScheduleDriver, 
-                                        //Q30Driver, 
                                         DRV8825Driver,
                                         StepperDosingPumpDriver,
                                         SwitchDriver,

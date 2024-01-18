@@ -2,11 +2,14 @@
 
 #include <shared_mutex>
 #include <type_traits>
+#include <optional>
 #include <cmath>
+#include <ranges>
 
 #include "ring_buffer.h"
 
 template <typename T, typename AvgType = T, uint32_t n_samples = 10u>
+requires(n_samples >= 10)
 class sample_container final {
    public:
     sample_container() = default;
@@ -40,12 +43,15 @@ class sample_container final {
         return *this;
     }
 
-    sample_container &put_sample(T value) {
+    // Return if value was accepted
+    bool put_sample(T value) {
         std::unique_lock _instance_lock{m_resource_mutex};
 
         m_samples.append(value);
 
-        return recalculate_avg(_instance_lock);
+        recalculateInternalValues(_instance_lock);
+
+        return true;
     }
 
     AvgType average() const { 
@@ -61,7 +67,7 @@ class sample_container final {
    private:
     // TODO: maybe don't recalculate complete new average
     template <typename MutexType>
-    sample_container &recalculate_avg(std::unique_lock<MutexType> &lock) {
+    sample_container &recalculateInternalValues(std::unique_lock<MutexType> &lock) {
         if (!lock.owns_lock()) {
             return *this;
         }
@@ -71,9 +77,9 @@ class sample_container final {
         }
 
         const auto divisor = 1.0f / m_samples.size();
-        float summed_up_values = m_samples.front() * divisor;
+        float summed_up_values = 0;
 
-        for (typename decltype(m_samples)::size_type i = 1; i < m_samples.size(); ++i) {
+        for (typename decltype(m_samples)::size_type i = 0; i < m_samples.size(); ++i) {
             summed_up_values += m_samples[i] * divisor;
         }
 
@@ -83,10 +89,20 @@ class sample_container final {
             m_avg = summed_up_values;
         }
 
+        const auto sampleDivisor = m_samples.size() - 1;
+        auto ss = 0;
+        for (typename decltype(m_samples)::size_type i = 0; i < m_samples.size(); ++i) {
+            ss += (m_samples[i] - m_avg) * (m_samples[i] - m_avg);
+        }
+
+        const auto variance = ss / sampleDivisor;
+        const auto stdVariance = std::sqrt(variance);
+
         return *this;
     }
 
     mutable std::shared_mutex m_resource_mutex;
     AvgType m_avg;
+    std::optional<float> variance;
     ring_buffer<T, n_samples> m_samples;
 };
