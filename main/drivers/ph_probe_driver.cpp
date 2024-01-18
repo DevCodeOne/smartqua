@@ -92,6 +92,7 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, device_va
     const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
 
     if (!result || !result->generic_analog()) {
+        Logger::log(LogLevel::Info, "Got wrong type");
         return DeviceOperationResult::failure;
     }
 

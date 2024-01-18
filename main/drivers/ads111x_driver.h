@@ -81,7 +81,7 @@ class Ads111xDriver final {
 
         mutable i2c_dev_t m_device;
         std::jthread mAnalogReadingsThread;
-        std::array<sample_container<uint16_t, uint16_t, 5>, MaxChannels> mAnalogReadings;
+        std::array<sample_container<uint16_t, uint16_t, 10>, MaxChannels> mAnalogReadings;
 
         static inline std::array<std::optional<Ads111xAddress>, 4> _device_addresses;
         static inline std::shared_mutex _instance_mutex;

@@ -243,7 +243,7 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
 
 // Only read specific entry ?
 DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, device_values &value) const {
-    Logger::log(LogLevel::Info, "ReadValue PiceDeviceDriver");
+    Logger::log(LogLevel::Info, "ReadValue PicoDeviceDriver");
     const auto *config  = reinterpret_cast<const PicoDeviceDriverData *>(&mConf->device_config);
     using namespace PicoDriver;
     if (what.size() == 0) {
