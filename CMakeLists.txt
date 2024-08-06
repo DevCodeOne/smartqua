@@ -6,11 +6,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -Wno-missing-field-initializers")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
 
 set(EXTRA_COMPONENT_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/components/esp-idf-lib/components)
 
-include($ENV{ESPIDF}/tools/cmake/project.cmake)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(bottle_scale)
 
 set(BUILD_PICO_DEVICE_DRIVER OFF)

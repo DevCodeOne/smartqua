@@ -49,7 +49,13 @@ namespace Detail {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
                 config.stack_size = 4096 * 6;
-                // config.core_id = 1;
+                config.keep_alive_enable = false;
+                config.lru_purge_enable = true;
+                config.recv_wait_timeout = 5;
+                config.send_wait_timeout = 5;
+                config.enable_so_linger = false;
+                config.linger_timeout = 5;
+                config.core_id = 1;
                 config.max_uri_handlers = 6;
                 config.max_open_sockets = 1;
                 config.recv_wait_timeout = 30;

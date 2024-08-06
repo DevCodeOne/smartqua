@@ -10,17 +10,12 @@
 #include "drivers/setting_types.h"
 #include "drivers/setting_driver.h"
 #include "utils/utils.h"
+#include "utils/event_access_array.h"
 #include "storage/store.h"
 
 using setting_collection_operation = collection_operation_result;
 
-template<size_t N>
-struct settings_trivial {
-    static inline constexpr char name[] = "options";
-
-    std::array<single_setting, N> setting_values;
-    std::array<std::array<char, name_length>, N> setting_names;
-};
+struct RuntimeSingleSetting { };
 
 struct set_setting {
     unsigned int index;
@@ -61,7 +56,7 @@ struct retrieve_all_setting_names {
     } result;
 };
 
-using setting_changed_notifier = void (*)(const single_setting *setting);
+using setting_changed_notifier = void (*)(const SingleSetting *setting);
 
 struct add_setting_notifier {
     const char *setting_name = nullptr;
@@ -73,13 +68,13 @@ struct add_setting_notifier {
 };
 
 template<size_t N>
-class settings final {
+class Settings {
     public:
-        static inline constexpr size_t num_settings = N;
-        using trivial_representation = settings_trivial<num_settings>;
+        static inline constexpr size_t NumSettings = N;
+        using TrivialRepresentationType = SmartAq::Utils::EventAccessArray<SingleSetting, RuntimeSingleSetting, NumSettings, 19>;
 
-        settings() = default;
-        ~settings() = default;
+        Settings() = default;
+        ~Settings() = default;
 
         template<typename T>
         using filter_return_type = std::conditional_t<!
@@ -88,13 +83,13 @@ class settings final {
                     remove_setting,
                     retrieve_setting,
                     retrieve_all_setting_names,
-                    add_setting_notifier>, trivial_representation, ignored_event>;
+                    add_setting_notifier>, TrivialRepresentationType, ignored_event>;
 
-        settings &operator=(const trivial_representation &new_value);
+        Settings &operator=(const TrivialRepresentationType &new_value);
 
         template<typename T>
         filter_return_type<T> dispatch(T &event) const {}
     private:
-        trivial_representation data;
+        TrivialRepresentationType data;
         std::array<std::pair<const char **, setting_changed_notifier>, N> notifier;
 };

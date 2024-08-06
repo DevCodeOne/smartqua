@@ -5,6 +5,7 @@
 #include <thread>
 #include <string_view>
 #include <thread>
+#include <expected>
 
 #include "build_config.h"
 #include "drivers/device_types.h"
@@ -80,8 +81,8 @@ class SwitchDriver final {
         SwitchDriver &operator=(const SwitchDriver &other) = delete;
         SwitchDriver &operator=(SwitchDriver &&other);
 
-        static std::optional<SwitchDriver> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
-        static std::optional<SwitchDriver> create_driver(const DeviceConfig *config);
+        static std::expected<SwitchDriver, const char *> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
+        static std::expected<SwitchDriver, const char *> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult read_value(std::string_view what, device_values &value) const;
         DeviceOperationResult write_value(std::string_view what, const device_values &value) { return DeviceOperationResult::not_supported; }
