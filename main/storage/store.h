@@ -36,7 +36,7 @@ namespace Detail {
 }
 
 template<typename StoreType, typename PersistType>
-struct SingleSetting {
+struct SingleTypeStore {
     StoreType sstore;
     PersistType ssave;
 };

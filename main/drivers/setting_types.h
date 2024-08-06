@@ -14,21 +14,21 @@ enum struct single_setting_result {
     ok, failure
 };
 
-struct setting_value {
+struct SettingValue {
     std::optional<stack_string<32>> string_value;
     std::optional<int32_t> int_value;
     std::optional<float> float_val;
     std::optional<bool> bool_val;
 };
 
-struct single_setting {
+struct SingleSetting {
     std::array<char, 16> setting_name;
-    setting_value value;
+    SettingValue value;
 };
 
 template<>
-struct read_from_json<setting_value> {
-    static void read(const char *str, int len, setting_value &value) {
+struct read_from_json<SettingValue> {
+    static void read(const char *str, int len, SettingValue &value) {
         json_token str_token;
         json_scanf(str, len, "%T", &str_token);
 
@@ -54,9 +54,9 @@ struct read_from_json<setting_value> {
 };
 
 template<>
-struct read_from_json<single_setting> {
-    static void read(const char *str, int len, single_setting *value) {
+struct read_from_json<SingleSetting> {
+    static void read(const char *str, int len, SingleSetting *value) {
         json_token name_token;
-        json_scanf(str, len, "{name : %T, value : %M}", name_token, json_scanf_single<setting_value>, value->value);
+        json_scanf(str, len, "{name : %T, value : %M}", name_token, json_scanf_single<SettingValue>, value->value);
     }
 };

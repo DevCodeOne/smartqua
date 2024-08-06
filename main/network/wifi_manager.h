@@ -86,11 +86,10 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         vEventGroupDelete(m_wifi_event_group);
     }
 
-    // TODO: add max wait time
-    bool await_connection() {
+    bool await_connection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) {
         EventBits_t bits = xEventGroupWaitBits(
             m_wifi_event_group, wifi_connected_bit | wifi_fail_bit, pdFALSE,
-            pdFALSE, portMAX_DELAY);
+            pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
 
         return (bits & wifi_connected_bit) && !(bits & wifi_fail_bit);
     }

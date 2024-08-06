@@ -5,6 +5,8 @@
 #include <cmath>
 #include <thread>
 #include <chrono>
+#include <string_view>
+#include <expected>
 
 #include "actions/action_types.h"
 #include "actions/device_actions.h"
@@ -12,7 +14,7 @@
 #include "utils/utils.h"
 
 
-std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
+std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
     SwitchConfig newConf{
         .type = SwitchType::LevelHolder,
         .defaultValue = SwitchDefaultValue::Low,
@@ -50,23 +52,23 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view i
 
     if (!check) {
         Logger::log(LogLevel::Error, "Value(s) for device id(s)");
-        return std::nullopt;
+        return std::unexpected{"Value(s) for device id(s)"};
     }
 
     if (newConf.readingDeviceId == InvalidDeviceId) {
         Logger::log(LogLevel::Error, "Invalid device id to read from");
-        return std::nullopt;
+        return std::unexpected{"Invalid device id to read from"};
     }
 
     if (newConf.targetDeviceId == InvalidDeviceId) {
         Logger::log(LogLevel::Error, "Invalid device id to write to");
-        return std::nullopt;
+        return std::unexpected{"Invalid device id to write to"};
     }
 
     if (readingArgument.ptr != nullptr 
         && readingArgument.len > newConf.readingArgument.size()) {
         Logger::log(LogLevel::Error, "Reading argument was too long");
-        return std::nullopt;
+        return std::unexpected{"Reading argument was too long"};
     } else {
         newConf.readingArgument = std::string_view(readingArgument.ptr, 
             readingArgument.len);
@@ -75,7 +77,7 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view i
     if (targetArgument.ptr != nullptr 
         && targetArgument.len > newConf.targetArgument.size()) {
         Logger::log(LogLevel::Error, "Setting argument was too long");
-        return std::nullopt;
+        return std::unexpected{"Setting argument was too long"};
     } else {
         newConf.targetArgument = std::string_view(targetArgument.ptr, 
             targetArgument.len); 
@@ -88,8 +90,8 @@ std::optional<SwitchDriver> SwitchDriver::create_driver(const std::string_view i
 }
 
 // This doesn't work for some reason
-std::optional<SwitchDriver> SwitchDriver::create_driver(const DeviceConfig *config) {
-    return std::optional{SwitchDriver{config}};
+std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const DeviceConfig *config) {
+    return SwitchDriver{config};
 }
 
 

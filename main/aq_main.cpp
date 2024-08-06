@@ -1,22 +1,11 @@
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
-#include "spi_flash_mmap.h"
-#include "esp_spiffs.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/portable.h"
-#include "freertos/task.h"
 #include "frozen.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 
-
-// clang-format off
-// #include "utils/sd_filesystem.h"
 #include "auth.h"
 #include "drivers/system_info.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
-#include "rest/stats_rest.h"
 #include "rest/devices_rest.h"
 #include "smartqua_config.h"
 #include "utils/idf_utils.h"
@@ -26,7 +15,6 @@
 #include <optional>
 #include <cstdint>
 #include <thread>
-// clang-format on
 
 std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;
 
@@ -61,8 +49,8 @@ void *networkTask(void *pvParameters) {
 
     wifi_config<WIFI_MODE_STA> config{
             .creds{
-                .ssid{WIFI_SSID}, 
-                .password{WIFI_PASS}
+                .ssid{DEFAULT_WIFI_SSID}, 
+                .password{DEFAULT_WIFI_PASS}
             },
             .reconnect_tries = wifi_reconnect_policy::infinite,
             .retry_time = std::chrono::milliseconds(1000)
@@ -72,7 +60,7 @@ void *networkTask(void *pvParameters) {
 
     wifi_manager<WIFI_MODE_STA> wifi(config);
     // TODO: if unit has rtc, continue and cre
-    wifi.await_connection();
+    wifi.await_connection(std::chrono::seconds(5));
 
     init_timezone();
     wait_for_clock_sync();
@@ -80,7 +68,7 @@ void *networkTask(void *pvParameters) {
     // Logger::ignoreLogsBelow(LogLevel::Warning);
 
     Logger::log(LogLevel::Info, "Init global store now");
-    
+
     void *globalStoreMemory = heap_caps_malloc(sizeof(GlobalStoreType), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     global_store = std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>>(
         new (globalStoreMemory) GlobalStoreType, SPIRAMDeleter<GlobalStoreType>{});
