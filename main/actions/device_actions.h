@@ -105,7 +105,7 @@ public:
             add_device,
             remove_single_device,
             write_to_device,
-            write_device_options>, const TrivialRepresentationType &, ignored_event>;
+            write_device_options>, const TrivialRepresentationType &, IgnoredEvent>;
 
     DeviceSettings &operator=(const TrivialRepresentationType &new_value);
     
@@ -135,7 +135,7 @@ private:
     void initializeUpdater();
 
     EventAccessArrayType m_data;
-    task_pool<max_task_pool_size>::resource_type m_task_resource;
+    TaskPool<max_task_pool_size>::TaskResourceType m_task_resource;
     std::once_flag initialized_updater_flag;
 
     // TODO: secure with recursive_mutex
@@ -153,16 +153,16 @@ DeviceSettings<N, DeviceDrivers ...> &DeviceSettings<N, DeviceDrivers ...>::oper
 }
 
 // TODO: this should be done in the constructor, also in the destructor, where the pointers are registered and deregistered
-// add helper function for that in the task_pool e.g. unregister_resource
+// add helper function for that in the TaskPool e.g. unregister_resource
 template<size_t N, typename ... DeviceDrivers>
 void DeviceSettings<N, DeviceDrivers ...>::initializeUpdater() {
     std::call_once(initialized_updater_flag, [this]() {
-        this->m_task_resource = task_pool<max_task_pool_size>::post_task(single_task{
-            .single_shot = false,
-            .func_ptr = &updateDeviceRuntime,
-            .interval = std::chrono::seconds(10),
-            .argument = reinterpret_cast<void *>(this),
-            .description = "Device Updater thread"
+        this->m_task_resource = TaskPool<max_task_pool_size>::postTask(single_task{
+                .single_shot = false,
+                .func_ptr = &updateDeviceRuntime,
+                .interval = std::chrono::seconds(10),
+                .argument = reinterpret_cast<void *>(this),
+                .description = "Device Updater thread"
         });
     });
 }

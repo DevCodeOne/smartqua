@@ -170,13 +170,13 @@ auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::o
 template<size_t N>
 void stats_driver<N>::init_task() {
     std::call_once(_task_initialized, []{
-        Logger::log(LogLevel::Info, "Adding stats_task to task_pool");
-        task_pool<max_task_pool_size>::post_task(single_task{
-            .single_shot = false,
-            .func_ptr = stats_driver<N>::stats_driver_task,
-            .interval = std::chrono::minutes{1},
-            .argument = nullptr,
-            .description = "Stats updater thread"
+        Logger::log(LogLevel::Info, "Adding stats_task to TaskPool");
+        TaskPool<max_task_pool_size>::postTask(single_task{
+                .single_shot = false,
+                .func_ptr = stats_driver<N>::stats_driver_task,
+                .interval = std::chrono::minutes{1},
+                .argument = nullptr,
+                .description = "Stats updater thread"
         });
     });
 }
