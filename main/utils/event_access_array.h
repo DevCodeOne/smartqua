@@ -96,7 +96,7 @@ namespace SmartAq::Utils {
             ArrayActions::RemoveValue<ElementType, UID>,
             ArrayActions::GetValue<ElementType, UID>,
             ArrayActions::GetValueOverview<ElementType, UID>>, 
-            const TrivialRepresentationType &, ignored_event>;
+            const TrivialRepresentationType &, IgnoredEvent>;
 
         static inline constexpr size_t NumElements = Size;
         static inline constexpr size_t UniqueIdentifier = UID;

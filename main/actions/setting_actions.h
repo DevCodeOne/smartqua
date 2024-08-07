@@ -83,7 +83,7 @@ class Settings {
                     remove_setting,
                     retrieve_setting,
                     retrieve_all_setting_names,
-                    add_setting_notifier>, TrivialRepresentationType, ignored_event>;
+                    add_setting_notifier>, TrivialRepresentationType, IgnoredEvent>;
 
         Settings &operator=(const TrivialRepresentationType &new_value);
 

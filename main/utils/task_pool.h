@@ -10,32 +10,33 @@
 #include <optional>
 #include <thread>
 #include <chrono>
+#include <type_traits>
 
 #include "utils/thread_utils.h"
 #include "utils/logger.h"
 #include "build_config.h"
 
-using task_func_type = void(*)(void *);
+using TaskFuncType = void(*)(void *);
 
-enum struct task_id : uint64_t {
+enum struct TaskId : uint64_t {
     invalid = std::numeric_limits<uint64_t>::max()
 };
 
 template<typename PoolType>
-class task_resource_tracker {
+class TaskResourceTracker {
     public:
-        task_resource_tracker(void *resource = nullptr, task_id id = task_id::invalid) : m_resource(resource), m_id(id) { }
+        explicit TaskResourceTracker(void *resource = nullptr, TaskId id = TaskId::invalid) : m_resource(resource), m_id(id) { }
 
-        task_resource_tracker(const task_resource_tracker &other) = delete;
-        task_resource_tracker(task_resource_tracker &&other) : m_resource(other.m_resource), m_id(other.m_id) { 
+        TaskResourceTracker(const TaskResourceTracker &other) = delete;
+        TaskResourceTracker(TaskResourceTracker &&other) : m_resource(other.m_resource), m_id(other.m_id) {
             other.m_resource = nullptr;
-            other.m_id = task_id::invalid; 
+            other.m_id = TaskId::invalid;
         }
 
-        ~task_resource_tracker() { PoolType::remove_task(m_id); };
+        ~TaskResourceTracker() { PoolType::removeTask(m_id); };
 
-        task_resource_tracker &operator=(const task_resource_tracker &other) = delete;
-        task_resource_tracker &operator=(task_resource_tracker &&other) {
+        TaskResourceTracker &operator=(const TaskResourceTracker &other) = delete;
+        TaskResourceTracker &operator=(TaskResourceTracker &&other) {
             using std::swap;
 
             swap(m_resource, other.m_resource);
@@ -44,25 +45,25 @@ class task_resource_tracker {
             return *this;
         }
 
-        void swap(task_resource_tracker &other) {
+        void swap(TaskResourceTracker &other) {
             using std::swap;
 
             swap(m_resource, other.m_resource);
             swap(m_id, other.m_id);
         }
 
-        const void *resource() const { return m_resource; }
+        [[nodiscard]] const void *resource() const { return m_resource; }
 
-        task_id id() const { return m_id; }
+        [[nodiscard]] TaskId id() const { return m_id; }
 
     private:
         const void* m_resource = nullptr;
-        task_id m_id;
+        TaskId m_id;
 };
 
 struct single_task {
     bool single_shot = true;
-    task_func_type func_ptr = nullptr;
+    TaskFuncType func_ptr = nullptr;
     std::chrono::seconds interval = std::chrono::seconds{5};
     void *argument = nullptr;
     const char *description = "No Description";
@@ -70,24 +71,26 @@ struct single_task {
 };
 
 // TODO: maybe use multiple threads
-template<size_t TaskPoolSize>
-class task_pool {
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+class TaskPool {
     public:
-        using resource_type = task_resource_tracker<task_pool>;
+        using TaskResourceType = TaskResourceTracker<TaskPool>;
 
-        static resource_type post_task(single_task task);
-        static bool remove_task(task_id id);
-        static void do_work();
+        static TaskResourceType postTask(single_task task);
+        static bool removeTask(TaskId id);
+        static void doWork();
     private:
-        static void task_pool_thread(void *ptr);
+        [[noreturn]] static void task_pool_thread(void *ptr);
 
-        static inline std::array<std::pair<task_id, std::optional<single_task>>, TaskPoolSize> _tasks;
+        static inline std::array<std::pair<TaskId, std::optional<single_task>>, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
-        static inline task_id _next_id = task_id(0);
+        static inline TaskId _next_id = TaskId(0);
 };
 
-template<size_t TaskPoolSize>
-void task_pool<TaskPoolSize>::task_pool_thread(void *) {
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
     size_t index = 0;
 
     using last_executed_type = decltype(std::declval<single_task>().last_executed);
@@ -103,29 +106,28 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
 
             std::unique_lock instance_guard{_instance_mutex};
             auto &[current_id, current_task] = _tasks[index];
-            if (current_task) {
 
-                if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
+            if (not current_task) {
+                index = (index + 1) % _tasks.size();
+                // sleepThisRound = index == 0 || !current_task.has_value();
+                sleepThisRound = true;
+            } else if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
 
-                    Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================", current_task->description);
+                Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================", current_task->description);
 
-                    if (current_task->func_ptr != nullptr) {
-                        current_task->func_ptr(current_task->argument);
-                    }
-
-                    Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================", current_task->description);
-
-                    if (current_task->single_shot) {
-                        current_task = std::nullopt;
-                    }
-
-                    current_task->last_executed = seconds_since_epoch;
+                if (current_task->func_ptr != nullptr) {
+                    current_task->func_ptr(current_task->argument);
                 }
 
+                Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================", current_task->description);
+
+                if (current_task->single_shot) {
+                    current_task = std::nullopt;
+                }
+
+                current_task->last_executed = seconds_since_epoch;
             }
-            index = (index + 1) % _tasks.size();
-            // sleepThisRound = index == 0 || !current_task.has_value();
-            sleepThisRound = true;
+
         }
 
         if (sleepThisRound) {
@@ -136,14 +138,16 @@ void task_pool<TaskPoolSize>::task_pool_thread(void *) {
     }
 }
 
-template<size_t TaskPoolSize>
-void task_pool<TaskPoolSize>::do_work() {
-    task_pool::task_pool_thread(nullptr);
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+void TaskPool<TaskPoolSize>::doWork() {
+    TaskPool::task_pool_thread(nullptr);
 }
 
 // TODO: maybe use std::optional as return type
-template<size_t TaskPoolSize>
-auto task_pool<TaskPoolSize>::post_task(single_task task) -> resource_type {
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+auto TaskPool<TaskPoolSize>::postTask(single_task task) -> TaskResourceType {
     std::unique_lock instance_guard{_instance_mutex};
 
     auto result = std::find_if(_tasks.begin(), _tasks.end(), [](auto &current_task_pair) {
@@ -151,22 +155,25 @@ auto task_pool<TaskPoolSize>::post_task(single_task task) -> resource_type {
     });
 
     if (result == _tasks.end()) {
-        return resource_type(task.argument, task_id::invalid);
+        return TaskResourceType(task.argument, TaskId::invalid);
     }
+
+    using IdType = decltype(_next_id);
 
     result->first = _next_id;
     result->second = task;
 
-    using task_id_integral = std::underlying_type_t<decltype(_next_id)>;
+    using TaskIdIntegral = std::underlying_type_t<IdType>;
 
-    _next_id = static_cast<decltype(_next_id)>(task_id_integral(_next_id) + task_id_integral(1));
+    _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + TaskIdIntegral(1));
 
-    return resource_type(task.argument, result->first);
+    return TaskResourceType(task.argument, result->first);
 }
 
-template<size_t TaskPoolSize>
-bool task_pool<TaskPoolSize>::remove_task(task_id id) {
-    if (id == task_id::invalid) {
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+bool TaskPool<TaskPoolSize>::removeTask(TaskId id) {
+    if (id == TaskId::invalid) {
         return false;
     }
 

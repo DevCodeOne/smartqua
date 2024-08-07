@@ -40,7 +40,7 @@ class StatCollection final {
             remove_stat,
             retrieve_stat_info,
             retrieve_stat_overview>,
-        trivial_representation, ignored_event>;
+        trivial_representation, IgnoredEvent>;
 
         StatCollection() = default;
         ~StatCollection() = default;

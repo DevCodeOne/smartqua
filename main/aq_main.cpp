@@ -83,14 +83,14 @@ void *networkTask(void *pvParameters) {
 
     sntp_clock clock;
 
-    auto resource = task_pool<max_task_pool_size>::post_task(single_task{
-        .single_shot = false,
-        .func_ptr = print_health,
-        .argument = nullptr,
-        .description = "Heartbeat Thread"
+    auto resource = TaskPool<max_task_pool_size>::postTask(single_task{
+            .single_shot = false,
+            .func_ptr = print_health,
+            .argument = nullptr,
+            .description = "Heartbeat Thread"
     });
 
-    task_pool<max_task_pool_size>::do_work();
+    TaskPool<max_task_pool_size>::doWork();
 
     return nullptr;
 }
