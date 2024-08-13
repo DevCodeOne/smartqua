@@ -6,7 +6,7 @@
 #include "actions/device_actions.h"
 #include "build_config.h"
 #include "drivers/device_types.h"
-#include "utils/utils.h"
+#include "utils/check_assign.h"
 
 
 std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {

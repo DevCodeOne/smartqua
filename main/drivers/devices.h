@@ -10,7 +10,7 @@
 
 #include "build_config.h"
 #include "device_types.h"
-#include "utils/utils.h"
+#include "utils/constexpr_for.h"
 
 // TODO: setup drivers
 // one driver for all devices on that bus ?
@@ -56,7 +56,7 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
     Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
-    ConstexprForIndex<sizeof...(DeviceDrivers) - 1>::doCall(
+    ConstexprFor<sizeof...(DeviceDrivers) - 1>::doCall(
         [input, driver_name, &device_conf_out, &found_device_driver](auto current_index) constexpr {
             using driver_type = std::tuple_element_t<decltype(current_index)::value, std::tuple<DeviceDrivers ...>>;
 
@@ -86,7 +86,7 @@ template<typename ... DeviceDrivers>
 std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *device_conf) {
     std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
 
-    ConstexprForIndex<sizeof...(DeviceDrivers) - 1>::doCall([&found_device_driver, &device_conf](auto current_index){
+    ConstexprFor<sizeof...(DeviceDrivers) - 1>::doCall([&found_device_driver, &device_conf](auto current_index){
         using driver_type = std::tuple_element_t<current_index, std::tuple<DeviceDrivers ...>>;
 
         if (std::strncmp(device_conf->device_driver_name.data(), driver_type::name, name_length) == 0) {

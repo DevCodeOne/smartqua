@@ -6,19 +6,20 @@
 
 #include "drivers/device_resource.h"
 #include "drivers/device_types.h"
+#include "utils/check_assign.h"
+
 #include "hx711.h"
-#include "utils/utils.h"
 #include "frozen.h"
 
 LoadcellDriver::LoadcellDriver(const DeviceConfig*conf, 
     std::shared_ptr<gpio_resource> doutGPIO, 
     std::shared_ptr<gpio_resource> sckGPIO,
-    hx711_t &&dev) : mConf(conf), mDoutGPIO(doutGPIO), mSckGPIO(sckGPIO), mDev(dev) {}
+    hx711_t &&dev) : mConf(conf), mDoutGPIO(std::move(doutGPIO)), mSckGPIO(std::move(sckGPIO)), mDev(dev) {}
 
 LoadcellDriver::LoadcellDriver(LoadcellDriver &&other) : 
     mConf(other.mConf),
-    mDoutGPIO(other.mDoutGPIO),
-    mSckGPIO(other.mSckGPIO),
+    mDoutGPIO(std::move(other.mDoutGPIO)),
+    mSckGPIO(std::move(other.mSckGPIO)),
     mDev(other.mDev) {}
 
 LoadcellDriver &LoadcellDriver::operator=(LoadcellDriver &&other) { 

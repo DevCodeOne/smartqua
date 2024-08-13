@@ -10,6 +10,7 @@
 #include "hal/gpio_types.h"
 #include "drivers/device_resource.h"
 #include "drivers/rmt_stepper_driver.h"
+#include "utils/check_assign.h"
 
 #include "driver/rmt_tx.h"
 #include "driver/rmt_types.h"

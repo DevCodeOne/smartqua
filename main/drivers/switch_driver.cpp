@@ -11,7 +11,7 @@
 #include "actions/action_types.h"
 #include "actions/device_actions.h"
 #include "drivers/device_types.h"
-#include "utils/utils.h"
+#include "utils/check_assign.h"
 
 
 std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
