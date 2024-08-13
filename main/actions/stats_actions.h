@@ -12,7 +12,7 @@
 #include "storage/store.h"
 #include "utils/event_access_array.h"
 
-using stat_collection_operation = collection_operation_result;
+using stat_collection_operation = CollectionOperationResult;
 
 json_action_result get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 json_action_result add_stat_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);

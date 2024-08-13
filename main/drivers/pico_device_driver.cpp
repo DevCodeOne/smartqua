@@ -177,7 +177,7 @@ PicoDeviceDriver::~PicoDeviceDriver() {
 
 // TODO: only update specific devices instead of writing and reading the complete memory of the target device
 // Here a mapping from name to type is needed
-DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const device_values &value) { 
+DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const DeviceValues &value) {
     using namespace PicoDriver;
     
     if (what.size() == 0) {
@@ -242,7 +242,7 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
 }
 
 // Only read specific entry ?
-DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, DeviceValues &value) const {
     Logger::log(LogLevel::Info, "ReadValue PicoDeviceDriver");
     const auto *config  = reinterpret_cast<const PicoDeviceDriverData *>(&mConf->device_config);
     using namespace PicoDriver;

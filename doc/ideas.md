@@ -44,7 +44,7 @@ TODO:
 
 - Write code for soft_timer_settings and related soft_timer code [X]
 - Devices:
-    - Device_info (implement retrieve_device_info [X] and retrieve_device_overview [X])
+    - Device_info (implement RetrieveDeviceInfo [X] and RetrieveDeviceOverview [X])
     - Device_options (with that custom actions and so on for the scale, and callibrating things) [X]
         - PWM  [ ]
         - DS18x20 [ ]

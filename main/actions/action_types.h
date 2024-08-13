@@ -1,6 +1,6 @@
 #pragma once
 
-enum struct collection_operation_result {
+enum struct CollectionOperationResult {
     ok, collection_full, index_invalid, failed
 };
 

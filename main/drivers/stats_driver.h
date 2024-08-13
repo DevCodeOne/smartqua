@@ -171,7 +171,7 @@ template<size_t N>
 void stats_driver<N>::init_task() {
     std::call_once(_task_initialized, []{
         Logger::log(LogLevel::Info, "Adding stats_task to TaskPool");
-        TaskPool<max_task_pool_size>::postTask(single_task{
+        TaskPool<max_task_pool_size>::postTask(SingleTask{
                 .single_shot = false,
                 .func_ptr = stats_driver<N>::stats_driver_task,
                 .interval = std::chrono::minutes{1},

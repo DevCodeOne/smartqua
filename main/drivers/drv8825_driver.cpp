@@ -84,7 +84,7 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*con
 }
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
-DeviceOperationResult DRV8825Driver::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult DRV8825Driver::write_value(std::string_view what, const DeviceValues &value) {
     const DRV8825DriverConfig *const stepperConfig = reinterpret_cast<const DRV8825DriverConfig *>(mConf->device_config.data());
     if (!value.generic_unsigned_integral()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports steps");

@@ -245,11 +245,11 @@ std::optional<uint8_t> ScheduleDriver::channelIndex(std::string_view channelName
 
 ScheduleDriver::ScheduleDriver(const DeviceConfig *conf) : mConf(conf) {}
 
-DeviceOperationResult ScheduleDriver::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult ScheduleDriver::write_value(std::string_view what, const DeviceValues &value) {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult ScheduleDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult ScheduleDriver::read_value(std::string_view what, DeviceValues &value) const {
     return DeviceOperationResult::not_supported;
 }
 
@@ -274,7 +274,7 @@ DeviceOperationResult ScheduleDriver::update_values(const std::array<std::option
             const auto &[currentDeviceIndex, currentChannelTime, valueToSet] = *currentValue;
 
             Logger::log(LogLevel::Info, "Creating with channel_unit %d", (int) scheduleDriverConf->channelUnit[i]);
-            const auto newValue = device_values::create_from_unit(scheduleDriverConf->channelUnit[i], valueToSet);
+            const auto newValue = DeviceValues::create_from_unit(scheduleDriverConf->channelUnit[i], valueToSet);
             auto setResult = set_device_action(currentDeviceIndex, std::string_view(), newValue, nullptr, 0);
         }   else {
             Logger::log(LogLevel::Debug, "Nothing to set");

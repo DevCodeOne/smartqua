@@ -34,8 +34,8 @@ class DRV8825Driver final {
         static std::optional<DRV8825Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<DRV8825Driver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult read_value(std::string_view what, device_values &value) const { return DeviceOperationResult::not_supported; }
-        DeviceOperationResult write_value(std::string_view what, const device_values &value);
+        DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const { return DeviceOperationResult::not_supported; }
+        DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const { return DeviceOperationResult::not_supported; }
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data() { return DeviceOperationResult::not_supported; }

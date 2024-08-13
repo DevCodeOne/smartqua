@@ -40,8 +40,8 @@ class PhProbeDriver final {
         static std::optional<PhProbeDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<PhProbeDriver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult read_value(std::string_view what, device_values &value) const;
-        DeviceOperationResult write_value(std::string_view what, const device_values &value) { return DeviceOperationResult::not_supported; }
+        DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
+        DeviceOperationResult write_value(std::string_view what, const DeviceValues &value) { return DeviceOperationResult::not_supported; }
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const { return DeviceOperationResult::not_supported; }
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data() { return DeviceOperationResult::not_supported; }

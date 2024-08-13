@@ -86,7 +86,7 @@ PhProbeDriver &PhProbeDriver::operator=(PhProbeDriver &&other) {
     return *this;
 }
 
-DeviceOperationResult PhProbeDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult PhProbeDriver::read_value(std::string_view what, DeviceValues &value) const {
     const PhProbeConfig *const phConfig = reinterpret_cast<const PhProbeConfig *>(mConf->device_config.data());
     // TODO: read actual ph and temperature correction
     const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());

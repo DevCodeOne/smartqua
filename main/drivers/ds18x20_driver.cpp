@@ -140,12 +140,12 @@ Ds18x20Driver::~Ds18x20Driver() {
     remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
 }
 
-DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const device_values &value) { 
+DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const DeviceValues &value) {
     return DeviceOperationResult::not_supported;
 }
 
 // TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
-DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, DeviceValues &value) const {
     value.temperature(mTemperatureReadings.average());
     return DeviceOperationResult::ok;
 }

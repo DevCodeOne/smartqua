@@ -59,7 +59,7 @@ std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(co
 StepperDosingPumpDriver::StepperDosingPumpDriver(const DeviceConfig *config)  : mConf(config) {}
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
-DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what, const DeviceValues &value) {
     const StepperDosingConfig *const stepperConfig = reinterpret_cast<const StepperDosingConfig *>(mConf->device_config.data());
     if (!value.milliliter()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports values in ml");
@@ -68,7 +68,7 @@ DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what
 
     Logger::log(LogLevel::Info, "Dosing %d ml", (int) *value.milliliter());
     auto stepsToDo = *value.milliliter() * (stepperConfig->stepsTimesTenPerMl / 10);
-    const auto valueToSet = device_values::create_from_unit(DeviceValueUnit::generic_unsigned_integral, stepsToDo);
+    const auto valueToSet = DeviceValues::create_from_unit(DeviceValueUnit::generic_unsigned_integral, stepsToDo);
     writeDeviceValue(stepperConfig->deviceId, stepperConfig->writeArgument, valueToSet, true);
 
     return DeviceOperationResult::ok;
@@ -85,7 +85,7 @@ DeviceOperationResult StepperDosingPumpDriver::call_device_action(DeviceConfig*c
             steps = static_cast<int>(milliliter * (stepperConfig->stepsTimesTenPerMl / 10.0f));
         }
 
-        const auto valueToSet = device_values::create_from_unit(DeviceValueUnit::generic_unsigned_integral, steps);
+        const auto valueToSet = DeviceValues::create_from_unit(DeviceValueUnit::generic_unsigned_integral, steps);
         writeDeviceValue(stepperConfig->deviceId, stepperConfig->writeArgument, valueToSet, true);
     } else if (action == "callibrate") {
         int steps = 200;

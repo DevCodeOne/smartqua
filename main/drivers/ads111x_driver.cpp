@@ -161,11 +161,11 @@ Ads111xDriver::~Ads111xDriver() {
     remove_address(reinterpret_cast<Ads111xDriverData *>(m_conf->device_config.data())->addr);
 }
 
-DeviceOperationResult Ads111xDriver::write_value(std::string_view what, const device_values &value) { 
+DeviceOperationResult Ads111xDriver::write_value(std::string_view what, const DeviceValues &value) {
     return DeviceOperationResult::not_supported;
 }
 
-DeviceOperationResult Ads111xDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult Ads111xDriver::read_value(std::string_view what, DeviceValues &value) const {
     const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&m_conf->device_config);
     int16_t analog = 0;
     Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", 

@@ -73,7 +73,6 @@ struct FindTypeInList<T, Head> {
     static inline constexpr auto Index = std::is_same_v<T, Head> ? 0 : 1;
 };
 
-
 template<typename T, typename ... Types>
 struct FindTypeInList<T, std::variant<Types ...>> {
     static inline constexpr auto Index = FindTypeInList<T, Types ...>::Index;
@@ -124,3 +123,21 @@ bool check_assign(T &to_assign_to, T2 to_assign) {
     return true;
 }
 
+template<typename ... Types>
+requires (all_unique_v<Types ...>)
+struct UniqueTypeList {
+    template<typename T>
+    static constexpr auto IndexOf = FindTypeInList<T, Types ...>::Index;
+
+    template<auto Index>
+    using TypeAt = std::tuple_element_t<Index, std::tuple<Types ...>>;
+};
+
+using TestTypeList = UniqueTypeList<int, float, double>;
+static_assert(std::is_same_v<TestTypeList::TypeAt<0>, int>);
+static_assert(std::is_same_v<TestTypeList::TypeAt<1>, float>);
+static_assert(std::is_same_v<TestTypeList::TypeAt<2>, double>);
+
+static_assert(TestTypeList::IndexOf<int> == 0);
+static_assert(TestTypeList::IndexOf<float> == 1);
+static_assert(TestTypeList::IndexOf<double> == 2);
