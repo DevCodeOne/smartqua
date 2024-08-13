@@ -89,10 +89,10 @@ std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_vi
         &offset, &scale, &sckGPIONum, &doutGPIONum);
 
     bool assignResult = true;
-    assignResult &= check_assign(newConf.offset, offset);
-    assignResult &= check_assign(newConf.scale, scale);
-    assignResult &= check_assign(newConf.sckGPIONum, sckGPIONum);
-    assignResult &= check_assign(newConf.doutGPIONum, doutGPIONum);
+    assignResult &= checkAssign(newConf.offset, offset);
+    assignResult &= checkAssign(newConf.scale, scale);
+    assignResult &= checkAssign(newConf.sckGPIONum, sckGPIONum);
+    assignResult &= checkAssign(newConf.doutGPIONum, doutGPIONum);
 
     if (!assignResult) {
         Logger::log(LogLevel::Error, "Some value(s) were of out range");

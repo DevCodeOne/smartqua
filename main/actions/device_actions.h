@@ -101,7 +101,7 @@ public:
 
     template<typename T>
     using FilterReturnType = std::conditional_t<!
-        all_unique_v<T,
+        AllUniqueV<T,
             add_device,
             RemoveSingleDevice,
             WriteToDevice,

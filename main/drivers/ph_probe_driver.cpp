@@ -28,8 +28,8 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
         &analogReadingArgument,
         &temperatureReadingArgument);
 
-    bool check = check_assign(newConf.analogDeviceId, analogDeviceId);
-    check &= check_assign(newConf.temperatureDeviceId, temperatureDeviceId);
+    bool check = checkAssign(newConf.analogDeviceId, analogDeviceId);
+    check &= checkAssign(newConf.temperatureDeviceId, temperatureDeviceId);
 
     if (!check) {
         Logger::log(LogLevel::Error, "Value(s) for analog device id and or temperature device id were out of range ");

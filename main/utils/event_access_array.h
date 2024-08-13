@@ -91,7 +91,7 @@ namespace SmartAq::Utils {
         using TrivialRepresentationType = TrivialRepresentation<BaseType, Size>;
         template<typename T>
         using FilterReturnType = std::conditional_t<!
-        all_unique_v<T,
+        AllUniqueV<T,
             ArrayActions::SetValue<ElementType, UID>,
             ArrayActions::RemoveValue<ElementType, UID>,
             ArrayActions::GetValue<ElementType, UID>,

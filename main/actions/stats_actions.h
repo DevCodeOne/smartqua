@@ -34,7 +34,7 @@ class StatCollection final {
         using event_access_array_type = SmartAq::Utils::EventAccessArray<single_stat_settings, typename driver_type::stat_type, N, stat_uid>;
         using trivial_representation = typename event_access_array_type::TrivialRepresentationType;
         template<typename T>
-        using filter_return_type_t = std::conditional_t<!all_unique_v<
+        using filter_return_type_t = std::conditional_t<!AllUniqueV<
             T, 
             set_stat,
             remove_stat,

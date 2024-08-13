@@ -202,11 +202,11 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
         &frequency, &resolution, &channel, &max_value, &gpio_num, &fade, &invert);
 
     bool assign_result = true;
-    assign_result &= check_assign(newConf.timer_conf.frequency, frequency);
-    assign_result &= check_assign(newConf.timer_conf.resolution, resolution);
-    assign_result &= check_assign(newConf.channel, channel);
-    assign_result &= check_assign(newConf.max_value, max_value);
-    assign_result &= check_assign(newConf.gpio_num, gpio_num);
+    assign_result &= checkAssign(newConf.timer_conf.frequency, frequency);
+    assign_result &= checkAssign(newConf.timer_conf.resolution, resolution);
+    assign_result &= checkAssign(newConf.channel, channel);
+    assign_result &= checkAssign(newConf.max_value, max_value);
+    assign_result &= checkAssign(newConf.gpio_num, gpio_num);
     newConf.fade = static_cast<bool>(fade);
     newConf.invert = static_cast<bool>(invert);
 

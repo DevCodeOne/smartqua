@@ -25,8 +25,8 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view
       
     bool assignResult = true;
 
-    assignResult &= check_assign(newConf.stepGPIONum, stepPin);
-    assignResult &= check_assign(newConf.enGPIONum, enPin);
+    assignResult &= checkAssign(newConf.stepGPIONum, stepPin);
+    assignResult &= checkAssign(newConf.enGPIONum, enPin);
 
     if (!assignResult) {
         Logger::log(LogLevel::Error, "Some value(s) were out of range");
