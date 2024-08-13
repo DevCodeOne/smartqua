@@ -13,57 +13,57 @@
 #include "utils/event_access_array.h"
 #include "storage/store.h"
 
-using setting_collection_operation = collection_operation_result;
+using SettingCollectionOperation = CollectionOperationResult;
 
 struct RuntimeSingleSetting { };
 
-struct set_setting {
+struct SetSetting {
     unsigned int index;
     std::string_view setting_name;
     std::string_view json_setting_value;
 
     struct {
-        setting_collection_operation collection_result = setting_collection_operation::failed;
+        SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
         single_setting_result op_result = single_setting_result::failure; 
     } result;
 };
 
-struct remove_setting {
+struct RemoveSetting {
     std::optional<unsigned int> index;
     std::optional<std::string_view> setting_name;
 
     struct {
-        setting_collection_operation collection_result = setting_collection_operation::failed;
+        SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
     } result;
 };
 
-struct retrieve_setting {
+struct RetrieveSetting {
     unsigned int index;
     std::string_view setting_name;
 
     struct {
-        setting_collection_operation collection_result = setting_collection_operation::failed;
+        SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
     } result;
 };
 
-struct retrieve_all_setting_names {
+struct RetrieveAllSettingNames {
     unsigned int offset = 0;
     char *output_dst = nullptr;
     size_t output_len = 0;
 
     struct {
-        setting_collection_operation collection_result = setting_collection_operation::failed;
+        SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
     } result;
 };
 
-using setting_changed_notifier = void (*)(const SingleSetting *setting);
+using SettingChangedNotifier = void (*)(const SingleSetting *setting);
 
-struct add_setting_notifier {
+struct AddSettingNotifier {
     const char *setting_name = nullptr;
-    setting_changed_notifier notifier = nullptr;
+    SettingChangedNotifier notifier = nullptr;
 
     struct {
-        setting_collection_operation collection_result = setting_collection_operation::failed;
+        SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
     } result;
 };
 
@@ -79,11 +79,11 @@ class Settings {
         template<typename T>
         using filter_return_type = std::conditional_t<!
         all_unique_v<T,
-                    set_setting,
-                    remove_setting,
-                    retrieve_setting,
-                    retrieve_all_setting_names,
-                    add_setting_notifier>, TrivialRepresentationType, IgnoredEvent>;
+                    SetSetting,
+                    RemoveSetting,
+                    RetrieveSetting,
+                    RetrieveAllSettingNames,
+                    AddSettingNotifier>, TrivialRepresentationType, IgnoredEvent>;
 
         Settings &operator=(const TrivialRepresentationType &new_value);
 
@@ -91,5 +91,5 @@ class Settings {
         filter_return_type<T> dispatch(T &event) const {}
     private:
         TrivialRepresentationType data;
-        std::array<std::pair<const char **, setting_changed_notifier>, N> notifier;
+        std::array<std::pair<const char **, SettingChangedNotifier>, N> notifier;
 };

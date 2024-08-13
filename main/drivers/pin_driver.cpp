@@ -16,7 +16,7 @@
 PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
-DeviceOperationResult PinDriver::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult PinDriver::write_value(std::string_view what, const DeviceValues &value) {
     // TODO: should the last pin state be safed ?
     auto *pinConf = reinterpret_cast<PinConfig *>(m_conf->device_config.data());
     esp_err_t result = ESP_FAIL;
@@ -85,7 +85,7 @@ DeviceOperationResult PinDriver::write_value(std::string_view what, const device
 }
 
 // TODO: maybe just return current value, for the other types
-DeviceOperationResult PinDriver::read_value(std::string_view what, device_values &values) const {
+DeviceOperationResult PinDriver::read_value(std::string_view what, DeviceValues &values) const {
     auto *pinConf = reinterpret_cast<PinConfig *>(m_conf->device_config.data());
 
     if (pinConf->type == PinType::Input) {

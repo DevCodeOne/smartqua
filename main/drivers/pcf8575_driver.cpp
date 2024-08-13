@@ -146,7 +146,7 @@ Pcf8575Driver::~Pcf8575Driver() {
 }
 
 // TODO: fix that values can be written here
-DeviceOperationResult Pcf8575Driver::write_value(std::string_view what, const device_values &value) { 
+DeviceOperationResult Pcf8575Driver::write_value(std::string_view what, const DeviceValues &value) {
     const auto *config  = reinterpret_cast<const Pcf8575DriverData *>(&m_conf->device_config);
 
     uint8_t toSet = 0;
@@ -177,7 +177,7 @@ DeviceOperationResult Pcf8575Driver::write_value(std::string_view what, const de
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult Pcf8575Driver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult Pcf8575Driver::read_value(std::string_view what, DeviceValues &value) const {
     const auto *config  = reinterpret_cast<const Pcf8575DriverData *>(&m_conf->device_config);
     Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", 
         static_cast<uint32_t>(config->addr), what.size(), what.data());

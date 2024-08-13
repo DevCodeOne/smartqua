@@ -61,7 +61,7 @@ class TaskResourceTracker {
         TaskId m_id;
 };
 
-struct single_task {
+struct SingleTask {
     bool single_shot = true;
     TaskFuncType func_ptr = nullptr;
     std::chrono::seconds interval = std::chrono::seconds{5};
@@ -77,13 +77,13 @@ class TaskPool {
     public:
         using TaskResourceType = TaskResourceTracker<TaskPool>;
 
-        static TaskResourceType postTask(single_task task);
+        static TaskResourceType postTask(SingleTask task);
         static bool removeTask(TaskId id);
         static void doWork();
     private:
         [[noreturn]] static void task_pool_thread(void *ptr);
 
-        static inline std::array<std::pair<TaskId, std::optional<single_task>>, TaskPoolSize> _tasks;
+        static inline std::array<std::pair<TaskId, std::optional<SingleTask>>, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
         static inline TaskId _next_id = TaskId(0);
 };
@@ -93,7 +93,7 @@ requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
     size_t index = 0;
 
-    using last_executed_type = decltype(std::declval<single_task>().last_executed);
+    using last_executed_type = decltype(std::declval<SingleTask>().last_executed);
 
     while (1) {
         bool sleepThisRound = false;
@@ -147,7 +147,7 @@ void TaskPool<TaskPoolSize>::doWork() {
 // TODO: maybe use std::optional as return type
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
-auto TaskPool<TaskPoolSize>::postTask(single_task task) -> TaskResourceType {
+auto TaskPool<TaskPoolSize>::postTask(SingleTask task) -> TaskResourceType {
     std::unique_lock instance_guard{_instance_mutex};
 
     auto result = std::find_if(_tasks.begin(), _tasks.end(), [](auto &current_task_pair) {

@@ -38,14 +38,14 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
     // TODO: prevent target_id or reading_id, to be the id of the switch 
     json_scanf(input.data(), input.size(), "{ target_id : %d, reading_id : %d, reading_argument : %T, target_argument : %T, \
     target_value : %M, low_value : %M, high_value : %M, allowed_difference : %M }",
-        &targetDeviceId,
-        &readingDeviceId,
-        &readingArgument,
-        &targetArgument,
-        json_scanf_single<device_values>, &newConf.targetValue,
-        json_scanf_single<device_values>, &newConf.lowValue,
-        json_scanf_single<device_values>, &newConf.highValue,
-        json_scanf_single<device_values>, &newConf.maxAllowedDifference);
+               &targetDeviceId,
+               &readingDeviceId,
+               &readingArgument,
+               &targetArgument,
+               json_scanf_single<DeviceValues>, &newConf.targetValue,
+               json_scanf_single<DeviceValues>, &newConf.lowValue,
+               json_scanf_single<DeviceValues>, &newConf.highValue,
+               json_scanf_single<DeviceValues>, &newConf.maxAllowedDifference);
 
     bool check = check_assign(newConf.readingDeviceId, readingDeviceId);
     check &= check_assign(newConf.targetDeviceId, targetDeviceId);
@@ -107,7 +107,7 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
         const auto startTime = std::chrono::steady_clock::now();
 
         const auto result = readDeviceValue(switchConfig->readingDeviceId, switchConfig->readingArgument.getStringView());
-        device_values valueToSet;
+        DeviceValues valueToSet;
 
         if (result.has_value()) {
             using DifferenceType = float;
@@ -189,7 +189,7 @@ SwitchDriver::~SwitchDriver() {
     }
 }
 
-DeviceOperationResult SwitchDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult SwitchDriver::read_value(std::string_view what, DeviceValues &value) const {
     const SwitchConfig *const switchConfig = reinterpret_cast<const SwitchConfig *>(mConf->device_config.data());
     return DeviceOperationResult::ok;
 }

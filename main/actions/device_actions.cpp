@@ -7,8 +7,8 @@
 #include "smartqua_config.h"
 
 // TODO: add the equivalent for the other actions
-bool writeDeviceValue(unsigned int index, std::string_view input, const device_values &value, bool deferSaving) {
-    write_to_device single_device_value{ .index = index, .what = input, .write_value = value };
+bool writeDeviceValue(unsigned int index, std::string_view input, const DeviceValues &value, bool deferSaving) {
+    WriteToDevice single_device_value{ .index = index, .what = input, .write_value = value };
     global_store->writeEvent(single_device_value, deferSaving);
 
     if (single_device_value.result.collection_result != DeviceCollectionOperation::ok
@@ -19,8 +19,8 @@ bool writeDeviceValue(unsigned int index, std::string_view input, const device_v
     return true;
 }
 
-std::optional<device_values> readDeviceValue(unsigned int index, std::string_view input) {
-    read_from_device single_device_value{ .index = index, .what = input };
+std::optional<DeviceValues> readDeviceValue(unsigned int index, std::string_view input) {
+    ReadFromDevice single_device_value{ .index = index, .what = input };
     global_store->readEvent(single_device_value);
 
     if (single_device_value.result.collection_result != DeviceCollectionOperation::ok
@@ -37,7 +37,7 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
 
     if (!index.has_value()) {
         auto overview_buffer = LargeBufferPoolType::get_free_buffer();
-        retrieve_device_overview overview{};
+        RetrieveDeviceOverview overview{};
         overview.output_dst = overview_buffer->data();
         overview.output_len = overview_buffer->size();
 
@@ -50,7 +50,7 @@ json_action_result get_devices_action(std::optional<unsigned int> index, const c
             result.result = json_action_result_value::successfull;
         }
     } else {
-        read_from_device single_device_value{ .index = static_cast<size_t>(*index), .what = std::string_view(input, input_len), .read_value{} };
+        ReadFromDevice single_device_value{ .index = static_cast<size_t>(*index), .what = std::string_view(input, input_len), .read_value{} };
         global_store->readEvent(single_device_value);
 
         if (single_device_value.result.collection_result == DeviceCollectionOperation::ok &&
@@ -76,7 +76,7 @@ json_action_result get_device_info(unsigned int index, const char *input, size_t
     json_action_result result{ 0, json_action_result_value::failed };
 
     auto info_buffer = LargeBufferPoolType::get_free_buffer();
-    retrieve_device_info info{ .index = static_cast<unsigned int>(index) };
+    RetrieveDeviceInfo info{ .index = static_cast<unsigned int>(index) };
     info.output_dst = info_buffer->data();
     info.output_len = info_buffer->size();
 
@@ -146,7 +146,7 @@ json_action_result add_device_action(std::optional<unsigned int> index, const ch
 json_action_result remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
-    remove_single_device del_device{ .index = static_cast<size_t>(index) };
+    RemoveSingleDevice del_device{ .index = static_cast<size_t>(index) };
     // TODO: json_action_result
     global_store->writeEvent(del_device);
 
@@ -166,7 +166,7 @@ json_action_result remove_device_action(unsigned int index, const char *input, s
 }
 
 json_action_result set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len) {  
-    device_values value;
+    DeviceValues value;
 
     json_scanf(deviceValueInput, deviceValueLen, "%M", json_scanf_single<decltype(value)>, &value);
 
@@ -174,10 +174,10 @@ json_action_result set_device_action(unsigned int index, std::string_view input,
 }
 
 // TODO: rename this method
-json_action_result set_device_action(unsigned int index, std::string_view what, const device_values &value, char *output_buffer, size_t output_buffer_len) {  
+json_action_result set_device_action(unsigned int index, std::string_view what, const DeviceValues &value, char *output_buffer, size_t output_buffer_len) {
     json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
-    write_to_device to_write {
+    WriteToDevice to_write {
         .index = static_cast<size_t>(index),
         .what = what,
         .write_value = value
@@ -208,7 +208,7 @@ json_action_result write_device_options_action(unsigned int index, const char *a
     // TODO: check if this fixes the issue
     std::memset(info_buffer->data(), 0, info_buffer->size());
 
-    write_device_options info{ 
+    WriteDeviceOptions info{
         .index = static_cast<unsigned int>(index), 
         .action = action,
         .input = std::string_view{input, input_len},

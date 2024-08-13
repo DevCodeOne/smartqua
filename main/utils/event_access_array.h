@@ -19,12 +19,14 @@
 namespace SmartAq::Utils {
 
     template<typename T>
-    static inline constexpr bool IsValidBaseType = true;
+    concept ValidBaseType = requires(T a) {
+        { T::StorageName } -> std::convertible_to<const char *>;
+    } && std::is_trivial_v<T>;
 
     // TODO: seperate name_length
-    template<typename BaseType, size_t Size>
+    template<ValidBaseType BaseType, size_t Size>
         struct TrivialRepresentation {
-            static inline const constexpr char *const name = BaseType::StorageName;
+            static inline const constexpr char *const name{ BaseType::StorageName };
 
             std::array<BaseType, Size> values;
             std::array<bool, Size> initialized;
@@ -44,7 +46,7 @@ namespace SmartAq::Utils {
             std::string_view jsonSettingValue = "";
 
             struct {
-                collection_operation_result collection_result = collection_operation_result::failed;
+                CollectionOperationResult collection_result = CollectionOperationResult::failed;
                 std::optional<unsigned int> index = std::nullopt;
             } result;
         };
@@ -55,7 +57,7 @@ namespace SmartAq::Utils {
             std::optional<std::string_view> settingName = std::nullopt;
 
             struct {
-                collection_operation_result collection_result = collection_operation_result::failed;
+                CollectionOperationResult collection_result = CollectionOperationResult::failed;
             } result;
         };
 
@@ -65,7 +67,7 @@ namespace SmartAq::Utils {
             std::optional<std::string_view> settingName = std::nullopt;
 
             struct {
-                collection_operation_result collection_result = collection_operation_result::failed;
+                CollectionOperationResult collection_result = CollectionOperationResult::failed;
                 std::optional<BaseType> value = std::nullopt;
             } result;
         };
@@ -78,15 +80,13 @@ namespace SmartAq::Utils {
             size_t output_len = 0;
 
             struct {
-                collection_operation_result collection_result = collection_operation_result::failed;
+                CollectionOperationResult collection_result = CollectionOperationResult::failed;
             } result;
         };
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID = 0>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID = 0>
     struct EventAccessArray final {
-        static_assert(IsValidBaseType<BaseType>, "BaseType is not valid check IsValidBaseType for details");
-
         using ElementType = BaseType;
         using TrivialRepresentationType = TrivialRepresentation<BaseType, Size>;
         template<typename T>
@@ -144,11 +144,12 @@ namespace SmartAq::Utils {
     };
 
     // TODO: add return value to indicate if it is a newly created value
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise) const {
         if (!index.has_value() && !name.has_value() && !findFreeSlotOtherwise) {
             return std::nullopt;
-        } else if (index.has_value() && *index >= NumElements) {
+        }
+        if (index.has_value() && *index >= NumElements) {
             return std::nullopt;
         }
 
@@ -175,7 +176,7 @@ namespace SmartAq::Utils {
         return foundIndex;
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename CreationHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::initialize(const TrivialRepresentationType &newValue, const CreationHook &createRuntime) -> EventAccessArray & {
         std::unique_lock instanceGuard{instanceMutex};
@@ -195,13 +196,13 @@ namespace SmartAq::Utils {
 
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
         auto doNothing = [](auto &, auto &) -> bool { return true; };
-        return dispatch<decltype(doNothing)>(event, doNothing);
+        return dispatch(event, doNothing);
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename UpdateHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
         std::unique_lock instanceGuard{instanceMutex};
@@ -209,7 +210,7 @@ namespace SmartAq::Utils {
         std::optional<unsigned int> foundIndex = findIndex(event.index, event.settingName, true);
 
         if (!foundIndex.has_value()) {
-            event.result.collection_result = collection_operation_result::collection_full;
+            event.result.collection_result = CollectionOperationResult::collection_full;
             return data;
         }
 
@@ -219,10 +220,10 @@ namespace SmartAq::Utils {
             if (event.settingName) {
                 data.names[*foundIndex] = *event.settingName;
             }
-            event.result.collection_result = collection_operation_result::ok;
+            event.result.collection_result = CollectionOperationResult::ok;
             event.result.index = foundIndex;
         } else {
-            event.result.collection_result = collection_operation_result::failed;
+            event.result.collection_result = CollectionOperationResult::failed;
         }
 
         return data;
@@ -230,19 +231,19 @@ namespace SmartAq::Utils {
     }
 
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::RemoveValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::RemoveValue<BaseType, UID>> {
         std::unique_lock instanceGuard{instanceMutex};
 
         std::optional<unsigned int> indexToDelete = findIndex(event.index, event.settingName);
 
         if (!indexToDelete.has_value()) {
-            event.result.collection_result = collection_operation_result::index_invalid;
+            event.result.collection_result = CollectionOperationResult::index_invalid;
             return data;
         }
 
         event.index = indexToDelete;
-        event.result.collection_result = collection_operation_result::ok;
+        event.result.collection_result = CollectionOperationResult::ok;
         // First delete class, so the class can use the information in the trivial representation if needed
         runtimeData[*indexToDelete] = std::nullopt;
         data.values[*indexToDelete] = BaseType{};
@@ -252,7 +253,7 @@ namespace SmartAq::Utils {
         return data;
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValue<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValue<BaseType, UID>> {
         Logger::log(LogLevel::Info, "Try locking to read");
         std::unique_lock instanceGuard{instanceMutex};
@@ -260,17 +261,17 @@ namespace SmartAq::Utils {
         auto foundIndex = findIndex(event.index, event.settingName);
 
         if (!foundIndex.has_value()) {
-            event.result.collection_result = collection_operation_result::index_invalid;
+            event.result.collection_result = CollectionOperationResult::index_invalid;
             return data;
         }
 
         event.result.value = data.values[*foundIndex];
-        event.result.collection_result = collection_operation_result::ok;
+        event.result.collection_result = CollectionOperationResult::ok;
 
         return data;
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
         auto printLambda = [](auto &out, const auto &name, const auto &, int index, bool) -> int {
             const bool firstPrint = index > 0;
@@ -278,10 +279,10 @@ namespace SmartAq::Utils {
             return json_printf(&out, format + (firstPrint ? 1 : 0), index, json_printf_single<std::decay_t<decltype(name)>>, &name);
         };
 
-        return dispatch<decltype(printLambda)>(event, printLambda);
+        return dispatch(event, printLambda);
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename PrintHook>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
         std::unique_lock  instanceGuard{instanceMutex};
@@ -292,7 +293,7 @@ namespace SmartAq::Utils {
         }
 
         if (start_index > Size) {
-            event.result.collection_result = collection_operation_result::index_invalid; 
+            event.result.collection_result = CollectionOperationResult::index_invalid;
         }
 
         json_out out = JSON_OUT_BUF(event.output_dst, event.output_len);
@@ -305,12 +306,12 @@ namespace SmartAq::Utils {
             }
         }
         json_printf(&out, " ]");
-        event.result.collection_result = collection_operation_result::ok;
+        event.result.collection_result = CollectionOperationResult::ok;
 
         return data;
     }
     
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     bool EventAccessArray<BaseType, RuntimeType, Size, UID>::hasValidRuntimeData(int index) const {
         if (index >= NumElements) {
             return false;
@@ -319,24 +320,14 @@ namespace SmartAq::Utils {
         return data.initialized[index] && runtimeData[index].has_value();
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::getTrivialRepresentation() const -> const TrivialRepresentationType & {
         std::unique_lock instanceGuard{instanceMutex};
 
         return data;
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
-    template<typename Callable>
-    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) const {
-        std::unique_lock instanceGuard{instanceMutex};
-
-        if (hasValidRuntimeData(index)) {
-            callable(*runtimeData[index]);
-        }
-    }
-
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) {
         std::unique_lock instanceGuard{instanceMutex};
@@ -346,7 +337,17 @@ namespace SmartAq::Utils {
         }
     }
 
-    template<typename BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
+    template<typename Callable>
+    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) const {
+        std::unique_lock instanceGuard{instanceMutex};
+
+        if (hasValidRuntimeData(index)) {
+            callable(*runtimeData[index]);
+        }
+    }
+
+    template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
     void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnAllRuntimeData(Callable callable) {
         std::unique_lock instanceGuard{instanceMutex};

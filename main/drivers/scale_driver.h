@@ -39,8 +39,8 @@ class LoadcellDriver final {
         static std::optional<LoadcellDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<LoadcellDriver> create_driver(const DeviceConfig*config);
 
-        DeviceOperationResult read_value(std::string_view what, device_values &value) const;
-        DeviceOperationResult write_value(std::string_view what, const device_values &value) const;
+        DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
+        DeviceOperationResult write_value(std::string_view what, const DeviceValues &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();

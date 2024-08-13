@@ -29,7 +29,7 @@ LoadcellDriver &LoadcellDriver::operator=(LoadcellDriver &&other) {
     return *this;
 }
 
-DeviceOperationResult LoadcellDriver::write_value(std::string_view what, const device_values &value) const {
+DeviceOperationResult LoadcellDriver::write_value(std::string_view what, const DeviceValues &value) const {
     return DeviceOperationResult::failure;
 }
 
@@ -37,10 +37,10 @@ int32_t LoadcellDriver::convertToRealValue(int32_t rawValue, int32_t offset, int
     return (rawValue + offset) * (scale / static_cast<float>(100'000));
 }
 
-DeviceOperationResult LoadcellDriver::read_value(std::string_view what, device_values &out) const {
+DeviceOperationResult LoadcellDriver::read_value(std::string_view what, DeviceValues &out) const {
     const auto config = reinterpret_cast<LoadcellConfig *>(mConf->device_config.data());
     // TODO: prevent scale from being zero
-    out.milligramms(convertToRealValue(m_values.average(), config->offset, config->scale));
+    out.milligrams(convertToRealValue(m_values.average(), config->offset, config->scale));
     return DeviceOperationResult::ok;
 }
 

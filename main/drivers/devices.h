@@ -37,11 +37,11 @@ public:
     device &operator=(const device &other) = default;
     device &operator=(device &&other) = default;
 
-    DeviceOperationResult write_value(std::string_view what, const device_values &value);
+    DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
     // To calibrate something or execute actions
     DeviceOperationResult call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json);
     DeviceOperationResult update_runtime_data();
-    DeviceOperationResult read_value(std::string_view what, device_values &value) const;
+    DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
 
 private:
@@ -112,7 +112,7 @@ device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver
 
 // TODO: same thing as in read_value
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view what, const DeviceValues &value) {
     return std::visit(
         [&what, &value](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_value to driver");
@@ -121,7 +121,7 @@ DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view wh
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult device<DeviceDrivers ...>::read_value(std::string_view what, DeviceValues &value) const {
     return std::visit(
         [&value, what](const auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating read_value to driver");

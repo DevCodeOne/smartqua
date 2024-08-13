@@ -21,7 +21,7 @@
 DacDriver::DacDriver(const DeviceConfig *config, std::shared_ptr<dac_resource> dacResource) : m_conf(config), m_dac(dacResource) {
     if (dacResource && config != nullptr) {
         dac_output_enable(dacResource->channel_num());
-        device_values toSet = device_values::create_from_unit(DeviceValueUnit::voltage, m_value);
+        DeviceValues toSet = DeviceValues::create_from_unit(DeviceValueUnit::voltage, m_value);
         write_value("", toSet);
     }
 }
@@ -45,7 +45,7 @@ std::optional<DacDriver> DacDriver::create_driver(const DeviceConfig *config) {
     return std::make_optional(DacDriver{config, dacResource});
 }
 
-DeviceOperationResult DacDriver::write_value(std::string_view what, const device_values &value) {
+DeviceOperationResult DacDriver::write_value(std::string_view what, const DeviceValues &value) {
     if (m_conf == nullptr || m_dac == nullptr) {
         return DeviceOperationResult::failure;
     }
@@ -77,7 +77,7 @@ DeviceOperationResult DacDriver::write_value(std::string_view what, const device
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult DacDriver::read_value(std::string_view what, device_values &value) const {
+DeviceOperationResult DacDriver::read_value(std::string_view what, DeviceValues &value) const {
     return DeviceOperationResult::not_supported;
 }
 

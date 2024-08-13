@@ -83,7 +83,7 @@ void *networkTask(void *pvParameters) {
 
     sntp_clock clock;
 
-    auto resource = TaskPool<max_task_pool_size>::postTask(single_task{
+    auto resource = TaskPool<max_task_pool_size>::postTask(SingleTask{
             .single_shot = false,
             .func_ptr = print_health,
             .argument = nullptr,
