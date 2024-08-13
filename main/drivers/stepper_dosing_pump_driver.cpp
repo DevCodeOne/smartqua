@@ -29,7 +29,7 @@ std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(co
       
     bool assignResult = true;
 
-    assignResult &= check_assign(newConf.deviceId, deviceId);
+    assignResult &= checkAssign(newConf.deviceId, deviceId);
 
     if (!assignResult) {
         Logger::log(LogLevel::Error, "Some value(s) were out of range");

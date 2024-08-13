@@ -47,8 +47,8 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
                json_scanf_single<DeviceValues>, &newConf.highValue,
                json_scanf_single<DeviceValues>, &newConf.maxAllowedDifference);
 
-    bool check = check_assign(newConf.readingDeviceId, readingDeviceId);
-    check &= check_assign(newConf.targetDeviceId, targetDeviceId);
+    bool check = checkAssign(newConf.readingDeviceId, readingDeviceId);
+    check &= checkAssign(newConf.targetDeviceId, targetDeviceId);
 
     if (!check) {
         Logger::log(LogLevel::Error, "Value(s) for device id(s)");

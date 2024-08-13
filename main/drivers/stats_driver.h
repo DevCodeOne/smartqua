@@ -148,7 +148,7 @@ auto stats_driver<N>::create_stat(std::string_view description, single_stat_sett
     json_scanf(description.data(), description.size(), R"({ device_index : %u, stat_interval_minutes : %u })", &device_index, &stat_interval);
 
     out_stat_settings.stat_interval = std::chrono::minutes(stat_interval);
-    bool result = check_assign(out_stat_settings.device_index, device_index);
+    bool result = checkAssign(out_stat_settings.device_index, device_index);
 
     if (!result) {
         return std::nullopt;

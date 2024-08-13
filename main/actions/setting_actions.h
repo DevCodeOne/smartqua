@@ -78,7 +78,7 @@ class Settings {
 
         template<typename T>
         using filter_return_type = std::conditional_t<!
-        all_unique_v<T,
+        AllUniqueV<T,
                     SetSetting,
                     RemoveSetting,
                     RetrieveSetting,
