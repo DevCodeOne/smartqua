@@ -11,7 +11,7 @@
 #include "hal/gpio_types.h"
 #include "hal/ledc_types.h"
 #include "utils/logger.h"
-#include "utils/utils.h"
+#include "utils/check_assign.h"
 
 PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }

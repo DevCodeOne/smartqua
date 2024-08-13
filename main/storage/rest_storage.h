@@ -8,8 +8,8 @@
 #include "esp_log.h"
 
 #include "utils/rest_client.h"
+#include "utils/do_finally.h"
 #include "network/network_info.h"
-#include "utils/utils.h"
 
 // TODO: add setting to close the connection for storage, that's rarely updated
 template<typename SettingType, RestDataType StorageType>
