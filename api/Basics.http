@@ -1,0 +1,37 @@
+### GET request to example server
+GET http://modernize-it.local/api/v1/devices
+
+### Create first pump
+
+POST http://modernize-it.local/api/v1/devices
+Content-Type: application/json
+
+{ description: "KH", driver_type : "drv8825_driver", driver_param : { "step_gpio" : 12, "en_gpio" : 14 } }
+
+### Create second pump
+
+POST http://modernize-it.local/api/v1/devices
+Content-Type: application/json
+
+{ description: "Ca", driver_type : "drv8825_driver", driver_param : { "step_gpio" : 15, "en_gpio" : 16 } }
+
+
+### Create Schedule
+
+POST http://modernize-it.local/api/v1/devices
+Content-Type: application/json
+
+{ description: "Essial", driver_type : "schedule_driver", driver_param : { channel_names : [ "kh", "ca" ] , channel_units : ["ml", "ml"], devices : [4, 5], type : "action", schedule : { repeating : "10-00:kh=1.0;10-15:ca=0.25;12-00:kh=2.0;12-15:ca=0.25;14-00:kh=2.0;14-15:ca=0.25;16-00:kh=2.0;16-15:ca=0.25;18-00:kh=2.0;18-15:ca=0.25" } }
+
+###
+
+
+### Failing Pins
+
+POST http://modernize-it.local/api/v1/devices
+Content-Type: application/json
+
+{ description: "Mg", driver_type : "drv8825_driver", driver_param : { "step_gpio" : 32, "en_gpio" : 33 } }
+
+
+
