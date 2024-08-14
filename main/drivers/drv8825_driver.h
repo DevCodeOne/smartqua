@@ -47,11 +47,11 @@ class DRV8825Driver final {
             rmt_channel_handle_t channel_handle;
         } mRmtHandles;
 
-        DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> stepGPIO, const RmtHandles &rmtHandle);
+        DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> stepGPIO, const RmtHandles &rmtHandle);
 
         const DeviceConfig*mConf;
 
-        std::shared_ptr<gpio_resource> mStepGPIO = nullptr;
+        std::shared_ptr<GpioResource> mStepGPIO = nullptr;
         std::atomic_uint16_t mStepsLeft = 0;
         std::jthread mPumpThread;
 };

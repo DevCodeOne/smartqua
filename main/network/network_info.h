@@ -11,7 +11,7 @@ class NetworkInfo {
         }
 
         template<wifi_mode_t T>
-        friend class wifi_manager;
+        friend class WifiManager;
 
     private:
         static inline std::atomic_bool networkFlag{false};

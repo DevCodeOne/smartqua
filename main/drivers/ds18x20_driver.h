@@ -39,7 +39,7 @@ class Ds18x20Driver final {
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
     private:
-        Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> pin);
+        Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin);
 
         static void updateTempThread(std::stop_token token, Ds18x20Driver *instance);
 
@@ -48,7 +48,7 @@ class Ds18x20Driver final {
 
         const DeviceConfig*m_conf;
 
-        std::shared_ptr<gpio_resource> m_pin;
+        std::shared_ptr<GpioResource> m_pin;
         std::jthread mTemperatureThread;
         sample_container<float> mTemperatureReadings;
 

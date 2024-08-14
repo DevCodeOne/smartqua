@@ -96,9 +96,10 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
     using last_executed_type = decltype(std::declval<SingleTask>().last_executed);
 
     while (1) {
-        bool sleepThisRound = false;
+        unsigned int workedThreads = 0;
         {
             if (index == 0) {
+                workedThreads = 0;
                 Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
             }
             auto seconds_since_epoch = 
@@ -109,8 +110,6 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
 
             if (not current_task) {
                 index = (index + 1) % _tasks.size();
-                // sleepThisRound = index == 0 || !current_task.has_value();
-                sleepThisRound = true;
             } else if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
 
                 Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================", current_task->description);
@@ -126,11 +125,12 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
                 }
 
                 current_task->last_executed = seconds_since_epoch;
+                ++workedThreads;
             }
 
         }
 
-        if (sleepThisRound) {
+        if (workedThreads == 0) {
             using namespace std::chrono_literals;
             std::this_thread::sleep_for(500ms);
         }

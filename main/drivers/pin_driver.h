@@ -35,7 +35,7 @@ struct read_from_json<PinType> {
 
 struct PinConfig {
     PinType type;
-    timer_config timer_conf {};
+    TimerConfig timer_conf {};
     uint16_t frequency = 100;
     ledc_channel_t channel = LEDC_CHANNEL_0;
     // TODO: configure this differently
@@ -60,11 +60,11 @@ class PinDriver final {
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult update_runtime_data();
     private:
-        PinDriver(const DeviceConfig*conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel);
+        PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel);
 
         const DeviceConfig*m_conf = nullptr;
-        std::shared_ptr<timer_resource> m_timer = nullptr;
-        std::shared_ptr<gpio_resource> m_gpio = nullptr;
-        std::shared_ptr<led_channel> m_channel = nullptr;
+        std::shared_ptr<TimerResource> m_timer = nullptr;
+        std::shared_ptr<GpioResource> m_gpio = nullptr;
+        std::shared_ptr<LedChannel> m_channel = nullptr;
         uint16_t m_current_value = 0;
 };

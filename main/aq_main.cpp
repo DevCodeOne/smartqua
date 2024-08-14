@@ -52,15 +52,15 @@ void *networkTask(void *pvParameters) {
                 .ssid{DEFAULT_WIFI_SSID}, 
                 .password{DEFAULT_WIFI_PASS}
             },
-            .reconnect_tries = wifi_reconnect_policy::infinite,
+            .reconnect_tries = WifiReconnectPolicy::infinite,
             .retry_time = std::chrono::milliseconds(1000)
     };
 
     esp_event_loop_create_default();
 
-    wifi_manager<WIFI_MODE_STA> wifi(config);
+    WifiManager<WIFI_MODE_STA> wifi(config);
     // TODO: if unit has rtc, continue and cre
-    wifi.await_connection(std::chrono::seconds(5));
+    wifi.awaitConnection(std::chrono::seconds(5));
 
     init_timezone();
     wait_for_clock_sync();
@@ -78,8 +78,9 @@ void *networkTask(void *pvParameters) {
     // webserver<security_level::unsecured> app_server("/external/app_data");
     WebServer<WebServerSecurityLevel::unsecured> api_server("");
     api_server.registerHandler("/api/v1/devices",
-                            1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE | 1ULL << HTTP_PATCH,
-                            do_devices);
+                               1ULL << HTTP_GET | 1ULL << HTTP_POST | 1ULL << HTTP_PUT | 1ULL << HTTP_DELETE |
+                               1ULL << HTTP_PATCH,
+                               do_devices);
 
     sntp_clock clock;
 

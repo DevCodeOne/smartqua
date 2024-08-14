@@ -41,14 +41,14 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view
 std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*config) {
     DRV8825DriverConfig *const stepperConfig = reinterpret_cast<DRV8825DriverConfig *>(config->device_config.data());
 
-    auto stepGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->stepGPIONum), gpio_purpose::gpio);
+    auto stepGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->stepGPIONum), GpioPurpose::gpio);
 
     if (stepGPIO == nullptr) {
         Logger::log(LogLevel::Warning, "Couldn't get gpio resource for step pin");
         return std::nullopt;
     }
 
-    auto enGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->enGPIONum), gpio_purpose::gpio);
+    auto enGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->enGPIONum), GpioPurpose::gpio);
 
     gpio_config_t stepGPIOConf{
         .pin_bit_mask = 1ULL << static_cast<uint8_t>(stepGPIO->gpio_num()) | 1ULL << static_cast<uint8_t>(enGPIO->gpio_num()),
@@ -161,7 +161,7 @@ DRV8825Driver::~DRV8825Driver() {
     }
 }
 
-DRV8825Driver::DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> stepGPIO, const RmtHandles &rmtHandle) : 
+DRV8825Driver::DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> stepGPIO, const RmtHandles &rmtHandle) :
     mRmtHandles(rmtHandle),
     mConf(conf),
     mStepGPIO(stepGPIO),
