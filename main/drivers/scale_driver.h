@@ -46,13 +46,13 @@ class LoadcellDriver final {
         DeviceOperationResult update_runtime_data();
 
     private:
-        LoadcellDriver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> doutGPIO, std::shared_ptr<gpio_resource> sckGPIO, hx711_t &&dev);
+        LoadcellDriver(const DeviceConfig*conf, std::shared_ptr<GpioResource> doutGPIO, std::shared_ptr<GpioResource> sckGPIO, hx711_t &&dev);
         static int32_t convertToRealValue(int32_t rawValue, int32_t offset, int32_t scale);
 
         const DeviceConfig*mConf;
 
         sample_container<int32_t, float, max_sample_size> m_values{};
-        std::shared_ptr<gpio_resource> mDoutGPIO = nullptr;
-        std::shared_ptr<gpio_resource> mSckGPIO = nullptr;
+        std::shared_ptr<GpioResource> mDoutGPIO = nullptr;
+        std::shared_ptr<GpioResource> mSckGPIO = nullptr;
         hx711_t mDev;
 };

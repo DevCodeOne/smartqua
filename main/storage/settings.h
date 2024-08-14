@@ -125,11 +125,9 @@ class NvsSetting {
 #endif
 
 template<typename SettingType, ConstexprPath Path, typename FilesystemType, auto InitType = SettingInitType::lazy_load>
-class FilesystemSetting {
+requires (std::is_standard_layout_v<SettingType>)
+class FilesystemSetting final {
     public:
-        static_assert(std::is_standard_layout_v<SettingType>, 
-            "SettingType has to conform to the standard layout concept");
-
         FilesystemSetting() { initialize(); }
 
         ~FilesystemSetting() = default;
@@ -360,11 +358,9 @@ struct RestRemoteSettingPathGenerator {
 };
 
 template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>
+requires (std::is_standard_layout_v<SettingType>)
 class RestRemoteSetting {
     public:
-        static_assert(std::is_standard_layout_v<SettingType>,
-            "SettingType has to conform to the standard layout concept");
-
         using PathGeneratorType = RestRemoteSettingPathGenerator<SettingType, InitType>;
 
         RestRemoteSetting() {
@@ -383,17 +379,17 @@ class RestRemoteSetting {
             return *this;
         }
 
-        const auto &get_value() {
+        [[nodiscard]] const auto &get_value() {
             retrieveInitialValue();
 
             return mValue;
         }
 
-        operator bool() const {
+        [[nodiscard]] explicit operator bool() const {
             return isValid();
         }
 
-        bool isValid() const {
+        [[nodiscard]] bool isValid() const {
             return true;
         }
 

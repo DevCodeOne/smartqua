@@ -104,7 +104,7 @@ std::optional<MMAPPartition<device>> mapPartition(const char *partitionName) {
 
 template<size_t N>
 struct ConstexprPath {
-    constexpr ConstexprPath(const char (&path)[N]) {
+    constexpr explicit ConstexprPath(const char (&path)[N]) {
         std::copy_n(path, N, value);
     }
 

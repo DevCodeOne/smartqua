@@ -13,7 +13,7 @@
 #include "utils/logger.h"
 #include "utils/check_assign.h"
 
-PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<timer_resource> timer, std::shared_ptr<gpio_resource> gpio, std::shared_ptr<led_channel> channel) 
+PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel)
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
 DeviceOperationResult PinDriver::write_value(std::string_view what, const DeviceValues &value) {
@@ -126,7 +126,7 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
         return std::nullopt;
     }
 
-    auto gpio = device_resource::get_gpio_resource(static_cast<gpio_num_t>(pinConf->gpio_num), gpio_purpose::gpio);
+    auto gpio = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(pinConf->gpio_num), GpioPurpose::gpio);
 
     if (gpio == nullptr) {
         Logger::log(LogLevel::Warning, "Couldn't get gpio pin");
@@ -134,14 +134,14 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
     }
 
     if (pinConf->type == PinType::Pwm) {
-        auto timer = device_resource::get_timer_resource(pinConf->timer_conf);
+        auto timer = DeviceResource::get_timer_resource(pinConf->timer_conf);
 
-        if (timer == nullptr || !timer->is_valid()) {
+        if (timer == nullptr || !timer->isValid()) {
             Logger::log(LogLevel::Warning, "Couldn't create ledc driver or timer wasn't valid");
             return std::nullopt;
         }
 
-        auto channel = device_resource::get_led_channel();
+        auto channel = DeviceResource::get_led_channel();
 
         if (channel == nullptr) {
             Logger::log(LogLevel::Warning, "Couldn't create channel");
@@ -154,9 +154,9 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
         // TODO: enable for older esp32
         // ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_LOW_SPEED_MODE : LEDC_LOW_SPEED_MODE;
         ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
-        ledc_channel.channel = channel->channel_num();
+        ledc_channel.channel = channel->channelNum();
         pinConf->channel = ledc_channel.channel;
-        ledc_channel.timer_sel = timer->timer_num();
+        ledc_channel.timer_sel = timer->timerNum();
         ledc_channel.duty = 0;
         ledc_channel.hpoint = 0; 
         ledc_channel.intr_type = ledc_intr_type_t::LEDC_INTR_DISABLE;

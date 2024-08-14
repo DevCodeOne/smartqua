@@ -11,7 +11,7 @@ enum single_stat_operation_result {
     ok, failure
 };
 
-struct single_stat_settings {
+struct SingleStatSettings {
     static inline constexpr char StorageName[] = "SingleStatSettings";
 
     std::chrono::minutes stat_interval{5};
@@ -22,15 +22,15 @@ struct single_stat_settings {
 
 // TODO: implement
 template<>
-struct print_to_json<single_stat_settings> {
-    static int print(json_out *out, const single_stat_settings &stat) {
+struct print_to_json<SingleStatSettings> {
+    static int print(json_out *out, const SingleStatSettings &stat) {
         return 0;
     }
 };
 
 
 template<>
-struct read_from_json<single_stat_settings> {
-    static void read(const char *str, int len, single_stat_settings *values) {
+struct read_from_json<SingleStatSettings> {
+    static void read(const char *str, int len, SingleStatSettings *values) {
     }
 };

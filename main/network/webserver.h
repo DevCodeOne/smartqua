@@ -1,13 +1,14 @@
 #pragma once
 
-#include "esp_err.h"
+#include <esp_err.h>
+
 #include <cstdio>
+#include <cstring>
 #include <pthread.h>
+
 #include <string_view>
 #include <memory>
 
-#include <stdio.h>
-#include <string.h>
 #include <sys/param.h>
 #include <sys/unistd.h>
 #include <sys/stat.h>
@@ -43,12 +44,12 @@ namespace Detail {
         public:
             WebServerHandle() = default;
             ~WebServerHandle() { stopServer(); }
-            operator httpd_handle_t() const { return m_http_server_handle; }
+            explicit operator httpd_handle_t() const { return m_http_server_handle; }
 
             bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
-                config.stack_size = 4096 * 6;
+                config.stack_size = 4096;
                 config.keep_alive_enable = false;
                 config.lru_purge_enable = true;
                 config.recv_wait_timeout = 5;
@@ -154,7 +155,7 @@ class WebServer final {
    public:
     static constexpr char file_handler_uri_path[] = "/*";
 
-    WebServer(const char *base_path = "/");
+    explicit WebServer(const char *base_path = "/");
     WebServer(const WebServer &other) = delete;
     WebServer(WebServer &&other) = delete;
     ~WebServer() = default;
@@ -163,22 +164,24 @@ class WebServer final {
     WebServer &operator=(WebServer &&other) = delete;
 
     void registerHandler(std::string_view prefix, uint32_t methods, esp_err_t (*handler)(httpd_req *req)) {
-        if (prefix.size() == 0) {
+        if (prefix.empty()) {
             return;
         }
 
         Logger::log(LogLevel::Info, "Registering handler with prefix %s", prefix.data());
 
         // The last pos is reserved for the filehandler
-        for (size_t i = 0; i < m_handler.size() - 1; ++i) {
-            if (!m_handler[i]) {
-                m_handler[i] = Handler{
-                    .prefix = prefix,
-                    .methods = methods,
-                    .handler = handler
-                };
-            }
+        auto firstFreeSlot = std::find(m_handler.begin(), m_handler.end() - 1, std::nullopt);
+
+        if (firstFreeSlot == m_handler.end() - 1) {
+            // TODO: handle error -> no empty slot found
         }
+
+        *firstFreeSlot = Handler{
+                .prefix = prefix,
+                .methods = methods,
+                .handler = handler
+        };
     }
 
     // TODO: implement
@@ -194,37 +197,30 @@ class WebServer final {
 
     private:
     void registerMainHandler() {
-        httpd_uri_t main_handler_get = {
-            .uri = "*",
-            .method = HTTP_GET,
-            .handler = WebServer::main_handler,
-            .user_ctx = reinterpret_cast<void*>(this)};
-        httpd_uri_t main_handler_post = {
-            .uri = "*",
-            .method = HTTP_POST,
-            .handler = WebServer::main_handler,
-            .user_ctx = reinterpret_cast<void*>(this)};
-        httpd_uri_t main_handler_put = {
-            .uri = "*",
-            .method = HTTP_PUT,
-            .handler = WebServer::main_handler,
-            .user_ctx = reinterpret_cast<void*>(this)};
-        httpd_uri_t main_handler_delete = {
-            .uri = "*",
-            .method = HTTP_DELETE,
-            .handler = WebServer::main_handler,
-            .user_ctx = reinterpret_cast<void*>(this)};
-        httpd_uri_t main_handler_patch = {
-            .uri = "*",
-            .method = HTTP_PATCH,
-            .handler = WebServer::main_handler,
-            .user_ctx = reinterpret_cast<void*>(this)};
+        const auto generateHandler = [this](const auto &method) {
+            return httpd_uri_t{
+                .uri = "*",
+                .method = method,
+                .handler = WebServer::mainHandler,
+                .user_ctx = reinterpret_cast<void *>(this)
+            };
+        };
+        const auto main_handler_get = generateHandler(HTTP_GET);
+        const auto main_handler_post = generateHandler(HTTP_POST);
+        const auto main_handler_put = generateHandler(HTTP_PUT);
+        const auto main_handler_delete = generateHandler(HTTP_DELETE);
+        const auto main_handler_patch = generateHandler(HTTP_PATCH);
 
-        httpd_register_uri_handler(m_server_handle, &main_handler_get);
-        httpd_register_uri_handler(m_server_handle, &main_handler_post);
-        httpd_register_uri_handler(m_server_handle, &main_handler_put);
-        httpd_register_uri_handler(m_server_handle, &main_handler_delete);
-        httpd_register_uri_handler(m_server_handle, &main_handler_patch);
+        httpd_register_uri_handler(static_cast<httpd_handle_t>(m_server_handle),
+                                   &main_handler_get);
+        httpd_register_uri_handler(static_cast<httpd_handle_t>(m_server_handle),
+                                   &main_handler_post);
+        httpd_register_uri_handler(static_cast<httpd_handle_t>(m_server_handle),
+                                   &main_handler_put);
+        httpd_register_uri_handler(static_cast<httpd_handle_t>(m_server_handle),
+                                   &main_handler_delete);
+        httpd_register_uri_handler(static_cast<httpd_handle_t>(m_server_handle),
+                                   &main_handler_patch);
         
     }
 
@@ -235,55 +231,56 @@ class WebServer final {
     };
 
     static void *threadWrapper(void *handlerParam) {
-        HandlerThreadParam *param = reinterpret_cast<HandlerThreadParam *>(handlerParam);
-
+        auto *const param = reinterpret_cast<HandlerThreadParam *>(handlerParam);
         param->result = param->handler(param->req);
 
-        return nullptr;
+        pthread_exit(nullptr);
     }
 
-    static esp_err_t main_handler(httpd_req *req) {
+    static esp_err_t mainHandler(httpd_req *req) {
         std::string_view uri_view = req->uri;
         auto *thiz = reinterpret_cast<WebServer *>(req->user_ctx);
 
         // Delete user_ctx since this pointer shouldn't be used later on
         req->user_ctx = nullptr;
-        for (auto &currentHandler : thiz->m_handler) {
-            if (currentHandler && uri_view.starts_with(currentHandler->prefix)
-                && (1ULL << req->method & currentHandler->methods)) {
-                Logger::log(LogLevel::Info, "Found handler with prefix : %s", currentHandler->prefix.data());
+        auto const foundHandler = std::find_if(thiz->m_handler.cbegin(), thiz->m_handler.cend(),
+                                         [&uri_view](const auto &currentHandler) {
+                                             return currentHandler && uri_view.starts_with(currentHandler->prefix);
+                                         });
 
-                pthread_attr_t attributes;
-                pthread_t newThreadHandle;
-
-                pthread_attr_init(&attributes);
-                pthread_attr_setstacksize(&attributes, stack_size);
-
-                HandlerThreadParam param{
-                    .handler = currentHandler->handler,
-                    .req = req,
-                    .result = ESP_FAIL
-                };
-
-                if (auto result = pthread_create(&newThreadHandle, &attributes, threadWrapper, (void *) &param); result != 0) {
-                    // TODO: creating thread failed, handle
-                    pthread_attr_destroy(&attributes);
-                    return ESP_FAIL;
-                }
-
-                if (auto result = pthread_join(newThreadHandle, nullptr); result != 0) {
-                    // TODO: joining thread failed, handle
-                    pthread_attr_destroy(&attributes);
-                    return ESP_FAIL;
-                }
-
-                pthread_attr_destroy(&attributes);
-
-                return param.result;
-            }
+        if (foundHandler == thiz->m_handler.cend()) {
+            return ESP_FAIL;
         }
 
-        return ESP_OK;
+        Logger::log(LogLevel::Info, "Found handler with prefix : %s", (*foundHandler)->prefix.data());
+
+        pthread_attr_t attributes;
+        pthread_t newThreadHandle;
+
+        pthread_attr_init(&attributes);
+        pthread_attr_setstacksize(&attributes, stack_size);
+
+        HandlerThreadParam param{
+                .handler = (*foundHandler)->handler,
+                .req = req,
+                .result = ESP_FAIL
+        };
+
+        DoFinally cleanup([&attributes]() {
+            pthread_attr_destroy(&attributes);
+        });
+
+        if (pthread_create(&newThreadHandle,
+                           &attributes,
+                           threadWrapper, (void *) &param) != 0) {
+            return ESP_FAIL;
+        }
+
+        if (pthread_join(newThreadHandle, nullptr) != 0) {
+            return ESP_FAIL;
+        }
+
+        return param.result;
     }
     
     Detail::WebServerHandle<level> m_server_handle{};
@@ -357,18 +354,15 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     }
 
     struct stat tmp_stat{};
-    std::array<char, 128> filepath;
-    std::string_view selected_path = "";
-    std::string_view request_uri = req->uri;
+    std::array<char, 128> filepath{};
+    std::string_view selected_path;
+    std::string_view request_uri{req->uri};
 
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
     httpd_resp_set_hdr(req, "Keep-Alive", "timeout=1, max=1000");
 
-
-    if (base_path != nullptr) {
-        std::strncpy(filepath.data(), base_path, filepath.size() - 1);
-    }
+    std::strncpy(filepath.data(), base_path, filepath.size() - 1);
 
     // TODO: Remove trailing /
     if (request_uri == "/") {

@@ -12,8 +12,8 @@
 #include "frozen.h"
 
 LoadcellDriver::LoadcellDriver(const DeviceConfig*conf, 
-    std::shared_ptr<gpio_resource> doutGPIO, 
-    std::shared_ptr<gpio_resource> sckGPIO,
+    std::shared_ptr<GpioResource> doutGPIO,
+    std::shared_ptr<GpioResource> sckGPIO,
     hx711_t &&dev) : mConf(conf), mDoutGPIO(std::move(doutGPIO)), mSckGPIO(std::move(sckGPIO)), mDev(dev) {}
 
 LoadcellDriver::LoadcellDriver(LoadcellDriver &&other) : 
@@ -107,14 +107,14 @@ std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_vi
 std::optional<LoadcellDriver> LoadcellDriver::create_driver(const DeviceConfig*config) {
     LoadcellConfig *const loadcellConf = reinterpret_cast<LoadcellConfig *>(config->device_config.data());
 
-    auto doutGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->doutGPIONum), gpio_purpose::gpio);
+    auto doutGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->doutGPIONum), GpioPurpose::gpio);
 
     if (doutGPIO == nullptr) {
         Logger::log(LogLevel::Warning, "Couldn't get gpio resource for dout");
         return std::nullopt;
     }
 
-    auto sckGPIO = device_resource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->sckGPIONum), gpio_purpose::gpio);
+    auto sckGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->sckGPIONum), GpioPurpose::gpio);
 
     if (sckGPIO == nullptr) {
         Logger::log(LogLevel::Warning, "Couldn't get gpio resource for sck");

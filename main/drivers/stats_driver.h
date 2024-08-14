@@ -21,41 +21,41 @@
 
 // TODO: replace with new update runtime stuff like devices class
 template<typename DriverType>
-class single_stat final {
+class SingleStats final {
     public:
-        single_stat(const single_stat &other) = delete;
-        single_stat(single_stat &&other);
-        ~single_stat();
+        SingleStats(const SingleStats &other) = delete;
+        SingleStats(SingleStats &&other);
+        ~SingleStats();
 
-        single_stat &operator=(const single_stat &other) = delete;
-        single_stat &operator=(single_stat &&other);
+        SingleStats &operator=(const SingleStats &other) = delete;
+        SingleStats &operator=(SingleStats &&other);
 
-        static std::optional<single_stat> create(single_stat_settings *stat_settings);
+        static std::optional<SingleStats> create(SingleStatSettings *stat_settings);
     private:
-        single_stat(single_stat_settings *stat_settings);
+        explicit SingleStats(SingleStatSettings *stat_settings);
 
-        single_stat_settings *m_stat_settings;
+        SingleStatSettings *m_stat_settings;
 
         template<size_t N>
-        friend class stats_driver;
+        friend class StatsDriver;
 };
 
 template<typename DriverType>
-std::optional<single_stat<DriverType>> single_stat<DriverType>::create(single_stat_settings *stat_settings) {
+std::optional<SingleStats<DriverType>> SingleStats<DriverType>::create(SingleStatSettings *stat_settings) {
     return DriverType::create_stat(stat_settings);
 }
 
 template<typename DriverType>
-single_stat<DriverType>::single_stat(single_stat_settings *stat_settings) : m_stat_settings(stat_settings) { }
+SingleStats<DriverType>::SingleStats(SingleStatSettings *stat_settings) : m_stat_settings(stat_settings) { }
 
 template<typename DriverType>
-single_stat<DriverType>::single_stat(single_stat && other) : m_stat_settings(other.m_stat_settings) { other.m_stat_settings = nullptr; }
+SingleStats<DriverType>::SingleStats(SingleStats && other) : m_stat_settings(other.m_stat_settings) { other.m_stat_settings = nullptr; }
 
 template<typename DriverType>
-single_stat<DriverType>::~single_stat() { DriverType::remove_stat(m_stat_settings); }
+SingleStats<DriverType>::~SingleStats() { DriverType::remove_stat(m_stat_settings); }
 
 template<typename DriverType>
-single_stat<DriverType> &single_stat<DriverType>::operator=(single_stat &&other) {
+SingleStats<DriverType> &SingleStats<DriverType>::operator=(SingleStats &&other) {
     using std::swap;
 
     swap(m_stat_settings, other.m_stat_settings);
@@ -63,31 +63,31 @@ single_stat<DriverType> &single_stat<DriverType>::operator=(single_stat &&other)
 }
 
 template<size_t N>
-class stats_driver final {
+class StatsDriver final {
     public:
-        using stat_type = single_stat<stats_driver<N>>;
+        using StatType = SingleStats<StatsDriver<N>>;
 
-        static bool add_stat(single_stat_settings *settings);
-        static bool remove_stat(single_stat_settings *settings);
+        static bool add_stat(SingleStatSettings *settings);
+        static bool remove_stat(SingleStatSettings *settings);
 
-        static std::optional<stat_type> create_stat(single_stat_settings *);
-        static std::optional<stat_type> create_stat(std::string_view description, single_stat_settings &out);
+        static std::optional<StatType> create_stat(SingleStatSettings *);
+        static std::optional<StatType> create_stat(std::string_view description, SingleStatSettings &out);
     
     private:
         static void stats_driver_task(void *);
         static void init_task();
 
-        struct stats_data {
-            std::array<single_stat_settings *, N> stat_settings{};
+        struct StatsData {
+            std::array<SingleStatSettings *, N> stat_settings{};
         };
 
         static inline std::once_flag _task_initialized{};
         static inline std::shared_mutex _instance_mutex{};
-        static inline stats_data _data;
+        static inline StatsData _data;
 };
 
 template<size_t N>
-bool stats_driver<N>::add_stat(single_stat_settings *settings) {
+bool StatsDriver<N>::add_stat(SingleStatSettings *settings) {
     init_task();
 
     std::unique_lock instance_guard{_instance_mutex};
@@ -122,7 +122,7 @@ bool stats_driver<N>::add_stat(single_stat_settings *settings) {
 }
 
 template<size_t N>
-bool stats_driver<N>::remove_stat(single_stat_settings *settings) {
+bool StatsDriver<N>::remove_stat(SingleStatSettings *settings) {
     std::unique_lock instance_guard{_instance_mutex};
 
     if (!settings) {
@@ -141,39 +141,41 @@ bool stats_driver<N>::remove_stat(single_stat_settings *settings) {
 }
 
 template<size_t N>
-auto stats_driver<N>::create_stat(std::string_view description, single_stat_settings &out_stat_settings) -> std::optional<stat_type> {
-    unsigned int device_index = static_cast<unsigned int>(out_stat_settings.device_index);
-    unsigned int stat_interval = static_cast<unsigned int>(out_stat_settings.stat_interval.count());
+auto StatsDriver<N>::create_stat(std::string_view description, SingleStatSettings &out_stat_settings) -> std::optional<StatType> {
+    const auto device_index = static_cast<unsigned int>(out_stat_settings.device_index);
+    const auto stat_interval = static_cast<unsigned int>(out_stat_settings.stat_interval.count());
 
-    json_scanf(description.data(), description.size(), R"({ device_index : %u, stat_interval_minutes : %u })", &device_index, &stat_interval);
+    json_scanf(description.data(), description.size(),
+               R"({ device_index : %u, stat_interval_minutes : %u })",
+               &device_index, &stat_interval);
 
     out_stat_settings.stat_interval = std::chrono::minutes(stat_interval);
-    bool result = checkAssign(out_stat_settings.device_index, device_index);
+    const bool result = checkAssign(out_stat_settings.device_index, device_index);
 
     if (!result) {
         return std::nullopt;
     }
 
-    return stats_driver::create_stat(&out_stat_settings);
+    return StatsDriver::create_stat(&out_stat_settings);
 }
 
 template<size_t N>
-auto stats_driver<N>::create_stat(single_stat_settings *stat_settings) -> std::optional<stat_type> {
-    if (!stats_driver::add_stat(stat_settings)) {
+auto StatsDriver<N>::create_stat(SingleStatSettings *stat_settings) -> std::optional<StatType> {
+    if (!StatsDriver::add_stat(stat_settings)) {
         Logger::log(LogLevel::Warning, "Stat is already created");
         return std::nullopt;
     }
 
-    return std::make_optional(stat_type{stat_settings});
+    return std::make_optional(StatType{stat_settings});
 }
 
 template<size_t N>
-void stats_driver<N>::init_task() {
+void StatsDriver<N>::init_task() {
     std::call_once(_task_initialized, []{
         Logger::log(LogLevel::Info, "Adding stats_task to TaskPool");
         TaskPool<max_task_pool_size>::postTask(SingleTask{
                 .single_shot = false,
-                .func_ptr = stats_driver<N>::stats_driver_task,
+                .func_ptr = StatsDriver<N>::stats_driver_task,
                 .interval = std::chrono::minutes{1},
                 .argument = nullptr,
                 .description = "Stats updater thread"
@@ -182,7 +184,7 @@ void stats_driver<N>::init_task() {
 }
 
 template<size_t N>
-void stats_driver<N>::stats_driver_task(void *) {
+void StatsDriver<N>::stats_driver_task(void *) {
     Logger::log(LogLevel::Info, "Checking on stats");
     std::unique_lock instance_guard{_instance_mutex};
 

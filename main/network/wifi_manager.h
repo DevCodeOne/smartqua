@@ -16,19 +16,18 @@
 #include "storage/nvs_flash_utils.h"
 #include "network/network_info.h"
 
-static constexpr uint8_t wifi_connected_bit = BIT0;
-static constexpr uint8_t wifi_fail_bit = BIT1;
-extern std::atomic_bool canUseNetworkVar;
+static constexpr uint8_t WIFI_CONNECTED_BIT = BIT0;
+static constexpr uint8_t WIFI_FAIL_BIT = BIT1;
 
 template <wifi_mode_t Mode>
-class wifi_manager;
+class WifiManager;
 
-struct wifi_credentials {
+struct WifiCredentials {
     std::array<char, 32> ssid;
     std::array<char, 32> password;
 };
 
-enum struct wifi_reconnect_policy : uint32_t {
+enum struct WifiReconnectPolicy : uint32_t {
     never = 0,
     once = 1,
     infinite = std::numeric_limits<uint32_t>::max()
@@ -39,15 +38,15 @@ struct wifi_config;
 
 template <>
 struct wifi_config<wifi_mode_t::WIFI_MODE_STA> {
-    wifi_credentials creds;
-    wifi_reconnect_policy reconnect_tries{wifi_reconnect_policy::infinite};
+    WifiCredentials creds;
+    WifiReconnectPolicy reconnect_tries{WifiReconnectPolicy::infinite};
     std::chrono::milliseconds retry_time{1000};
 };
 
 template <>
-class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
+class WifiManager<wifi_mode_t::WIFI_MODE_STA> {
    public:
-    wifi_manager(const wifi_config<wifi_mode_t::WIFI_MODE_STA> &config)
+    explicit WifiManager(const wifi_config<wifi_mode_t::WIFI_MODE_STA> &config)
         : m_config(config), m_wifi_event_group(xEventGroupCreate()) {
         esp_netif_init();
 
@@ -57,9 +56,9 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         esp_wifi_init(&tmp_init_conf);
 
         esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
-                                   &wifi_manager::event_handler, this);
+                                   &WifiManager::eventHandler, this);
         esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
-                                   &wifi_manager::event_handler, this);
+                                   &WifiManager::eventHandler, this);
 
         std::memset(m_wifi_conf.sta.ssid, 0, sizeof(m_wifi_conf.sta.ssid));
         std::memset(m_wifi_conf.sta.password, 0, sizeof(m_wifi_conf.sta.password));
@@ -78,28 +77,26 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
         esp_wifi_set_ps(wifi_ps_type_t::WIFI_PS_NONE);
     }
 
-    ~wifi_manager() {
+    ~WifiManager() {
         esp_event_handler_unregister(WIFI_EVENT, IP_EVENT_STA_GOT_IP,
-                                     &wifi_manager::event_handler);
+                                     &WifiManager::eventHandler);
         esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                     &wifi_manager::event_handler);
+                                     &WifiManager::eventHandler);
         vEventGroupDelete(m_wifi_event_group);
     }
 
-    bool await_connection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) {
+    bool awaitConnection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) {
         EventBits_t bits = xEventGroupWaitBits(
-            m_wifi_event_group, wifi_connected_bit | wifi_fail_bit, pdFALSE,
-            pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
+                m_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
+                pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
 
-        return (bits & wifi_connected_bit) && !(bits & wifi_fail_bit);
+        return (bits & WIFI_CONNECTED_BIT) && !(bits & WIFI_FAIL_BIT);
     }
 
-    operator bool() const;
-
     // TODO: add delay to reconnect
-    static void event_handler(void *arg, esp_event_base_t event_base,
-                              int32_t event_id, void *event_data) {
-        auto thiz = reinterpret_cast<wifi_manager *>(arg);
+    static void eventHandler(void *arg, esp_event_base_t event_base,
+                             int32_t event_id, void *event_data) {
+        auto thiz = reinterpret_cast<WifiManager *>(arg);
         if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
             esp_wifi_connect();
         } else if (event_base == WIFI_EVENT &&
@@ -110,7 +107,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
                 thiz->retry_num++;
                 Logger::log(LogLevel::Warning, "Connection to the AP failed");
             } else {
-                xEventGroupSetBits(thiz->m_wifi_event_group, wifi_fail_bit);
+                xEventGroupSetBits(thiz->m_wifi_event_group, WIFI_FAIL_BIT);
             }
             NetworkInfo::disallowNetwork();
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
@@ -118,7 +115,7 @@ class wifi_manager<wifi_mode_t::WIFI_MODE_STA> {
             Logger::log(LogLevel::Info, "got ip:" IPSTR,
                      IP2STR(&event->ip_info.ip));
             thiz->retry_num = 0;
-            xEventGroupSetBits(thiz->m_wifi_event_group, wifi_connected_bit);
+            xEventGroupSetBits(thiz->m_wifi_event_group, WIFI_CONNECTED_BIT);
             NetworkInfo::allowNetwork();
         }
     }

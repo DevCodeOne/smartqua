@@ -14,8 +14,8 @@
 
 std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const DeviceConfig*config) {
     auto driver_data = reinterpret_cast<const PicoDeviceDriverData *>(config->device_config.data());
-    auto sdaPin = device_resource::get_gpio_resource(driver_data->sdaPin, gpio_purpose::bus);
-    auto sclPin = device_resource::get_gpio_resource(driver_data->sclPin, gpio_purpose::bus);
+    auto sdaPin = DeviceResource::get_gpio_resource(driver_data->sdaPin, GpioPurpose::bus);
+    auto sclPin = DeviceResource::get_gpio_resource(driver_data->sclPin, GpioPurpose::bus);
 
     if (!sdaPin || !sclPin) {
         Logger::log(LogLevel::Warning, "I2C Port cannot be used, since one or more pins are already reserved for a different purpose");
@@ -68,8 +68,8 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::strin
 
     Logger::log(LogLevel::Info, "Address for pico_device_driver : %x", (int) address);
 
-    auto sclPin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(scl), gpio_purpose::bus);
-    auto sdaPin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(sda), gpio_purpose::bus);
+    auto sclPin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(scl), GpioPurpose::bus);
+    auto sdaPin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(sda), GpioPurpose::bus);
 
     if (!sclPin || !sdaPin) {
         Logger::log(LogLevel::Warning, "GPIO pins couldn't be reserved");

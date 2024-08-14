@@ -12,7 +12,7 @@
 
 std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*config) {
     auto driver_data = reinterpret_cast<const ds18x20_driver_data *>(config->device_config.data());
-    auto pin = device_resource::get_gpio_resource(driver_data->gpio, gpio_purpose::bus);
+    auto pin = DeviceResource::get_gpio_resource(driver_data->gpio, GpioPurpose::bus);
 
     if (!pin) {
         Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
@@ -54,7 +54,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
         return std::nullopt;
     }
 
-    auto pin = device_resource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), gpio_purpose::bus);
+    auto pin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), GpioPurpose::bus);
 
     if (!pin) {
         Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
@@ -92,7 +92,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     return Ds18x20Driver(&device_conf_out, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<gpio_resource> pin) : m_conf(conf), m_pin(pin) { 
+Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : m_conf(conf), m_pin(pin) {
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 }
 

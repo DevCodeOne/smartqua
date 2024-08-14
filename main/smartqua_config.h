@@ -33,7 +33,7 @@
 #include "storage/local_flash_storage.h"
 
 // using DefaultStorage = FlashStorage<"/values">;
-using DefaultStorage = LocalFlashStorage<"/values">;
+using DefaultStorage = LocalFlashStorage<ConstexprPath("/values")>;
 // using DefaultStorage = DummyStorage<"/values">;
 
 template<typename SettingType, ConstexprPath path>
@@ -63,7 +63,7 @@ using StatCollectionType = StatCollection<max_stat_size>;
 
 // TODO: add settings
 using GlobalStoreType = Store<
-    SingleTypeStore<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, "devices.bin">>
+    SingleTypeStore<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, ConstexprPath("devices.bin")>>
     // , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, "settings.bin">>
     >;
 extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;

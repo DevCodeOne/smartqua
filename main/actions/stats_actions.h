@@ -21,17 +21,17 @@ json_action_result set_stat_action(unsigned int index, const char *input, size_t
 
 static inline constexpr size_t stat_uid = 20;
 
-using set_stat = SmartAq::Utils::ArrayActions::SetValue<single_stat_settings, stat_uid>;
-using remove_stat = SmartAq::Utils::ArrayActions::RemoveValue<single_stat_settings, stat_uid>;
-using retrieve_stat_info = SmartAq::Utils::ArrayActions::GetValue<single_stat_settings, stat_uid>;
-using retrieve_stat_overview = SmartAq::Utils::ArrayActions::GetValueOverview<single_stat_settings, stat_uid>;
+using set_stat = SmartAq::Utils::ArrayActions::SetValue<SingleStatSettings, stat_uid>;
+using remove_stat = SmartAq::Utils::ArrayActions::RemoveValue<SingleStatSettings, stat_uid>;
+using retrieve_stat_info = SmartAq::Utils::ArrayActions::GetValue<SingleStatSettings, stat_uid>;
+using retrieve_stat_overview = SmartAq::Utils::ArrayActions::GetValueOverview<SingleStatSettings, stat_uid>;
 
 template<size_t N>
 class StatCollection final {
     public:
         // TODO: better calculation, which should also be configurable
-        using driver_type = stats_driver<N>;
-        using event_access_array_type = SmartAq::Utils::EventAccessArray<single_stat_settings, typename driver_type::stat_type, N, stat_uid>;
+        using driver_type = StatsDriver<N>;
+        using event_access_array_type = SmartAq::Utils::EventAccessArray<SingleStatSettings, typename driver_type::StatType, N, stat_uid>;
         using trivial_representation = typename event_access_array_type::TrivialRepresentationType;
         template<typename T>
         using filter_return_type_t = std::conditional_t<!AllUniqueV<
