@@ -103,6 +103,10 @@ using Logger = ApplicationLogger<VoidSink>;
 using LargeBufferPoolType = LargeBufferPool<num_large_buffers, large_buffer_size, BufferLocation::heap>;
 using SmallerBufferPoolType = LargeBufferPool<20, 64, BufferLocation::heap>;
 
+#include "utils/task_pool.h"
+
+using MainTaskPool = TaskPool<max_task_pool_size>;
+
 // Device specific section
 #if __has_include("sdkconfig.h")
     #include "sdkconfig.h"
