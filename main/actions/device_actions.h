@@ -135,7 +135,7 @@ private:
     void initializeUpdater();
 
     EventAccessArrayType m_data;
-    TaskPool<max_task_pool_size>::TaskResourceType m_task_resource;
+    MainTaskPool::TaskResourceType m_task_resource;
     std::once_flag initialized_updater_flag;
 
     // TODO: secure with recursive_mutex
@@ -157,7 +157,7 @@ DeviceSettings<N, DeviceDrivers ...> &DeviceSettings<N, DeviceDrivers ...>::oper
 template<size_t N, typename ... DeviceDrivers>
 void DeviceSettings<N, DeviceDrivers ...>::initializeUpdater() {
     std::call_once(initialized_updater_flag, [this]() {
-        this->m_task_resource = TaskPool<max_task_pool_size>::postTask(SingleTask{
+        this->m_task_resource = MainTaskPool::postTask(TaskDescription{
                 .single_shot = false,
                 .func_ptr = &updateDeviceRuntime,
                 .interval = std::chrono::seconds(10),

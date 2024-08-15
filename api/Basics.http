@@ -21,7 +21,7 @@ Content-Type: application/json
 POST http://modernize-it.local/api/v1/devices
 Content-Type: application/json
 
-{ description: "Essial", driver_type : "schedule_driver", driver_param : { channel_names : [ "kh", "ca" ] , channel_units : ["ml", "ml"], devices : [4, 5], type : "action", schedule : { repeating : "10-00:kh=1.0;10-15:ca=0.25;12-00:kh=2.0;12-15:ca=0.25;14-00:kh=2.0;14-15:ca=0.25;16-00:kh=2.0;16-15:ca=0.25;18-00:kh=2.0;18-15:ca=0.25" } }
+{ description: "Essial", driver_type : "schedule_driver", driver_param : { channel_names : [ "kh", "ca" ] , channel_units : ["ml", "ml"], devices : [0, 1], type : "action", schedule : { repeating : "10-00:kh=1.0;10-15:ca=0.25;12-00:kh=2.0;12-15:ca=0.25;14-00:kh=2.0;14-15:ca=0.25;16-00:kh=2.0;16-15:ca=0.25;18-00:kh=2.0;18-15:ca=0.25" } } }
 
 ###
 

@@ -84,16 +84,18 @@ void *networkTask(void *pvParameters) {
 
     sntp_clock clock;
 
-    auto resource = TaskPool<max_task_pool_size>::postTask(SingleTask{
+    auto resource = MainTaskPool::postTask(TaskDescription{
             .single_shot = false,
             .func_ptr = print_health,
+            .interval = std::chrono::seconds(10),
             .argument = nullptr,
             .description = "Heartbeat Thread"
     });
 
-    TaskPool<max_task_pool_size>::doWork();
+    MainTaskPool::doWork();
 
-    return nullptr;
+    // Shouldn't reach
+    pthread_exit(nullptr);
 }
 
 extern "C" {
@@ -108,11 +110,11 @@ void app_main() {
     // Only stack size can be set on esp-idf
     pthread_attr_setstacksize(&attributes, stack_size);
     if (auto result = pthread_create(&mainThreadHandle, &attributes, networkTask, nullptr); result != 0) {
-        ESP_LOGE("Main", "Couldn start main thread");
+        ESP_LOGE("Main", "Couldn't start main thread");
     }
 
     if (auto result = pthread_join(mainThreadHandle, nullptr); result != 0) {
-        ESP_LOGE("Main", "main thread exited shouldn't happen");
+        ESP_LOGE("Main", "Main thread exited shouldn't happen");
     }
 
     pthread_attr_destroy(&attributes);

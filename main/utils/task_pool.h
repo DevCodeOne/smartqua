@@ -61,7 +61,7 @@ class TaskResourceTracker {
         TaskId m_id;
 };
 
-struct SingleTask {
+struct TaskDescription {
     bool single_shot = true;
     TaskFuncType func_ptr = nullptr;
     std::chrono::seconds interval = std::chrono::seconds{5};
@@ -77,13 +77,13 @@ class TaskPool {
     public:
         using TaskResourceType = TaskResourceTracker<TaskPool>;
 
-        static TaskResourceType postTask(SingleTask task);
+        static TaskResourceType postTask(TaskDescription task);
         static bool removeTask(TaskId id);
         static void doWork();
     private:
         [[noreturn]] static void task_pool_thread(void *ptr);
 
-        static inline std::array<std::pair<TaskId, std::optional<SingleTask>>, TaskPoolSize> _tasks;
+        static inline std::array<std::pair<TaskId, std::optional<TaskDescription>>, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
         static inline TaskId _next_id = TaskId(0);
 };
@@ -93,7 +93,7 @@ requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
     size_t index = 0;
 
-    using last_executed_type = decltype(std::declval<SingleTask>().last_executed);
+    using TimeType = decltype(TaskDescription::last_executed);
 
     while (1) {
         unsigned int workedThreads = 0;
@@ -102,23 +102,23 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
                 workedThreads = 0;
                 Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
             }
-            auto seconds_since_epoch = 
-            std::chrono::duration_cast<last_executed_type>(std::chrono::steady_clock::now().time_since_epoch());
+            auto seconds_since_epoch =
+            std::chrono::duration_cast<TimeType>(std::chrono::steady_clock::now().time_since_epoch());
 
             std::unique_lock instance_guard{_instance_mutex};
             auto &[current_id, current_task] = _tasks[index];
 
-            if (not current_task) {
-                index = (index + 1) % _tasks.size();
-            } else if (std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
+            if (current_task && std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
 
-                Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================", current_task->description);
+                Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================",
+                            current_task->description);
 
                 if (current_task->func_ptr != nullptr) {
                     current_task->func_ptr(current_task->argument);
                 }
 
-                Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================", current_task->description);
+                Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================",
+                            current_task->description);
 
                 if (current_task->single_shot) {
                     current_task = std::nullopt;
@@ -126,7 +126,11 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
 
                 current_task->last_executed = seconds_since_epoch;
                 ++workedThreads;
+            } else if (current_task) {
+                Logger::log(LogLevel::Info, "It is not the time to trigger this task %s", current_task->description);
             }
+
+            index = (index + 1) % _tasks.size();
 
         }
 
@@ -147,10 +151,10 @@ void TaskPool<TaskPoolSize>::doWork() {
 // TODO: maybe use std::optional as return type
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
-auto TaskPool<TaskPoolSize>::postTask(SingleTask task) -> TaskResourceType {
+auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType {
     std::unique_lock instance_guard{_instance_mutex};
 
-    auto result = std::find_if(_tasks.begin(), _tasks.end(), [](auto &current_task_pair) {
+    auto result = std::ranges::find_if(_tasks, [](auto &current_task_pair) {
         return current_task_pair.second == std::nullopt;
     });
 
@@ -165,7 +169,9 @@ auto TaskPool<TaskPoolSize>::postTask(SingleTask task) -> TaskResourceType {
 
     using TaskIdIntegral = std::underlying_type_t<IdType>;
 
-    _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + TaskIdIntegral(1));
+    _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + 1);
+
+    Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
 
     return TaskResourceType(task.argument, result->first);
 }
