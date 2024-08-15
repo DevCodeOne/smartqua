@@ -8,6 +8,7 @@
 
 #include <string_view>
 #include <memory>
+#include <future>
 
 #include <sys/param.h>
 #include <sys/unistd.h>
@@ -227,14 +228,12 @@ class WebServer final {
     struct HandlerThreadParam {
         esp_err_t (*handler)(httpd_req *req);
         httpd_req *req;
-        esp_err_t result = ESP_FAIL;
+        std::promise<esp_err_t> result;
     };
 
-    static void *threadWrapper(void *handlerParam) {
+    static void threadWrapper(void *handlerParam) {
         auto *const param = reinterpret_cast<HandlerThreadParam *>(handlerParam);
-        param->result = param->handler(param->req);
-
-        pthread_exit(nullptr);
+        param->result.set_value(param->handler(param->req));
     }
 
     static esp_err_t mainHandler(httpd_req *req) {
@@ -254,33 +253,36 @@ class WebServer final {
 
         Logger::log(LogLevel::Info, "Found handler with prefix : %s", (*foundHandler)->prefix.data());
 
-        pthread_attr_t attributes;
-        pthread_t newThreadHandle;
-
-        pthread_attr_init(&attributes);
-        pthread_attr_setstacksize(&attributes, stack_size);
-
         HandlerThreadParam param{
                 .handler = (*foundHandler)->handler,
-                .req = req,
-                .result = ESP_FAIL
+                .req = req
         };
 
-        DoFinally cleanup([&attributes]() {
-            pthread_attr_destroy(&attributes);
+        auto resource = MainTaskPool::postTask(TaskDescription{
+            .single_shot = true,
+            .func_ptr = &threadWrapper,
+            .interval = std::chrono::seconds(0),
+            .argument = (void *) &param,
+            .description = "Response Handler",
+            .last_executed = std::chrono::seconds(0)
         });
 
-        if (pthread_create(&newThreadHandle,
-                           &attributes,
-                           threadWrapper, (void *) &param) != 0) {
+        // TODO: Create internal server error on failure
+        if (resource.id() == TaskId::invalid) {
             return ESP_FAIL;
         }
 
-        if (pthread_join(newThreadHandle, nullptr) != 0) {
+        auto futureResult = param.result.get_future();
+
+        if (!futureResult.valid()) {
             return ESP_FAIL;
         }
 
-        return param.result;
+        if (futureResult.wait_for(std::chrono::seconds(10)) != std::future_status::ready) {
+            return ESP_FAIL;
+        }
+
+        return futureResult.get();
     }
     
     Detail::WebServerHandle<level> m_server_handle{};

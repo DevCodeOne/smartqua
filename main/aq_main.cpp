@@ -94,7 +94,7 @@ void *networkTask(void *pvParameters) {
 
     MainTaskPool::doWork();
 
-    // Shouldn't reach
+    // Shouldn't be reached
     pthread_exit(nullptr);
 }
 

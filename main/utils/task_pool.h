@@ -85,19 +85,19 @@ class TaskPool {
 
         static inline std::array<std::pair<TaskId, std::optional<TaskDescription>>, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
+        static inline std::condition_variable_any notify;
         static inline TaskId _next_id = TaskId(0);
 };
 
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
-    size_t index = 0;
 
     using TimeType = decltype(TaskDescription::last_executed);
 
     while (1) {
         unsigned int workedThreads = 0;
-        {
+        for (size_t index = 0; index < TaskPoolSize; ++index) {
             if (index == 0) {
                 workedThreads = 0;
                 Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
@@ -129,14 +129,12 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
             } else if (current_task) {
                 Logger::log(LogLevel::Info, "It is not the time to trigger this task %s", current_task->description);
             }
-
-            index = (index + 1) % _tasks.size();
-
         }
 
         if (workedThreads == 0) {
             using namespace std::chrono_literals;
-            std::this_thread::sleep_for(500ms);
+            std::unique_lock localLock{_instance_mutex};
+            notify.wait_for(localLock, 10s);
         }
 
     }
@@ -152,28 +150,35 @@ void TaskPool<TaskPoolSize>::doWork() {
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType {
-    std::unique_lock instance_guard{_instance_mutex};
+    TaskId createdId;
+    {
+        std::unique_lock instance_guard{_instance_mutex};
 
-    auto result = std::ranges::find_if(_tasks, [](auto &current_task_pair) {
-        return current_task_pair.second == std::nullopt;
-    });
+        auto result = std::ranges::find_if(_tasks, [](auto &current_task_pair) {
+            return current_task_pair.second == std::nullopt;
+        });
 
-    if (result == _tasks.end()) {
-        return TaskResourceType(task.argument, TaskId::invalid);
+        if (result == _tasks.end()) {
+            return TaskResourceType(task.argument, TaskId::invalid);
+        }
+
+        using IdType = decltype(_next_id);
+
+        result->first = _next_id;
+        result->second = task;
+
+        using TaskIdIntegral = std::underlying_type_t<IdType>;
+
+        _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + 1);
+
+        Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
+
+        createdId = result->first;
     }
 
-    using IdType = decltype(_next_id);
+    notify.notify_all();
 
-    result->first = _next_id;
-    result->second = task;
-
-    using TaskIdIntegral = std::underlying_type_t<IdType>;
-
-    _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + 1);
-
-    Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
-
-    return TaskResourceType(task.argument, result->first);
+    return TaskResourceType(task.argument, createdId);
 }
 
 template<auto TaskPoolSize>
@@ -186,7 +191,7 @@ bool TaskPool<TaskPoolSize>::removeTask(TaskId id) {
     {
         std::unique_lock instance_guard{_instance_mutex};
 
-        auto result = std::find_if(_tasks.begin(), _tasks.end(), [id](auto &current_task_pair) {
+        auto result = std::ranges::find_if(_tasks, [id](auto &current_task_pair) {
             return current_task_pair.first == id;
         });
 
