@@ -27,6 +27,7 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view
     bool assignResult = true;
 
     assignResult &= checkAssign(newConf.stepGPIONum, stepPin);
+
     assignResult &= checkAssign(newConf.enGPIONum, enPin);
 
     if (!assignResult) {

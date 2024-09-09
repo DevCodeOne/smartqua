@@ -91,7 +91,7 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
 
 // This doesn't work for some reason
 std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const DeviceConfig *config) {
-    return SwitchDriver{config};
+    return { SwitchDriver{config} };
 }
 
 
@@ -154,7 +154,7 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
         const auto timeDiff = std::chrono::steady_clock::now() - startTime;
 
-        // TODO: make this tuneable
+        // TODO: make this tunable
          std::this_thread::sleep_for(timeDiff < 5s ? 5s - timeDiff : 500ms);
     }
     Logger::log(LogLevel::Info, "SwitchDriver::watchValues exit");
@@ -163,7 +163,7 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
 SwitchDriver::SwitchDriver(const DeviceConfig *config) : mConf(config) { }
 
-SwitchDriver::SwitchDriver(SwitchDriver &&other) : mConf(std::move(other.mConf)) { other.mConf = nullptr; }
+SwitchDriver::SwitchDriver(SwitchDriver &&other) : mConf(other.mConf) { other.mConf = nullptr; }
 
 SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other) {
     using std::swap;

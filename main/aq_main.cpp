@@ -3,11 +3,11 @@
 #include "frozen.h"
 
 #include "auth.h"
+#include "smartqua_config.h"
 #include "drivers/system_info.h"
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
 #include "rest/devices_rest.h"
-#include "smartqua_config.h"
 #include "utils/idf_utils.h"
 #include "utils/logger.h"
 
