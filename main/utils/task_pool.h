@@ -98,10 +98,6 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
     while (1) {
         unsigned int workedThreads = 0;
         for (size_t index = 0; index < TaskPoolSize; ++index) {
-            if (index == 0) {
-                workedThreads = 0;
-                Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
-            }
             auto seconds_since_epoch =
             std::chrono::duration_cast<TimeType>(std::chrono::steady_clock::now().time_since_epoch());
 
@@ -130,6 +126,8 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
                 Logger::log(LogLevel::Info, "It is not the time to trigger this task %s", current_task->description);
             }
         }
+
+        Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
 
         if (workedThreads == 0) {
             using namespace std::chrono_literals;

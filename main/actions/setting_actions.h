@@ -15,7 +15,12 @@
 
 using SettingCollectionOperation = CollectionOperationResult;
 
-struct RuntimeSingleSetting { };
+class RuntimeSingleSetting {
+public:
+    static std::optional<RuntimeSingleSetting> create(const SingleSetting *) {
+        return RuntimeSingleSetting{};
+    }
+};
 
 struct SetSetting {
     unsigned int index;
@@ -24,7 +29,7 @@ struct SetSetting {
 
     struct {
         SettingCollectionOperation collection_result = SettingCollectionOperation::failed;
-        single_setting_result op_result = single_setting_result::failure; 
+        single_setting_result op_result = single_setting_result::Failure;
     } result;
 };
 
@@ -71,7 +76,8 @@ template<size_t N>
 class Settings {
     public:
         static inline constexpr size_t NumSettings = N;
-        using TrivialRepresentationType = SmartAq::Utils::EventAccessArray<SingleSetting, RuntimeSingleSetting, NumSettings, 19>;
+        using EventAccessArrayType = SmartAq::Utils::EventAccessArray<SingleSetting, RuntimeSingleSetting, NumSettings, 19>;
+        using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
         Settings() = default;
         ~Settings() = default;
@@ -90,6 +96,15 @@ class Settings {
         template<typename T>
         filter_return_type<T> dispatch(T &event) const {}
     private:
-        TrivialRepresentationType data;
+        EventAccessArrayType mData;
         std::array<std::pair<const char **, SettingChangedNotifier>, N> notifier;
 };
+
+template<size_t N>
+auto Settings<N>::operator=(const TrivialRepresentationType &new_value) -> Settings & {
+    mData.initialize(new_value, [](const auto &trivialValue, auto &currentRuntimeData) {
+        currentRuntimeData = RuntimeSingleSetting::create(trivialValue);
+        return currentRuntimeData.has_value();
+    });
+    return *this;
+}

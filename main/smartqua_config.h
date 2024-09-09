@@ -59,11 +59,11 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         PicoDeviceDriver>;
 using StatCollectionType = StatCollection<max_stat_size>;
 
-// using SettingType = Settings<max_setting_size>;
+using SettingType = Settings<max_setting_size>;
 
 // TODO: add settings
 using GlobalStoreType = Store<
     SingleTypeStore<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, ConstexprPath("devices.bin")>>
-    // , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, "settings.bin">>
+    // , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings.bin")>>
     >;
 extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;

@@ -38,7 +38,7 @@ enum struct DeviceValueUnit {
 };
 
 struct DeviceConfig { 
-    static inline constexpr char StorageName[] = "DeviceConfig";
+    static constexpr char StorageName[] = "DeviceConfig";
 
     stack_string<name_length> device_driver_name;
     // TODO: add method to write driver conf

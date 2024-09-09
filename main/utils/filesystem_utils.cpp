@@ -146,7 +146,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
             std::fclose(tmpTargetFile);
         });
 
-        const auto written = std::fwrite(const_cast<const void *>(data), 1, length, tmpTargetFile);
+        const auto written = std::fwrite(data, 1, length, tmpTargetFile);
 
         if (written != length) {
             Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) length);

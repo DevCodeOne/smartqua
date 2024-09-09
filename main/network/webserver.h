@@ -395,7 +395,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
 
     if (S_ISDIR(tmp_stat.st_mode)) {
         Logger::log(LogLevel::Error, "Path is a directory %s, %s", selected_path.data(), request_uri.data());
-        // TODO: maybe add pagination for more results witzh telldir and seekdir
+        // TODO: maybe add pagination for more results with telldir and seekdir
         auto directory = opendir(selected_path.data());
         dirent *current_entry = nullptr;
         long int entry_offset = 0;

@@ -133,6 +133,15 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
         return std::nullopt;
     }
 
+    // TODO: check what open drain means
+    const gpio_mode_t direction = pinConf->type == PinType::Input ? GPIO_MODE_INPUT : GPIO_MODE_OUTPUT;
+    auto result = gpio_set_direction(gpio->gpio_num(), direction);
+
+    if (result != ESP_OK) {
+        Logger::log(LogLevel::Warning, "Couldn't set gpio direction");
+        return std::nullopt;
+    }
+
     if (pinConf->type == PinType::Pwm) {
         auto timer = DeviceResource::get_timer_resource(pinConf->timer_conf);
 
@@ -171,15 +180,6 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
         return std::make_optional(PinDriver{config, timer, gpio, channel});
     } 
 
-    // TODO: check what open drain means
-    gpio_mode_t direction = pinConf->type == PinType::Input ? GPIO_MODE_INPUT : GPIO_MODE_OUTPUT;
-    auto result = gpio_set_direction(gpio->gpio_num(), GPIO_MODE_INPUT);
-
-    if (result != ESP_OK) {
-        Logger::log(LogLevel::Warning, "Couldn't set gpio direction");
-        return std::nullopt;
-    }
-
     Logger::log(LogLevel::Info, "create_driver added new device");
 
     return std::make_optional(PinDriver{config, nullptr, gpio, nullptr});
@@ -188,16 +188,16 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
 std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
     // Only prepare device_conf_out in this method and pass it along
     PinConfig newConf{};
-    int frequency = newConf.timer_conf.frequency;
-    int resolution = newConf.timer_conf.resolution;
-    int channel = newConf.channel;
-    int max_value = newConf.max_value;
-    int gpio_num = newConf.gpio_num;
+    uint16_t frequency = newConf.timer_conf.frequency;
+    uint16_t resolution = newConf.timer_conf.resolution;
+    uint16_t channel = newConf.channel;
+    uint16_t max_value = newConf.max_value;
+    uint16_t gpio_num = newConf.gpio_num;
     bool fade = newConf.fade;
     bool invert = newConf.invert;
 
     json_scanf(input.data(), input.size(),
-        "{ type : %M, frequency : %d, resolution : %d, channel : %d, max_value : %d, gpio_num : %d, fade : %B, invert : %B}", 
+        "{ type : %M, frequency : %u, resolution : %u, channel : %u, max_value : %u, gpio_num : %u, fade : %B, invert : %B}",
         json_scanf_single<PinType>, &newConf.type,
         &frequency, &resolution, &channel, &max_value, &gpio_num, &fade, &invert);
 

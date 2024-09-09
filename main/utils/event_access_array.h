@@ -26,7 +26,7 @@ namespace SmartAq::Utils {
     // TODO: seperate name_length
     template<ValidBaseType BaseType, size_t Size>
         struct TrivialRepresentation {
-            static inline const constexpr char *const name{ BaseType::StorageName };
+            static const constexpr char *const name{ BaseType::StorageName };
 
             std::array<BaseType, Size> values;
             std::array<bool, Size> initialized;
