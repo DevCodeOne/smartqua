@@ -11,7 +11,7 @@
 #include "drivers/device_types.h"
 #include "drivers/devices.h"
 #include "utils/utils.h"
-#include "utils/event_access_array.h"
+#include "utils/container/event_access_array.h"
 #include "utils/task_pool.h"
 #include "storage/store.h"
 

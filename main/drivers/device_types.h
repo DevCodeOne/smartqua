@@ -12,8 +12,8 @@
 #include <frozen/string.h>
 
 #include "build_config.h"
+#include "utils/type/enum_type_map.h"
 #include "utils/json_utils.h"
-#include "utils/enum_type_map.h"
 
 enum struct DeviceOperationResult {
     ok, not_supported, failure

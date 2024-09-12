@@ -10,7 +10,7 @@
 #include "drivers/setting_types.h"
 #include "drivers/setting_driver.h"
 #include "utils/utils.h"
-#include "utils/event_access_array.h"
+#include "utils/container/event_access_array.h"
 #include "storage/store.h"
 
 using SettingCollectionOperation = CollectionOperationResult;

@@ -10,7 +10,7 @@
 
 #include "build_config.h"
 #include "hx711.h"
-#include "utils/sample_container.h"
+#include "../utils/container/sample_container.h"
 #include "utils/task_pool.h"
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
@@ -49,7 +49,7 @@ class LoadcellDriver final {
         LoadcellDriver(const DeviceConfig*conf, std::shared_ptr<GpioResource> doutGPIO, std::shared_ptr<GpioResource> sckGPIO, hx711_t &&dev);
         static int32_t convertToRealValue(int32_t rawValue, int32_t offset, int32_t scale);
 
-        const DeviceConfig*mConf;
+        const DeviceConfig *mConf;
 
         sample_container<int32_t, float, max_sample_size> m_values{};
         std::shared_ptr<GpioResource> mDoutGPIO = nullptr;

@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstring>
 #include <thread>
+#include <utility>
 
 #include "frozen.h"
 #include "ds18x20.h"
@@ -79,7 +80,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     }
 
     if (!index_to_add.has_value()) {
-        Logger::log(LogLevel::Info, "Didn't find any devices attaced to gpio_num : %d", gpio_num);
+        Logger::log(LogLevel::Info, "Didn't find any devices attached to gpio_num : %d", gpio_num);
         return std::nullopt;
     }
 
@@ -92,7 +93,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     return Ds18x20Driver(&device_conf_out, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : m_conf(conf), m_pin(pin) {
+Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : m_conf(conf), m_pin(std::move(pin)) {
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 }
 
@@ -132,7 +133,7 @@ Ds18x20Driver::~Ds18x20Driver() {
         return;
     }
 
-    Logger::log(LogLevel::Info, "Deleting instance of stepperdosingpumpdriver");
+    Logger::log(LogLevel::Info, "Deleting instance of Ds18x20Driver");
     if (mTemperatureThread.joinable()) {
         mTemperatureThread.request_stop();
         mTemperatureThread.join();
@@ -144,7 +145,6 @@ DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const De
     return DeviceOperationResult::not_supported;
 }
 
-// TODO: read sample value and sample values in update_runtime_data, or even in a seperate thread
 DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, DeviceValues &value) const {
     value.temperature(mTemperatureReadings.average());
     return DeviceOperationResult::ok;

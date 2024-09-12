@@ -10,7 +10,7 @@
 #include "actions/action_types.h"
 #include "drivers/stats_driver.h"
 #include "storage/store.h"
-#include "utils/event_access_array.h"
+#include "utils/container/event_access_array.h"
 
 using stat_collection_operation = CollectionOperationResult;
 
