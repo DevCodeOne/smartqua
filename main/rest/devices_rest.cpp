@@ -80,15 +80,16 @@ esp_err_t do_devices(httpd_req *req) {
     if (index) {
         Logger::log(LogLevel::Debug, "Executing action for device");
         auto index_value = std::atoi(index.to_view().data());
-        
+
         if (req->method == HTTP_GET) {
                 // TODO: check what what really is
-            if (what) {
-                result = get_device_info(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
-            } else { 
-                json_token param{};
-                json_scanf(buffer->data(), req->content_len, "{ param : %T }", &param);
-                result = get_devices_action(index_value, param.ptr, param.len, buffer->data(), buffer->size());
+            const std::string_view whatView = what.to_view();
+            if (whatView.starts_with("/info")) {
+                result = get_device_info(index_value, whatView.data(), whatView.size(),
+                                         buffer->data(), buffer->size());
+            } else {
+                result = get_devices_action(index_value, whatView.data(), whatView.size(),
+                buffer->data(), buffer->size());
             }
         } else if (req->method == HTTP_PUT && !what) {
             result = add_device_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());

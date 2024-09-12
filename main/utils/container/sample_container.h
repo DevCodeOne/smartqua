@@ -89,14 +89,14 @@ class sample_container final {
             m_avg = summed_up_values;
         }
 
-        const auto sampleDivisor = m_samples.size() - 1;
         auto ss = 0;
         for (typename decltype(m_samples)::size_type i = 0; i < m_samples.size(); ++i) {
             ss += (m_samples[i] - m_avg) * (m_samples[i] - m_avg);
         }
 
-        const auto variance = ss / sampleDivisor;
-        const auto stdVariance = std::sqrt(variance);
+        // const auto sampleDivisor = m_samples.size() - 1;
+        // const auto variance = ss / sampleDivisor;
+        // const auto stdVariance = std::sqrt(variance);
 
         return *this;
     }

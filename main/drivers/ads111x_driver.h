@@ -12,7 +12,7 @@
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "utils/sample_container.h"
+#include "../utils/container/sample_container.h"
 #include "build_config.h"
 
 enum struct Ads111xAddress : std::decay_t<decltype(ADS111X_ADDR_GND)> {

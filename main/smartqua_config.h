@@ -27,6 +27,8 @@
 #include "drivers/stepper_dosing_pump_driver.h"
 #include "drivers/switch_driver.h"
 #include "drivers/setting_types.h"
+#include "drivers/dhtxx_driver.h"
+#include "drivers/bme280_driver.h"
 
 #include "storage/flash_storage.h"
 #include "storage/dummy_storage.h"
@@ -56,7 +58,9 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         StepperDosingPumpDriver,
                                         SwitchDriver,
                                         PhProbeDriver,
-                                        PicoDeviceDriver>;
+                                        PicoDeviceDriver,
+                                        DhtXXDriver,
+                                        Bme280Driver>;
 using StatCollectionType = StatCollection<max_stat_size>;
 
 using SettingType = Settings<max_setting_size>;

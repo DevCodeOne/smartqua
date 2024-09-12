@@ -11,8 +11,8 @@
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
+#include "utils/container/sample_container.h"
 #include "build_config.h"
-#include "utils/sample_container.h"
 
 struct ds18x20_driver_data final {
     gpio_num_t gpio;
@@ -24,14 +24,14 @@ class Ds18x20Driver final {
         static inline constexpr char name[] = "ds18x20_driver";
 
         Ds18x20Driver(const Ds18x20Driver &other) = delete;
-        Ds18x20Driver(Ds18x20Driver &&other);
+        Ds18x20Driver(Ds18x20Driver &&other) noexcept;
         ~Ds18x20Driver();
 
         Ds18x20Driver &operator=(const Ds18x20Driver &other) = delete;
         Ds18x20Driver &operator=(Ds18x20Driver &&other);
 
-        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
-        static std::optional<Ds18x20Driver> create_driver(const DeviceConfig*config);
+        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
+        static std::optional<Ds18x20Driver> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
