@@ -12,7 +12,7 @@
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "../utils/container/sample_container.h"
+#include "utils/container/sample_container.h"
 #include "build_config.h"
 
 enum struct Ads111xAddress : std::decay_t<decltype(ADS111X_ADDR_GND)> {
@@ -69,17 +69,21 @@ class Ads111xDriver final {
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
     private:
-        Ads111xDriver(const DeviceConfig*conf, i2c_dev_t device);
-        static std::optional<Ads111xDriver> setupDevice(const DeviceConfig*conf, i2c_dev_t device);
+        Ads111xDriver(const DeviceConfig *conf, i2c_dev_t device, std::shared_ptr<GpioResource> sdaPin, std::shared_ptr<GpioResource> sclPin);
+        static std::optional<Ads111xDriver> setupDevice(const DeviceConfig *conf, i2c_dev_t device,
+                                                        std::shared_ptr<GpioResource> sdaPin,
+                                                        std::shared_ptr<GpioResource> sclPin);
 
         static void updateAnalogThread(std::stop_token token, Ads111xDriver *instance);
 
-        static bool add_address(Ads111xAddress address);
-        static bool remove_address(Ads111xAddress address);
+        static bool addAddress(Ads111xAddress address);
+        static bool removeAddress(Ads111xAddress address);
 
-        const DeviceConfig*m_conf;
+        const DeviceConfig*mConf;
 
-        mutable i2c_dev_t m_device;
+        mutable i2c_dev_t mDevice;
+        std::shared_ptr<GpioResource> mSdaPin{nullptr};
+        std::shared_ptr<GpioResource> mSclPin{nullptr};
         std::jthread mAnalogReadingsThread;
         std::array<sample_container<uint16_t, uint16_t, 10>, MaxChannels> mAnalogReadings;
 

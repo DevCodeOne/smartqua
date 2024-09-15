@@ -196,7 +196,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const DeviceConfig *
 
     std::string_view bufferView(buffer->data(), std::min(safe_strlen(buffer->data(), buffer->size()), static_cast<size_t>(result)));
 
-    Logger::log(LogLevel::Info, "Parsing schedule %.*s", (int) bufferView.length(), bufferView.data());
+    Logger::log(LogLevel::Info, "Parsing schedule ...");
 
     if (!driver.loadAndUpdateSchedule(bufferView)) {
         return std::nullopt;

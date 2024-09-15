@@ -5,6 +5,7 @@
 #include <mutex>
 #include <optional>
 
+#include "i2cdev.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/i2c.h"
@@ -141,6 +142,7 @@ class I2cResource final {
         void swap(I2cResource &other);
 
         i2c_port_t channel_num() const;
+        i2c_dev_t device() const;
     private:
         I2cResource(I2cResource channel, std::shared_ptr<GpioResource> &sdaPin, std::shared_ptr<GpioResource> &sclPin);
 
@@ -168,21 +170,21 @@ class DeviceResource final {
         // TODO: replace with weak_ptr
         // TODO: remove non useable gpios
         static inline std::array _gpios{
-            // std::make_pair(gpio_num_t::GPIO_NUM_1, std::shared_ptr<gpio_resource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_2, std::shared_ptr<gpio_resource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_1, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_2, std::shared_ptr<GpioResource>(nullptr)),
             // std::make_pair(gpio_num_t::GPIO_NUM_3, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_4, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_5, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_6, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_7, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_8, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_9, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_10, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_11, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_12, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_13, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_5, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_6, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_7, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_8, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_9, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_10, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_11, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_12, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_13, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_14, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_15, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_15, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_16, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_17, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_18, std::shared_ptr<GpioResource>(nullptr)),
@@ -196,7 +198,6 @@ class DeviceResource final {
             std::make_pair(gpio_num_t::GPIO_NUM_25, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_32, std::shared_ptr<gpio_resource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_33, std::shared_ptr<gpio_resource>(nullptr)),
-            #endif
 
             std::make_pair(gpio_num_t::GPIO_NUM_26, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_27, std::shared_ptr<GpioResource>(nullptr)),
@@ -204,6 +205,7 @@ class DeviceResource final {
             std::make_pair(gpio_num_t::GPIO_NUM_29, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_30, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_31, std::shared_ptr<GpioResource>(nullptr)),
+            #endif
         };
 
         #ifdef ENABLE_DAC_DRIVER
