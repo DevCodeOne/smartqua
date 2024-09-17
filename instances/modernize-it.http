@@ -1,99 +1,4 @@
 ### GET devices
-GET http://terrarium-first-try.local/api/v1/devices
-
-### Create Pwm Device
-
-POST http://terrarium-first-try.local/api/v1/devices/
-Content-Type: application/json
-
-{
-  "description": "Lampe",
-  "driver_type" :  "pin_driver",
-  "driver_param" : {
-    "channel" : 0,
-    "resolution": 8,
-    "frequency" : 200,
-    "max_value" : 254,
-    "type": "pwm",
-    "gpio_num": 17
-  }
-}
-
-### Create Switch Device -> 2
-
-POST http://terrarium-first-try.local/api/v1/devices/
-Content-Type: application/json
-
-{
-  "description": "Mist",
-  "driver_type" :  "pin_driver",
-  "driver_param" : {
-    "type": "output",
-    "gpio_num": 12
-  }
-}
-
-### Create Switch Device -> 3
-
-POST http://terrarium-first-try.local/api/v1/devices/
-Content-Type: application/json
-
-{
-  "description": "Fan",
-  "driver_type" :  "pin_driver",
-  "driver_param" : {
-    "type": "output",
-    "gpio_num": 14
-  }
-}
-
-### Create Switch Device -> 4
-
-POST http://terrarium-first-try.local/api/v1/devices/
-Content-Type: application/json
-
-{
-  "description": "Rain",
-  "driver_type" :  "pin_driver",
-  "driver_param" : {
-    "type": "output",
-    "gpio_num": 13
-  }
-}
-
-
-### Write Value to Pwm Device
-
-PATCH http://terrarium-first-try.local/api/v1/devices/4
-Content-Type: application/json
-
-{
-  "percentage" : 0
-}
-
-### Delete Device
-
-DELETE http://terrarium-first-try.local/api/v1/devices/1
-
-
-### Write Schedule for Pwm Device 0
-
-POST http://terrarium-first-try.local/api/v1/devices/
-Content-Type: application/json
-
-{
-  "description": "LampSchedule",
-  "driver_type" : "schedule_driver",
-  "driver_param" : {
-    "channel_names" : [ "M" ],
-    "devices" : [0],
-    "schedule" : {
-      "repeating" : "08-00:M=0;10-00:M=30;12-00:M=50;16-00:M=50;20-00:M=35;21-00:M=20;22-00:M=0"
-    }
-  }
-}
-
-### GET devices
 GET http://modernize-it.local/api/v1/devices
 
 ### Create Pwm Device
@@ -172,6 +77,5 @@ POST http://modernize-it.local/api/v1/devices
 Content-Type: application/json
 
 { description: "Mg", driver_type : "drv8825_driver", driver_param : { "step_gpio" : 32, "en_gpio" : 33 } }
-
 
 
