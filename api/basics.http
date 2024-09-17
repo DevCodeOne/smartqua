@@ -1,0 +1,3 @@
+### GET devices
+GET http://continue.local/api/v1/devices
+

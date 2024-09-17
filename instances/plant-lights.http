@@ -1,0 +1,46 @@
+### GET devices
+GET http://plant-lights.local/api/v1/devices
+
+### Create Pwm Device
+
+POST http://plant-lights.local/api/v1/devices/
+Content-Type: application/json
+
+{
+  "description": "Lampe",
+  "driver_type" :  "pin_driver",
+  "driver_param" : {
+    "channel" : 0,
+    "resolution": 10,
+    "max_value" : 1023,
+    "frequency" : 1000,
+    "type": "pwm",
+    "gpio_num": 17
+  }
+}
+
+### Write Value to Rain Device
+
+PATCH http://plant-lights.local/api/v1/devices/0
+Content-Type: application/json
+
+{
+  "percentage" : 20
+}
+
+### Write Schedule for Pwm Device 0
+
+POST http://plant-lights.local/api/v1/devices/
+Content-Type: application/json
+
+{
+  "description": "LampSchedule",
+  "driver_type" : "schedule_driver",
+  "driver_param" : {
+    "channel_names" : [ "M" ],
+    "devices" : [0],
+    "schedule" : {
+      "repeating" : "08-00:M=0;10-00:M=20;12-00:M=30;16-00:M=30;20-00:M=25;21-00:M=20;22-00:M=0"
+    }
+  }
+}
