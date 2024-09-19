@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <shared_mutex>
 #include <type_traits>
 #include <optional>
@@ -54,14 +55,34 @@ class sample_container final {
         return true;
     }
 
-    AvgType average() const { 
+    AvgType average() const {
         std::shared_lock _instance_lock{m_resource_mutex};
 
-        return m_avg; 
+        return m_avg;
     }
 
     AvgType last() const {
+        std::shared_lock _instance_lock{m_resource_mutex};
+
         return m_samples.back();
+    }
+
+    auto std_variance() const {
+        std::shared_lock _instance_lock{m_resource_mutex};
+
+        return m_std_variance;
+    }
+
+    auto variance() const {
+        std::shared_lock _instance_lock{m_resource_mutex};
+
+        return m_variance;
+    }
+
+    auto size() const {
+        std::shared_lock _instance_lock{m_resource_mutex};
+
+        return m_samples.size();
     }
 
    private:
@@ -89,20 +110,23 @@ class sample_container final {
             m_avg = summed_up_values;
         }
 
-        auto ss = 0;
+        float ss = 0;
         for (typename decltype(m_samples)::size_type i = 0; i < m_samples.size(); ++i) {
             ss += (m_samples[i] - m_avg) * (m_samples[i] - m_avg);
         }
 
-        // const auto sampleDivisor = m_samples.size() - 1;
-        // const auto variance = ss / sampleDivisor;
-        // const auto stdVariance = std::sqrt(variance);
+        if (m_samples.size() > 1) {
+            const auto sampleDivisor = m_samples.size() - 1;
+            m_variance = ss / sampleDivisor;
+            m_std_variance = std::sqrt(m_variance);
+        }
 
         return *this;
     }
 
     mutable std::shared_mutex m_resource_mutex;
     AvgType m_avg;
-    std::optional<float> variance;
+    float m_variance;
+    float m_std_variance;
     ring_buffer<T, n_samples> m_samples;
 };

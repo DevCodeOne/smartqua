@@ -37,7 +37,7 @@ set(PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/lookup_table.h
     utils/container/ring_buffer.h
     utils/container/sample_container.h
-        ../tests/container_tests.cpp)
+        ../tests/ring_buffer_tests.cpp)
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
     idf_component_register(SRCS ${SOURCES}

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <array>
+#include <optional>
+#include <ranges>
+#include <mutex>
 #include <shared_mutex>
 
 enum struct ThreadSafety {
@@ -13,14 +16,14 @@ class ConditionalThreadSafety;
 struct DoNothing {};
 
 template<>
-class ConditionalThreadSafety<ThreadSafety::Safe> {
+class ConditionalThreadSafety<ThreadSafety::Unsafe> {
 public:
     auto createSharedLock() { return DoNothing{}; }
     auto createUniqueLock() { return DoNothing{}; }
 };
 
 template<>
-class ConditionalThreadSafety<ThreadSafety::Unsafe> {
+class ConditionalThreadSafety<ThreadSafety::Safe> {
 public:
     auto createSharedLock() { return std::shared_lock{mutex}; }
     auto createUniqueLock() { return std::unique_lock{mutex}; }
@@ -30,7 +33,7 @@ public:
 
 
 template<ThreadSafety Safety>
-class ConditionalThreadSafety { };
+class ConditionalThreadSafety;
 
 template<typename Instance, typename IndexType, typename ValueType>
 class FlagTracker {
@@ -44,7 +47,7 @@ public:
     FlagTracker(const FlagTracker&) = delete;
     FlagTracker &operator=(const FlagTracker&) = delete;
 
-    operator bool() const {
+    explicit operator bool() const {
         return mIndex.has_value();
     }
 
@@ -81,10 +84,10 @@ struct ResourceLookupTable {
         }
 
         currentValue = newValue;
-        return FlagTrackerType(Value, newValue, this);
+        return FlagTrackerType(Value, oldValue, this);
     }
 
-     FlagTrackerType  setIf(CommonType Value, bool newValue) {
+     FlagTrackerType setIf(CommonType Value, bool newValue) {
         [[maybe_unused]] auto uniqueLock = mMutialExclusion.createUniqueLock();
         auto index = std::ranges::find(indices, Value);
 

@@ -38,8 +38,8 @@ struct PinConfig {
     TimerConfig timer_conf {};
     uint16_t frequency = 100;
     ledc_channel_t channel = LEDC_CHANNEL_0;
-    // TODO: configure this differently
-    uint16_t max_value = (1 << 10) - 1;
+    // TODO: calculate max_value with resolution bits, is wrong value
+    uint16_t max_value = (1 << 10);
     uint8_t gpio_num = static_cast<uint8_t>(gpio_num_t::GPIO_NUM_MAX);
     bool fade = false;
     bool invert = false;

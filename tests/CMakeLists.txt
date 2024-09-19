@@ -10,7 +10,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(container_tests container_tests.cpp)
+add_executable(container_tests
+        ring_buffer_tests.cpp
+        sample_container_tests.cpp
+        lookup_table_tests.cpp)
 target_link_libraries(container_tests PUBLIC container_utils)
 target_link_libraries(container_tests PUBLIC GTest::gtest_main)
 

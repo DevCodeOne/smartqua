@@ -1,10 +1,10 @@
 #include "utils/container/ring_buffer.h"
+#include "utils/container/sample_container.h"
+#include "utils/container/lookup_table.h"
 
 #include <gtest/gtest.h>
 
-#include <print>
-
-TEST(Basic, Init) {
+TEST(ring_buffer, basic) {
     ring_buffer<int, 10> rb;
     for (size_t i = 0; i < 10; ++i) {
         rb.append(static_cast<int>(i));
@@ -24,4 +24,3 @@ TEST(Basic, Init) {
     EXPECT_EQ(rb.front(), 2);
     EXPECT_EQ(rb.back(), 11);
 }
-
