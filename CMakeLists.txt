@@ -21,6 +21,8 @@ else()
     add_subdirectory(main)
 
     if (BUILD_TESTS)
+        enable_testing()
+
         add_subdirectory(tests)
     endif()
 endif()
