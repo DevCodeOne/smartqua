@@ -1,5 +1,3 @@
-enable_testing()
-
 cmake_policy(SET CMP0135 NEW)
 
 include(FetchContent)
@@ -18,4 +16,4 @@ target_link_libraries(container_tests PUBLIC container_utils)
 target_link_libraries(container_tests PUBLIC GTest::gtest_main)
 
 include(GoogleTest)
-gtest_discover_tests(container_tests)
+gtest_add_tests(TARGET container_tests)
