@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # - uses: actions/checkout@v4
-      #  with:
-      #    submodules: true
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
 
       - uses: lukka/get-cmake@latest
       - name: Run CMake+Ninja+CTest to build packages and generate/build/test the code.
