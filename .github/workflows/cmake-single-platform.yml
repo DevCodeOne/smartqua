@@ -24,7 +24,7 @@ jobs:
       - name: Run CMake+Ninja+CTest to build packages and generate/build/test the code.
         uses: lukka/run-cmake@v10
         with:
-          cmakeListsTxtPath: CMakeLists.txt
+          cmakeListsTxtPath: ${{ github.workspace }}/CMakeLists.txt
           configurePreset: 'ninja-multi-vcpkg'
           buildPreset: 'ninja-vcpkg-release'
           testPreset: 'test-release'
