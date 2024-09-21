@@ -16,4 +16,4 @@ target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
 
 include(GoogleTest)
-gtest_add_tests(TARGET container_tests)
+gtest_add_tests(TARGET smartaq_tests)

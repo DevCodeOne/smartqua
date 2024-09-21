@@ -23,7 +23,7 @@ else()
     project(smartaq)
     add_subdirectory(smartaq)
 
-    if (BUILD_TESTS)
+    if (SMARTAQ_BUILD_TESTS)
         enable_testing()
 
         add_subdirectory(tests)

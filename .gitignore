@@ -7,7 +7,7 @@ cmake-build-debug
 cmake-build-debug/**
 main/build/**
 sdkconfig.old
-main/auth.h
+**/auth.h
 certs/
 build/*
 **/package-lock.json
