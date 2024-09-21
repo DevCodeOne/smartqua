@@ -41,37 +41,39 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/sample_container.h
 )
 
-idf_component_register(
-        SRCS ${SMARTAQ_SOURCES}
-        INCLUDE_DIRS
-            "."
-            "../external_libs/frozen"
-            "../header_only/frozen/include"
-            "../header_only/ctre/single-header"
-        REQUIRES
-            esp_driver_ledc
-            esp_driver_rmt
-            esp_driver_sdmmc
-            esp_driver_sdspi
-            nvs_flash
-            spi_flash
-            esp_http_server
-            esp_http_client
-            esp_wifi
-            fatfs
-            mbedtls
-            wpa_supplicant
-        # esp-idf-lib
-            ads111x
-            dht
-            ds18x20
-            hx711
-            bmp280
-            i2cdev
-            pcf8575
-)
+if (NOT "$ENV{IDF_PATH}" STREQUAL "")
+    idf_component_register(
+            SRCS ${SMARTAQ_SOURCES}
+            INCLUDE_DIRS
+                "."
+                "../external_libs/frozen"
+                "../header_only/frozen/include"
+                "../header_only/ctre/single-header"
+            REQUIRES
+                esp_driver_ledc
+                esp_driver_rmt
+                esp_driver_sdmmc
+                esp_driver_sdspi
+                nvs_flash
+                spi_flash
+                esp_http_server
+                esp_http_client
+                esp_wifi
+                fatfs
+                mbedtls
+                wpa_supplicant
+            # esp-idf-lib
+                ads111x
+                dht
+                ds18x20
+                hx711
+                bmp280
+                i2cdev
+                pcf8575
+    )
 
-target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
+    target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
+endif()
 
 add_custom_target(deletebloat ALL
         COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map
