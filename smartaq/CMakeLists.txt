@@ -1,4 +1,6 @@
-set(SOURCES "aq_main.cpp"
+set(SMARTAQ_SOURCES
+            "app_main.cpp"
+            "main_thread.h" "main_thread.cpp"
             "actions/device_actions.h" "actions/device_actions.cpp"
             "actions/stats_actions.h" "actions/stats_actions.cpp"
             "rest/devices_rest.h" "rest/devices_rest.cpp"
@@ -32,31 +34,51 @@ set(SOURCES "aq_main.cpp"
             "utils/call_on_destructor.h"
             "../external_libs/frozen/frozen.c")
 
-set(PLATFORM_INDEPENDENT_LIB_SOURCES
+set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/event_access_array.h
     utils/container/lookup_table.h
     utils/container/ring_buffer.h
     utils/container/sample_container.h
-        ../tests/ring_buffer_tests.cpp)
+)
 
-if (NOT "$ENV{IDF_PATH}" STREQUAL "")
-    idf_component_register(SRCS ${SOURCES}
-            INCLUDE_DIRS
+idf_component_register(
+        SRCS ${SMARTAQ_SOURCES}
+        INCLUDE_DIRS
             "."
             "../external_libs/frozen"
             "../header_only/frozen/include"
-            "../header_only/ctre/single-header")
+            "../header_only/ctre/single-header"
+        REQUIRES
+            esp_driver_ledc
+            esp_driver_rmt
+            esp_driver_sdmmc
+            esp_driver_sdspi
+            nvs_flash
+            spi_flash
+            esp_http_server
+            esp_http_client
+            esp_wifi
+            fatfs
+            mbedtls
+            wpa_supplicant
+        # esp-idf-lib
+            ads111x
+            dht
+            ds18x20
+            hx711
+            bmp280
+            i2cdev
+            pcf8575
+)
 
-    target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
+target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
 
-    add_custom_target(deletebloat ALL
-            COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map
-            || true)
-else()
-    add_library(container_utils INTERFACE
-        ${PLATFORM_INDEPENDENT_LIB_SOURCES})
-    target_include_directories(container_utils INTERFACE .)
-endif()
+add_custom_target(deletebloat ALL
+        COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map
+        || true)
+add_library(smartaq_lib INTERFACE
+    ${SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES})
+target_include_directories(smartaq_lib INTERFACE .)
 
 
 # spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)

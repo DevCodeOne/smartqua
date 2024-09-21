@@ -87,8 +87,6 @@ static inline constexpr size_t num_large_buffers = 8;
 
 static inline constexpr size_t large_buffer_size = 2048;
 
-static inline constexpr size_t stack_size = 6 * 4096;
-
 constexpr static inline auto sdaDefaultPin = 15;
 
 constexpr static inline auto sclDefaultPin = 16;

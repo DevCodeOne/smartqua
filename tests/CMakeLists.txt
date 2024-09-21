@@ -8,12 +8,12 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(container_tests
+add_executable(smartaq_tests
         ring_buffer_tests.cpp
         sample_container_tests.cpp
         lookup_table_tests.cpp)
-target_link_libraries(container_tests PUBLIC container_utils)
-target_link_libraries(container_tests PUBLIC GTest::gtest_main)
+target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
+target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
 
 include(GoogleTest)
 gtest_add_tests(TARGET container_tests)

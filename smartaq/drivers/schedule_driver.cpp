@@ -37,7 +37,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
     ScheduleDriver::ScheduleType::DayScheduleType generatedSchedule;
     bool containsData = false;
 
-    for (auto timePointMatch : ctre::range<schedule_regexp>(strValue)) {
+    for (auto timePointMatch : ctre::search_all<schedule_regexp>(strValue)) {
 
         containsData = false;
 
@@ -51,7 +51,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
         const std::chrono::seconds timeOfDay = std::chrono::hours(hoursValue) + std::chrono::minutes(minsValue);
 
         ValueTimePoint timePointData{};
-        for (auto variableMatch : ctre::range<varextraction_regexp>(timePointMatch.get<vars_name>())) {
+        for (auto variableMatch : ctre::search_all<varextraction_regexp>(timePointMatch.get<vars_name>())) {
             const auto variableView = variableMatch.get<variable_name>().to_view();
             const auto valueView = variableMatch.get<value_name>().to_view();
 
@@ -148,7 +148,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     createdConf->creationId = createId(createdConf->deviceIndices);
 
     auto result = snprintf(createdConf->schedulePath.data(), decltype(createdConf->schedulePath)::ArrayCapacity, 
-        schedulePathFormat, DefaultStorage::MountPointPath, createdConf->creationId);
+        schedulePathFormat, DefaultStorage::path.value, createdConf->creationId);
 
     if (result < 0) {
         Logger::log(LogLevel::Error, "The schedule path was too long");
@@ -156,7 +156,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     }
 
     result = snprintf(createdConf->scheduleStatePath.data(), decltype(createdConf->scheduleStatePath)::ArrayCapacity, 
-        scheduleStatePathFormat, DefaultStorage::MountPointPath, createdConf->creationId);
+        scheduleStatePathFormat, DefaultStorage::path.value, createdConf->creationId);
 
     if (result < 0) {
         Logger::log(LogLevel::Error, "The schedule state path was too long");

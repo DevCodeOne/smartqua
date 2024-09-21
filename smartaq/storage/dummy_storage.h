@@ -23,7 +23,7 @@
 template<ConstexprPath Path>
 class DummyStorage {
     public:
-    static constexpr const char *MountPointPath = Path.value;
+    static constexpr char MountPointPath[]{Path.value};
 
     DummyStorage(DummyStorage &&other) = default;
     DummyStorage(const DummyStorage &other) = delete;

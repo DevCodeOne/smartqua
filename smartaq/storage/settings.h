@@ -163,13 +163,17 @@ class FilesystemSetting final {
     private:
         template<typename ArrayType>
         bool copyTmpFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%s/%s.tmp", FilesystemType::MountPointPath, Path.value);
+            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s.tmp", sizeof(FilesystemType::path.value),
+                                   FilesystemType::path.value,
+                                   sizeof(Path.value), Path.value);
             return result > 0 && result < dst->size();
         }
 
         template<typename ArrayType>
         bool copyFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%s/%s", FilesystemType::MountPointPath, Path.value);
+            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s", sizeof(FilesystemType::path.value),
+                                   FilesystemType::path.value,
+                                   sizeof(Path.value), Path.value);
             return result > 0 && result < dst->size();
         }
 

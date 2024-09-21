@@ -26,7 +26,7 @@
 template<ConstexprPath Path>
 class LocalFlashStorage {
     public:
-    static constexpr const char *MountPointPath = Path.value;
+    static constexpr ConstexprPath path = Path;
 
     LocalFlashStorage(LocalFlashStorage &&other) = default;
     LocalFlashStorage(const LocalFlashStorage &other) = delete;
@@ -44,10 +44,10 @@ class LocalFlashStorage {
     template<typename DataSourceLambda>
     static bool unMountWriteBackupAndMount(DataSourceLambda &dataSource) {
         if (m_flashWearLevelHandle) {
-            esp_vfs_fat_spiflash_unmount_rw_wl(MountPointPath, *m_flashWearLevelHandle);
+            esp_vfs_fat_spiflash_unmount_rw_wl(Path.value, *m_flashWearLevelHandle);
         }
 
-        const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, MountPointPath + 1);
+        const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, Path.value + 1);
 
         if (partition == nullptr) {
             return false;
@@ -105,7 +105,7 @@ class LocalFlashStorage {
             return LocalFlashStorage();
         }
 
-        const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, MountPointPath + 1);
+        const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, Path.value + 1);
 
         if (partition == nullptr) {
             Logger::log(LogLevel::Error, "Couldn't find partition");
@@ -133,7 +133,7 @@ class LocalFlashStorage {
             .max_files = 12,
         };
 
-        auto result = esp_vfs_fat_spiflash_mount_rw_wl(MountPointPath, MountPointPath + 1, &fatMountConfig, &handleOut);
+        auto result = esp_vfs_fat_spiflash_mount_rw_wl(Path.value, Path.value + 1, &fatMountConfig, &handleOut);
 
         if (result != ESP_OK) {
             Logger::log(LogLevel::Error, "Couldn't mount fat filesystem : %s", esp_err_to_name(result));

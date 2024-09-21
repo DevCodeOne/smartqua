@@ -3,6 +3,7 @@
 #include "frozen.h"
 
 #include "auth.h"
+#include "main_thread.h"
 #include "smartqua_config.h"
 #include "drivers/system_info.h"
 #include "network/wifi_manager.h"
@@ -39,7 +40,7 @@ void print_health(void *) {
     Logger::log(LogLevel::Warning, "%s", timeout.data());
 }
 
-void *networkTask(void *pvParameters) {
+void *mainTask(void *pvParameters) {
     // TODO: This first log should consider the device we are running this on (don't use esp-idf here)
     ESP_LOGI(__PRETTY_FUNCTION__, "Restarting ...");
 
@@ -96,27 +97,4 @@ void *networkTask(void *pvParameters) {
 
     // Shouldn't be reached
     pthread_exit(nullptr);
-}
-
-extern "C" {
-
-void app_main() {
-    pthread_attr_t attributes;
-    pthread_t mainThreadHandle;
-
-    pthread_attr_init(&attributes);
-
-    //pthread_attr_setstack(&attributes, pthreadStack.get(), stackSize);
-    // Only stack size can be set on esp-idf
-    pthread_attr_setstacksize(&attributes, stack_size);
-    if (auto result = pthread_create(&mainThreadHandle, &attributes, networkTask, nullptr); result != 0) {
-        ESP_LOGE("Main", "Couldn't start main thread");
-    }
-
-    if (auto result = pthread_join(mainThreadHandle, nullptr); result != 0) {
-        ESP_LOGE("Main", "Main thread exited shouldn't happen");
-    }
-
-    pthread_attr_destroy(&attributes);
-}
 }

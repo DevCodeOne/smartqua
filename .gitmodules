@@ -5,7 +5,7 @@
 	path = header_only/frozen
 	url = https://github.com/serge-sans-paille/frozen
 [submodule "components/esp-idf-lib"]
-	path = components/esp-idf-lib
+	path = thirdparty/esp-idf-lib
 	url = https://github.com/UncleRus/esp-idf-lib
 [submodule "external_libs/frozen"]
 	path = external_libs/frozen

@@ -24,7 +24,7 @@
 template<ConstexprPath Path>
 class FlashStorage {
     public:
-    static constexpr const char *MountPointPath = Path.value;
+    static constexpr char MountPointPath[]{Path.value};
 
     FlashStorage(FlashStorage &&other) = default;
     FlashStorage(const FlashStorage &other) = delete;
