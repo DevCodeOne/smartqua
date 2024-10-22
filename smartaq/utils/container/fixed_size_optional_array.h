@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <ranges>
 #include <shared_mutex>
 
 template<std::size_t Size, typename T>
