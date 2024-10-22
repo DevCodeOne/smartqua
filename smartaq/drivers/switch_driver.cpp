@@ -83,8 +83,7 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
             targetArgument.len); 
     }
 
-    std::memcpy(reinterpret_cast<SwitchConfig *>(device_conf_out.device_config.data()), 
-        &newConf, sizeof(SwitchConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(SwitchConfig));
 
     return create_driver(&device_conf_out);
 }
@@ -96,7 +95,7 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const Devi
 
 
 void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
-    const SwitchConfig *const switchConfig = reinterpret_cast<const SwitchConfig *>(instance->mConf->device_config.data());
+    auto switchConfig = instance->mConf->accessConfig<SwitchConfig>();
     // TODO: really check valueChanged
     bool valueChanged = true;
 
@@ -125,7 +124,8 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
                     valueToSet = switchConfig->highValue;
                 }
             } else {
-                Logger::log(LogLevel::Info, "Difference is too small for this switch to do anything %f < %f", *allowedDifference, *difference);
+                Logger::log(LogLevel::Info, "Difference is too small for this switch to do anything %f < %f",
+                    *allowedDifference, *difference);
             }
             // If the values couldn't be compared, there should be some kind of error handling, best at the creation of the object
         } else {
@@ -163,9 +163,9 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
 SwitchDriver::SwitchDriver(const DeviceConfig *config) : mConf(config) { }
 
-SwitchDriver::SwitchDriver(SwitchDriver &&other) : mConf(other.mConf) { other.mConf = nullptr; }
+SwitchDriver::SwitchDriver(SwitchDriver &&other)  noexcept : mConf(other.mConf) { other.mConf = nullptr; }
 
-SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other) {
+SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other)  noexcept {
     using std::swap;
 
     other.mWatchValueThread.request_stop();
@@ -190,7 +190,6 @@ SwitchDriver::~SwitchDriver() {
 }
 
 DeviceOperationResult SwitchDriver::read_value(std::string_view what, DeviceValues &value) const {
-    const SwitchConfig *const switchConfig = reinterpret_cast<const SwitchConfig *>(mConf->device_config.data());
     return DeviceOperationResult::ok;
 }
 

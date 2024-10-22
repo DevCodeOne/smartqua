@@ -3,7 +3,7 @@
 #include "dht.h"
 
 std::optional<DhtXXDriver> DhtXXDriver::create_driver(const DeviceConfig *config) {
-    auto driver_data = reinterpret_cast<const DhtXXDriverData *>(config->device_config.data());
+    auto driver_data = config->accessConfig<DhtXXDriverData>();
     auto pin = DeviceResource::get_gpio_resource(driver_data->gpio, GpioPurpose::bus);
 
     if (!pin) {
@@ -52,7 +52,7 @@ DhtXXDriver::DhtXXDriver(const DeviceConfig *config, std::shared_ptr<GpioResourc
 
 void DhtXXDriver::updateDataThread(std::stop_token token, DhtXXDriver *instance) {
     using namespace std::chrono_literals;
-    const auto *config  = reinterpret_cast<const DhtXXDriverData *>(&instance->mConf->device_config);
+    const auto *config  = instance->mConf->accessConfig<DhtXXDriverData>();
 
     while(!token.stop_requested()) {
         const auto beforeReading = std::chrono::steady_clock::now();

@@ -14,7 +14,7 @@
 #include <pcf8575.h>
 
 std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const DeviceConfig*config) {
-    auto driver_data = reinterpret_cast<const Pcf8575DriverData *>(config->device_config.data());
+    auto driver_data = config->accessConfig<Pcf8575DriverData>();
     auto sdaPin = DeviceResource::get_gpio_resource(driver_data->sdaPin, GpioPurpose::bus);
     auto sclPin = DeviceResource::get_gpio_resource(driver_data->sclPin, GpioPurpose::bus);
 
@@ -95,7 +95,7 @@ std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const std::string_view
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(reinterpret_cast<void *>(device_conf_out.device_config.data()), &data, sizeof(Pcf8575DriverData));
+    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(Pcf8575DriverData));
     device_conf_out.device_driver_name =  Pcf8575Driver::name;
 
     return Pcf8575Driver(&device_conf_out, std::move(device));
@@ -112,7 +112,7 @@ Pcf8575Driver::Pcf8575Driver(Pcf8575Driver &&other) : m_conf(other.m_conf), m_de
     }
 
     other.m_conf = nullptr;
-    std::memset(reinterpret_cast<void *>(&other.m_device), 0, sizeof(i2c_dev_t));
+    std::memset(&other.m_device, 0, sizeof(i2c_dev_t));
 
     mReadingThread = std::jthread(&Pcf8575Driver::updatePinsThread, this);
  }
@@ -142,12 +142,12 @@ Pcf8575Driver::~Pcf8575Driver() {
     if (mReadingThread.joinable()) {
         mReadingThread.join();
     }
-    remove_address(reinterpret_cast<Pcf8575DriverData *>(m_conf->device_config.data())->addr);
+    remove_address(m_conf->accessConfig<Pcf8575DriverData>()->addr);
 }
 
 // TODO: fix that values can be written here
 DeviceOperationResult Pcf8575Driver::write_value(std::string_view what, const DeviceValues &value) {
-    const auto *config  = reinterpret_cast<const Pcf8575DriverData *>(&m_conf->device_config);
+    auto config  = m_conf->accessConfig<Pcf8575DriverData>();
 
     uint8_t toSet = 0;
     uint8_t pin = 0xff;
@@ -178,7 +178,7 @@ DeviceOperationResult Pcf8575Driver::write_value(std::string_view what, const De
 }
 
 DeviceOperationResult Pcf8575Driver::read_value(std::string_view what, DeviceValues &value) const {
-    const auto *config  = reinterpret_cast<const Pcf8575DriverData *>(&m_conf->device_config);
+    auto config  = m_conf->accessConfig<const Pcf8575DriverData>();
     Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", 
         static_cast<uint32_t>(config->addr), what.size(), what.data());
 
@@ -213,7 +213,6 @@ DeviceOperationResult Pcf8575Driver::update_runtime_data() {
 void Pcf8575Driver::updatePinsThread(std::stop_token token, Pcf8575Driver *instance) {
     using namespace std::chrono_literals;
 
-    const auto *config  = reinterpret_cast<const Pcf8575DriverData *>(&instance->m_conf->device_config);
     while(!token.stop_requested()) {
         auto beforeReading = std::chrono::steady_clock::now();
         

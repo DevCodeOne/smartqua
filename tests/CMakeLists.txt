@@ -11,7 +11,8 @@ FetchContent_MakeAvailable(googletest)
 add_executable(smartaq_tests
         ring_buffer_tests.cpp
         sample_container_tests.cpp
-        lookup_table_tests.cpp)
+        lookup_table_tests.cpp
+        fixed_size_optional_array_tests.cpp)
 target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
 

@@ -19,7 +19,7 @@ class ring_buffer {
         return m_data[calc_real_index(index)];
     }
 
-    ring_buffer &append(T value) { 
+    ring_buffer &append(T value) {
         if (m_size == m_data.size()) {
             // Wrap around, size isn't increased
             m_data[calc_real_index(0)] = value;

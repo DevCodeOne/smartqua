@@ -31,6 +31,7 @@ set(SMARTAQ_SOURCES
             "utils/logger.cpp"
             "utils/web_utils.cpp"
             "utils/container/lookup_table.h"
+            "utils/container/bitset.h"
             "utils/call_on_destructor.h"
             "../external_libs/frozen/frozen.c")
 

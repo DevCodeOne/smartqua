@@ -14,7 +14,7 @@
 #include <ads111x.h>
 
 std::optional<Ads111xDriver> Ads111xDriver::create_driver(const DeviceConfig *config) {
-    auto driver_data = reinterpret_cast<const Ads111xDriverData *>(config->device_config.data());
+    auto driver_data = config->accessConfig<Ads111xDriverData>();
     auto sdaPin = DeviceResource::get_gpio_resource(driver_data->sdaPin, GpioPurpose::bus);
     auto sclPin = DeviceResource::get_gpio_resource(driver_data->sclPin, GpioPurpose::bus);
 
@@ -67,7 +67,7 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(reinterpret_cast<void *>(device_conf_out.device_config.data()), &data, sizeof(Ads111xDriverData));
+    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(Ads111xDriverData));
     device_conf_out.device_driver_name = Ads111xDriver::name;
 
     return create_driver(&device_conf_out);
@@ -80,7 +80,7 @@ std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const DeviceConfig *devi
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't set ads111x to continuous mode");
-        removeAddress(reinterpret_cast<Ads111xDriverData *>(device_conf_out->device_config.data())->addr);
+        removeAddress(device_conf_out->accessConfig<Ads111xDriverData>()->addr);
         return std::nullopt;
     }
 
@@ -106,7 +106,7 @@ Ads111xDriver::Ads111xDriver(Ads111xDriver &&other)
     }
 
     other.mConf = nullptr;
-    std::memset(reinterpret_cast<void *>(&other.mDevice), 0, sizeof(i2c_dev_t));
+    std::memset(&other.mDevice, 0, sizeof(i2c_dev_t));
 
     mAnalogReadingsThread = std::jthread(&Ads111xDriver::updateAnalogThread, this);
  }
@@ -138,7 +138,7 @@ Ads111xDriver::~Ads111xDriver() {
     if (mAnalogReadingsThread.joinable()) {
         mAnalogReadingsThread.join();
     }
-    removeAddress(reinterpret_cast<Ads111xDriverData *>(mConf->device_config.data())->addr);
+    removeAddress(mConf->accessConfig<Ads111xDriverData>()->addr);
 }
 
 DeviceOperationResult Ads111xDriver::write_value(std::string_view what, const DeviceValues &value) {
@@ -146,7 +146,7 @@ DeviceOperationResult Ads111xDriver::write_value(std::string_view what, const De
 }
 
 DeviceOperationResult Ads111xDriver::read_value(std::string_view what, DeviceValues &value) const {
-    const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&mConf->device_config);
+    const auto *config  = mConf->accessConfig<Ads111xDriverData>();
     int16_t analog = 0;
     Logger::log(LogLevel::Info, "Reading address : %u value to read : %.*s", 
         static_cast<uint32_t>(config->addr), what.size(), what.data());
@@ -191,7 +191,6 @@ void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *ins
             ADS111X_MUX_3_GND
     };
 
-    const auto *config  = reinterpret_cast<const Ads111xDriverData *>(&instance->mConf->device_config);
     for(unsigned int i = 0; !token.stop_requested(); i = (i + 1) % MaxChannels) {
         auto beforeReading = std::chrono::steady_clock::now();
         

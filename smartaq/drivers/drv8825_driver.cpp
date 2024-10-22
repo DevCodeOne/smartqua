@@ -34,13 +34,13 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view
         Logger::log(LogLevel::Error, "Some value(s) were out of range");
     }
 
-    std::memcpy(reinterpret_cast<DRV8825DriverConfig *>(device_conf_out.device_config.data()), &newConf, sizeof(DRV8825DriverConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(DRV8825DriverConfig));
 
     return create_driver(&device_conf_out);
 }
 
 std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*config) {
-    DRV8825DriverConfig *const stepperConfig = reinterpret_cast<DRV8825DriverConfig *>(config->device_config.data());
+    auto stepperConfig = config->accessConfig<DRV8825DriverConfig>();
 
     auto stepGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(stepperConfig->stepGPIONum), GpioPurpose::gpio);
 
@@ -87,7 +87,6 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*con
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
 DeviceOperationResult DRV8825Driver::write_value(std::string_view what, const DeviceValues &value) {
-    const DRV8825DriverConfig *const stepperConfig = reinterpret_cast<const DRV8825DriverConfig *>(mConf->device_config.data());
     if (!value.generic_unsigned_integral()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports steps");
         return DeviceOperationResult::failure;
@@ -116,8 +115,7 @@ void DRV8825Driver::updatePumpThread(std::stop_token token, DRV8825Driver *insta
         .loop_count = 0
     };
 
-    const DRV8825DriverConfig *const stepperConfig = reinterpret_cast<const DRV8825DriverConfig *>(
-            instance->mConf->device_config.data());
+    auto stepperConfig = instance->mConf->accessConfig<DRV8825DriverConfig>();
 
     Logger::log(LogLevel::Info, "Starting Stepper dosing thread");
     auto result = gpio_set_level(static_cast<gpio_num_t>(stepperConfig->enGPIONum), 1);

@@ -48,7 +48,7 @@ std::optional<StepperDosingPumpDriver> StepperDosingPumpDriver::create_driver(co
 
     newConf.writeArgument = std::string_view(writeArgument.ptr, writeArgument.len);
 
-    std::memcpy(reinterpret_cast<StepperDosingConfig *>(device_conf_out.device_config.data()), &newConf, sizeof(StepperDosingConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(StepperDosingConfig));
 
     return create_driver(&device_conf_out);
 }
@@ -61,7 +61,7 @@ StepperDosingPumpDriver::StepperDosingPumpDriver(const DeviceConfig *config)  : 
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
 DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what, const DeviceValues &value) {
-    const StepperDosingConfig *const stepperConfig = reinterpret_cast<const StepperDosingConfig *>(mConf->device_config.data());
+    auto stepperConfig = mConf->accessConfig<StepperDosingConfig>();
     if (!value.milliliter()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports values in ml");
         return DeviceOperationResult::failure;
@@ -76,7 +76,7 @@ DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what
 }
 
 DeviceOperationResult StepperDosingPumpDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
-    StepperDosingConfig *const stepperConfig = reinterpret_cast<StepperDosingConfig *>(conf->device_config.data());
+    auto stepperConfig = conf->accessConfig<StepperDosingConfig>();
     if (action == "manual") {
         int steps = 0;
         float milliliter = 0;

@@ -18,7 +18,7 @@ PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> tim
 
 DeviceOperationResult PinDriver::write_value(std::string_view what, const DeviceValues &value) {
     // TODO: should the last pin state be safed ?
-    auto *pinConf = reinterpret_cast<PinConfig *>(m_conf->device_config.data());
+    auto *pinConf = m_conf->accessConfig<PinConfig>();
     esp_err_t result = ESP_FAIL;
     
     if (pinConf == nullptr || pinConf->type == PinType::Input) {
@@ -86,7 +86,7 @@ DeviceOperationResult PinDriver::write_value(std::string_view what, const Device
 
 // TODO: maybe just return current value, for the other types
 DeviceOperationResult PinDriver::read_value(std::string_view what, DeviceValues &values) const {
-    auto *pinConf = reinterpret_cast<PinConfig *>(m_conf->device_config.data());
+    auto *pinConf = m_conf->accessConfig<PinConfig>();
 
     if (pinConf->type == PinType::Input) {
         return DeviceOperationResult::not_supported;
@@ -112,14 +112,14 @@ DeviceOperationResult PinDriver::get_info(char *output_buffer, size_t output_buf
     return DeviceOperationResult::ok;
 }
 
-std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig*config) {
+std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
     static std::once_flag init_fading{};
     std::call_once(init_fading, [](){ 
         Logger::log(LogLevel::Info, "Initialized fading");
         ledc_fade_func_install(0); 
     });
 
-    auto *pinConf = reinterpret_cast<PinConfig *>(config->device_config.data());
+    auto *pinConf = config->accessConfig<PinConfig>();
 
     if (pinConf->type == PinType::Invalid) {
         Logger::log(LogLevel::Warning, "Pin type is invalid");
@@ -219,6 +219,6 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
         newConf.timer_conf.speed_mode = LEDC_LOW_SPEED_MODE;
     }
 
-    std::memcpy(reinterpret_cast<PinConfig *>(device_conf_out.device_config.data()), &newConf, sizeof(PinConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(PinConfig));
     return create_driver(&device_conf_out);
 }

@@ -28,7 +28,7 @@ std::optional<Bme280Driver> Bme280Driver::create_driver(const std::string_view &
 }
 
 std::optional<Bme280Driver> Bme280Driver::create_driver(const DeviceConfig *conf) {
-    auto driverData = reinterpret_cast<const Bme280DeviceConfig *>(conf->device_config.data());
+    auto driverData = conf->accessConfig<Bme280DeviceConfig>();
 
     auto sdaPin = DeviceResource::get_gpio_resource(driverData->sdaPin, GpioPurpose::bus);
     auto sclPin = DeviceResource::get_gpio_resource(driverData->sclPin, GpioPurpose::bus);
@@ -55,7 +55,7 @@ std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *device
                                                       SingleAddressTracker tracker,
                                                       std::shared_ptr<GpioResource> sdaPin,
                                                       std::shared_ptr<GpioResource> sclPin) {
-    auto driverData = reinterpret_cast<const Bme280DeviceConfig *>(deviceConf->device_config.data());
+    auto driverData = deviceConf->accessConfig<Bme280DeviceConfig>();
     bmp280_t device{};
     std::memset(&device, 0, sizeof(bmp280_t));
     device.i2c_dev.cfg.clk_flags = 0;

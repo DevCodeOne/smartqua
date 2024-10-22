@@ -12,7 +12,7 @@
 #include "build_config.h"
 
 std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*config) {
-    auto driver_data = reinterpret_cast<const ds18x20_driver_data *>(config->device_config.data());
+    auto driver_data = config->accessConfig<ds18x20_driver_data >();
     auto pin = DeviceResource::get_gpio_resource(driver_data->gpio, GpioPurpose::bus);
 
     if (!pin) {
@@ -87,7 +87,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
 
     ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
-    std::memcpy(reinterpret_cast<void *>(device_conf_out.device_config.data()), &data, sizeof(ds18x20_driver_data));
+    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(ds18x20_driver_data));
     device_conf_out.device_driver_name =  Ds18x20Driver::name;
 
     return Ds18x20Driver(&device_conf_out, pin);
@@ -138,7 +138,7 @@ Ds18x20Driver::~Ds18x20Driver() {
         mTemperatureThread.request_stop();
         mTemperatureThread.join();
     }
-    remove_address(reinterpret_cast<ds18x20_driver_data *>(m_conf->device_config.data())->addr);
+    remove_address(m_conf->accessConfig<ds18x20_driver_data>()->addr);
 }
 
 DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const DeviceValues &value) {
@@ -153,7 +153,7 @@ DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, DeviceVal
 void Ds18x20Driver::updateTempThread(std::stop_token token, Ds18x20Driver *instance) {
     using namespace std::chrono_literals;
 
-    const auto *config  = reinterpret_cast<const ds18x20_driver_data *>(&instance->m_conf->device_config);
+    const auto *config  = instance->m_conf->accessConfig<ds18x20_driver_data>();
     while (!token.stop_requested()) {
         auto beforeReading = std::chrono::steady_clock::now();
 

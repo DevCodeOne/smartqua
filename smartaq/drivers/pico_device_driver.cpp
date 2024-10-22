@@ -13,7 +13,7 @@
 #include "drivers/device_types.h"
 
 std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const DeviceConfig*config) {
-    auto driver_data = reinterpret_cast<const PicoDeviceDriverData *>(config->device_config.data());
+    auto driver_data = config->accessConfig<PicoDeviceDriverData>();
     auto sdaPin = DeviceResource::get_gpio_resource(driver_data->sdaPin, GpioPurpose::bus);
     auto sclPin = DeviceResource::get_gpio_resource(driver_data->sclPin, GpioPurpose::bus);
 
@@ -109,7 +109,7 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::strin
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(reinterpret_cast<void *>(device_conf_out.device_config.data()), &data, sizeof(PicoDeviceDriverData));
+    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(PicoDeviceDriverData));
     device_conf_out.device_driver_name =  PicoDeviceDriver::name;
 
     auto dev = setupDevice(&device_conf_out, std::move(device));
@@ -172,7 +172,7 @@ PicoDeviceDriver::~PicoDeviceDriver() {
         return;
     }
 
-    removeAddress(reinterpret_cast<PicoDeviceDriverData *>(mConf->device_config.data())->address);
+    removeAddress(mConf->accessConfig<PicoDeviceDriverData>()->address);
 }
 
 // TODO: only update specific devices instead of writing and reading the complete memory of the target device
@@ -244,7 +244,6 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
 // Only read specific entry ?
 DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, DeviceValues &value) const {
     Logger::log(LogLevel::Info, "ReadValue PicoDeviceDriver");
-    const auto *config  = reinterpret_cast<const PicoDeviceDriverData *>(&mConf->device_config);
     using namespace PicoDriver;
     if (what.size() == 0) {
         Logger::log(LogLevel::Info, "What was empty");
@@ -380,8 +379,7 @@ bool PicoDeviceDriver::readCompleteMemory(i2c_dev_t *device, uint8_t address, ui
 
         I2C_DEV_TAKE_MUTEX(device);
 
-        auto result = i2c_dev_read(device, reinterpret_cast<void *>(&address), sizeof(address),
-                                        reinterpret_cast<void *>(target), targetSize);
+        auto result = i2c_dev_read(device, &address, sizeof(address), target, targetSize);
 
         if (result != ESP_OK) {
             Logger::log(LogLevel::Info, "Couldn't read from pico_device ...");
@@ -407,8 +405,7 @@ bool PicoDeviceDriver::writeCompleteMemory(i2c_dev_t *device, uint8_t address, c
             }
         };
 
-        const auto result = i2c_dev_write(device, reinterpret_cast<void *>(&address), sizeof(address), 
-                                            reinterpret_cast<const void *>(target), targetSize);
+        const auto result = i2c_dev_write(device, &address, sizeof(address), target, targetSize);
 
         if (result != ESP_OK) {
             return ESP_FAIL;

@@ -39,14 +39,14 @@ int32_t LoadcellDriver::convertToRealValue(int32_t rawValue, int32_t offset, int
 }
 
 DeviceOperationResult LoadcellDriver::read_value(std::string_view what, DeviceValues &out) const {
-    const auto config = reinterpret_cast<LoadcellConfig *>(mConf->device_config.data());
+    const auto config = mConf->accessConfig<LoadcellConfig>();
     // TODO: prevent scale from being zero
     out.milligrams(convertToRealValue(m_values.average(), config->offset, config->scale));
     return DeviceOperationResult::ok;
 }
 
 DeviceOperationResult LoadcellDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
-    auto cellConfig = reinterpret_cast<LoadcellConfig *>(conf->device_config.data());
+    auto cellConfig = conf->accessConfig<LoadcellConfig >();
     // TODO: prevent this from happening when there are no samples
     if (action == "tare") {
         Logger::log(LogLevel::Info, "Taring loadcell");
@@ -100,12 +100,12 @@ std::optional<LoadcellDriver> LoadcellDriver::create_driver(const std::string_vi
         return std::nullopt;
     }
 
-    std::memcpy(reinterpret_cast<LoadcellConfig *>(device_conf_out.device_config.data()), &newConf, sizeof(LoadcellConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(LoadcellConfig));
     return create_driver(&device_conf_out);
 }
 
 std::optional<LoadcellDriver> LoadcellDriver::create_driver(const DeviceConfig*config) {
-    LoadcellConfig *const loadcellConf = reinterpret_cast<LoadcellConfig *>(config->device_config.data());
+    auto loadcellConf = config->accessConfig<LoadcellConfig>();
 
     auto doutGPIO = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(loadcellConf->doutGPIONum), GpioPurpose::gpio);
 
@@ -140,7 +140,7 @@ std::optional<LoadcellDriver> LoadcellDriver::create_driver(const DeviceConfig*c
 }
 
 DeviceOperationResult LoadcellDriver::update_runtime_data() {
-    const auto config = reinterpret_cast<const LoadcellConfig *>(mConf->device_config.data());
+    const auto config = mConf->accessConfig<LoadcellConfig>();
     esp_err_t waitResult = hx711_wait(&mDev, 1000);
     bool isReady = false;
 

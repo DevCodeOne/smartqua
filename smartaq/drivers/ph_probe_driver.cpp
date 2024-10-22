@@ -64,8 +64,7 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
             temperatureReadingArgument.len); 
     }
 
-    std::memcpy(reinterpret_cast<PhProbeConfig *>(device_conf_out.device_config.data()), 
-        &newConf, sizeof(PhProbeConfig));
+    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(PhProbeConfig));
 
     return create_driver(&device_conf_out);
 }
@@ -87,7 +86,7 @@ PhProbeDriver &PhProbeDriver::operator=(PhProbeDriver &&other) {
 }
 
 DeviceOperationResult PhProbeDriver::read_value(std::string_view what, DeviceValues &value) const {
-    const PhProbeConfig *const phConfig = reinterpret_cast<const PhProbeConfig *>(mConf->device_config.data());
+    auto phConfig = mConf->accessConfig<PhProbeConfig>();
     // TODO: read actual ph and temperature correction
     const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
 
@@ -120,7 +119,7 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, DeviceVal
 }
 
 DeviceOperationResult PhProbeDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
-    PhProbeConfig *phConfig = reinterpret_cast<PhProbeConfig *>(conf->device_config.data());
+    auto phConfig = conf->accessConfig<PhProbeConfig>();
     // TODO: temperature correction
     if (action == "callibrate-lower" || action == "callibrate-higher") {
         float ph = std::numeric_limits<float>::infinity();

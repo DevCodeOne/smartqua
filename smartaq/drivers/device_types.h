@@ -43,6 +43,11 @@ struct DeviceConfig {
     stack_string<name_length> device_driver_name;
     // TODO: add method to write driver conf
     mutable std::array<char, device_config_size> device_config; // Binary data
+
+    template<typename TargetType>
+    TargetType *accessConfig() const requires (!std::is_pointer_v<TargetType>) {
+        return reinterpret_cast<TargetType *>(device_config.data());
+    }
 };
 
 using DeviceValueUnitMap = EnumTypeMap<
