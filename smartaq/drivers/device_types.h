@@ -34,6 +34,7 @@ enum struct DeviceValueUnit {
     milligrams,
     milliliter,
     enable,
+    seconds,
     none = 0xFF
 };
 
@@ -64,6 +65,7 @@ using DeviceValueUnitMap = EnumTypeMap<
         EnumTypePair<DeviceValueUnit::milliliter, float>,
         EnumTypePair<DeviceValueUnit::enable, bool>,
         EnumTypePair<DeviceValueUnit::percentage, uint8_t>,
+        EnumTypePair<DeviceValueUnit::seconds, uint16_t>,
         EnumTypePair<DeviceValueUnit::generic_unsigned_integral, uint16_t>
         >;
 
@@ -149,6 +151,8 @@ class DeviceValues {
                 return values.enable.mValue;
             case DeviceValueUnit::percentage:
                 return values.percentage.mValue;
+            case DeviceValueUnit::seconds:
+                return values.seconds.mValue;
             case DeviceValueUnit::none:
             default:
                 return std::nullopt;
@@ -214,6 +218,9 @@ class DeviceValues {
             case DeviceValueUnit::percentage:
                 values.percentage = value;
                 break;
+            case DeviceValueUnit::seconds:
+                values.seconds = value;
+            break;
         }
     }
 
@@ -244,6 +251,8 @@ class DeviceValues {
     [[nodiscard]] auto enable() const { return getAsUnit<DeviceValueUnit::enable>(); }
 
     [[nodiscard]] auto percentage() const { return getAsUnit<DeviceValueUnit::percentage>(); }
+
+    [[nodiscard]] auto seconds() const { return getAsUnit<DeviceValueUnit::seconds>(); }
 
     template<typename T>
     void temperature(T value) { return setToUnit<DeviceValueUnit::temperature>(value); }
@@ -287,6 +296,9 @@ class DeviceValues {
     template<typename T>
     void percentage(T value) { return setToUnit<DeviceValueUnit::percentage>(value); }
 
+    template<typename T>
+    void seconds(T value) { return setToUnit<DeviceValueUnit::seconds>(value); }
+
     template<typename ValueType> 
     static DeviceValues create_from_unit(DeviceValueUnit unit, ValueType value);
 
@@ -306,6 +318,7 @@ class DeviceValues {
         UnitValue<DeviceValueUnit::milliliter> milliliter;
         UnitValue<DeviceValueUnit::enable> enable;
         UnitValue<DeviceValueUnit::percentage> percentage;
+        UnitValue<DeviceValueUnit::seconds> seconds;
         UnitValue<DeviceValueUnit::generic_unsigned_integral> un_integral;
     } values;
 
@@ -362,6 +375,9 @@ DeviceValues DeviceValues::create_from_unit(DeviceValueUnit unit, ValueType valu
         case DeviceValueUnit::enable:
             createdObject.values.enable = value;
             break;
+        case DeviceValueUnit::seconds:
+            createdObject.values.seconds = value;
+        break;
         case DeviceValueUnit::percentage:
         default:
             createdObject.values.percentage = value;
@@ -400,6 +416,8 @@ struct read_from_json<DeviceValueUnit> {
             unit = DeviceValueUnit::enable;
         } else if (input == "un_integral") {
             unit = DeviceValueUnit::generic_unsigned_integral;
+        } else if (input == "s") {
+            unit = DeviceValueUnit::seconds;
         } else if (input == "pwm") {
             unit = DeviceValueUnit::generic_pwm;
         }
@@ -441,6 +459,7 @@ struct read_from_json<DeviceValues> {
         read_and_write_to_optional(str, len, "{ milliliter : %hd } ", values.values.milliliter, values.index);
         read_and_write_to_optional(str, len, "{ ml : %hd } ", values.values.milliliter, values.index);
         read_and_write_to_optional(str, len, "{ percentage : %hd } ", values.values.percentage, values.index);
+        read_and_write_to_optional(str, len, "{ seconds : %hd } ", values.values.seconds, values.index);
         read_and_write_to_optional(str, len, "{ un_integral : %hd } ", values.values.un_integral, values.index);
     }
 };
@@ -477,6 +496,7 @@ struct print_to_json<DeviceValues> {
         write_optional(out, ", milliliter : %f", values.index, values.values.milliliter);
         write_optional(out, ", milligrams : %d", values.index, values.values.milligrams);
         write_optional(out, ", enable : %u", values.index, values.values.enable);
+        write_optional(out, ", seconds : %u", values.index, values.values.seconds);
         write_optional(out, ", percentage : %u", values.index, values.values.percentage);
 
         written += json_printf(out, "}");
