@@ -36,7 +36,7 @@ TEST(FixedSizeOptionalArrayTest, Clear) {
 }
 
 TEST(FixedSizeOptionalArrayTest, Append) {
-    FixedSizeOptionalArray<5, int> array;
+    FixedSizeOptionalArray<2, int> array;
     EXPECT_TRUE(array.append(10));
     EXPECT_TRUE(array.append(20));
     EXPECT_EQ(array[0].value(), 10);
