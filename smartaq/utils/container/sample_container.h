@@ -108,6 +108,10 @@ class SampleContainer final {
     }
 
    private:
+    static auto calculateTimeDifference(const auto &time1, const auto &time2) {
+        return std::abs(std::chrono::duration_cast<std::chrono::seconds>(time1 - time2).count());
+    }
+
     // TODO: maybe don't recalculate complete new average
     template<typename MutexType>
     SampleContainer &recalculateInternalValues(std::unique_lock<MutexType> &lock) {
@@ -149,8 +153,7 @@ class SampleContainer final {
         // Calculate average rate of change
         float totalRateOfChange = 0.0f;
         for (typename decltype(mSamples)::SizeType i = 1; i < mSamples.size(); ++i) {
-            const auto timeDiff = std::chrono::duration_cast<std::chrono::microseconds>(
-                mSamples[i].timeStamp - mSamples[i - 1].timeStamp).count();
+            const auto timeDiff = calculateTimeDifference(mSamples[i].timeStamp, mSamples[i - 1].timeStamp);
             if (timeDiff != 0) {
                 const float difference(std::abs(mSamples[i].value) - std::abs(mSamples[i - 1].value));
                 totalRateOfChange += std::abs(difference) / timeDiff;
@@ -171,9 +174,7 @@ class SampleContainer final {
         const float maxValue = mAvg + mMaxRateOfChange * mAvgRateOfChange;
 
         const auto lastSample = mSamples.back();
-        const auto time_diff = std::chrono::duration_cast<std::chrono::microseconds>(
-                    timeStamp - lastSample.timeStamp).
-                count();
+        const auto time_diff = calculateTimeDifference(timeStamp, lastSample.timeStamp);
         const auto newRateOfChange = static_cast<float>(value - lastSample.value) / time_diff;
         if (newRateOfChange > mMaxRateOfChange * mAvgRateOfChange) {
             return true;
