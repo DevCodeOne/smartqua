@@ -50,7 +50,7 @@ class Ds18x20Driver final {
 
         std::shared_ptr<GpioResource> m_pin;
         std::jthread mTemperatureThread;
-        sample_container<float> mTemperatureReadings;
+        SampleContainer<float> mTemperatureReadings;
 
         static inline std::array<std::optional<ds18x20_addr_t>, max_num_devices> _device_addresses;
         static inline std::shared_mutex _instance_mutex;

@@ -83,9 +83,9 @@ private:
     std::shared_ptr<GpioResource> mSclPin;
     std::optional<bmp280_t> mDevice;
 
-    sample_container<float> mHumidity;
-    sample_container<float> mTemperature;
-    sample_container<float> mPressure;
+    SampleContainer<float> mHumidity;
+    SampleContainer<float> mTemperature;
+    SampleContainer<float> mPressure;
 
     static inline AddressTracker addressLookupTable;
 };

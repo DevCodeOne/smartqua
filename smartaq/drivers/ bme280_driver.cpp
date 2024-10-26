@@ -122,9 +122,9 @@ void Bme280Driver::oneIteration(Bme280Driver *instance) {
                 humidity,
                 pressure);
 
-    instance->mHumidity.put_sample(humidity);
-    instance->mTemperature.put_sample(temperature);
-    instance->mPressure.put_sample(pressure);
+    instance->mHumidity.putSample(humidity);
+    instance->mTemperature.putSample(temperature);
+    instance->mPressure.putSample(pressure);
 }
 
 Bme280Driver::Bme280Driver(const DeviceConfig *config,

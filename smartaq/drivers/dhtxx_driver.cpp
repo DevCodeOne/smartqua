@@ -68,8 +68,8 @@ void DhtXXDriver::updateDataThread(std::stop_token token, DhtXXDriver *instance)
         }
 
         if (error == ESP_OK) {
-            instance->mTemperatureReadings.put_sample(temperature);
-            instance->mHumidityReadings.put_sample(humidity);
+            instance->mTemperatureReadings.putSample(temperature);
+            instance->mHumidityReadings.putSample(humidity);
         }
 
         const auto duration = std::chrono::steady_clock::now() - beforeReading;

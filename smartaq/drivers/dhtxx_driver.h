@@ -57,8 +57,8 @@ class DhtXXDriver final {
 
     const DeviceConfig *mConf;
     std::shared_ptr<GpioResource> mPin;
-    sample_container<float> mTemperatureReadings;
-    sample_container<float> mHumidityReadings;
+    SampleContainer<float> mTemperatureReadings;
+    SampleContainer<float> mHumidityReadings;
     std::jthread mReadThread;
 
     static inline std::array<std::shared_ptr<GpioResource>, max_num_devices> _Pins;

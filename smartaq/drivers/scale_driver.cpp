@@ -158,7 +158,7 @@ DeviceOperationResult LoadcellDriver::update_runtime_data() {
 
     Logger::log(LogLevel::Info, "Read raw value %ld, converted value %ld", 
         value, convertToRealValue(value, config->offset, config->scale));
-    m_values.put_sample(value);
+    m_values.putSample(value);
 
     return DeviceOperationResult::ok;
 }

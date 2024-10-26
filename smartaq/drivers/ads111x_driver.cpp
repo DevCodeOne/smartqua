@@ -218,7 +218,7 @@ void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *ins
             continue;
         }
 
-        instance->mAnalogReadings[i].put_sample(std::bit_cast<uint16_t>(analog));
+        instance->mAnalogReadings[i].putSample(std::bit_cast<uint16_t>(analog));
 
         const auto duration = std::chrono::steady_clock::now() - beforeReading;
         std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);

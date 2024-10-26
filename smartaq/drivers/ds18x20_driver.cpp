@@ -163,7 +163,7 @@ void Ds18x20Driver::updateTempThread(std::stop_token token, Ds18x20Driver *insta
             static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
 
         auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
-        instance->mTemperatureReadings.put_sample(temperature);
+        instance->mTemperatureReadings.putSample(temperature);
 
         if (result == ESP_OK) {
             Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));

@@ -51,7 +51,7 @@ class LoadcellDriver final {
 
         const DeviceConfig *mConf;
 
-        sample_container<int32_t, float, max_sample_size> m_values{};
+        SampleContainer<int32_t, float, max_sample_size> m_values{};
         std::shared_ptr<GpioResource> mDoutGPIO = nullptr;
         std::shared_ptr<GpioResource> mSckGPIO = nullptr;
         hx711_t mDev;
