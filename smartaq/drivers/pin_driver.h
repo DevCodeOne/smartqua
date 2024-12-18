@@ -47,12 +47,14 @@ struct PinConfig {
 
 class PinDriver final {
     public:
-        static inline constexpr char name[] = "pin_driver";
+        static constexpr char name[] = "pin_driver";
 
         ~PinDriver() = default;
 
         static std::optional<PinDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<PinDriver> create_driver(const DeviceConfig*config);
+
+        static bool compute_pin_level(const DeviceValues &value, PinConfig *pinConf);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
@@ -61,6 +63,8 @@ class PinDriver final {
         DeviceOperationResult update_runtime_data();
     private:
         PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel);
+
+        bool adjust_pwm_output(const DeviceValues &value, const PinConfig *pinConf);
 
         const DeviceConfig*m_conf = nullptr;
         std::shared_ptr<TimerResource> m_timer = nullptr;

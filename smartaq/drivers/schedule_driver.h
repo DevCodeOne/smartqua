@@ -78,9 +78,9 @@ class ScheduleDriver final {
     public:
         using ScheduleType = WeekSchedule<ValueTimePoint, 12>;
 
-        static inline constexpr char name[] = "schedule_driver";
-        static inline constexpr char schedulePathFormat[] = "%s/%d.json";
-        static inline constexpr char scheduleStatePathFormat[] = "%s/%d.state";
+        static constexpr char name[] = "schedule_driver";
+        static constexpr char schedulePathFormat[] = "%s/%d.json";
+        static constexpr char scheduleStatePathFormat[] = "%s/%d.state";
 
         ScheduleDriver(const ScheduleDriver &other) = delete;
         ScheduleDriver(ScheduleDriver &&other) = default;

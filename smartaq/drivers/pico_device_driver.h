@@ -64,11 +64,11 @@ class PicoDeviceDriver final {
         static inline constexpr char name[] = "pico_dev_driver";
 
         PicoDeviceDriver(const PicoDeviceDriver &other) = delete;
-        PicoDeviceDriver(PicoDeviceDriver &&other);
+        PicoDeviceDriver(PicoDeviceDriver &&other) noexcept;
         ~PicoDeviceDriver();
 
         PicoDeviceDriver &operator=(const PicoDeviceDriver &other) = delete;
-        PicoDeviceDriver &operator=(PicoDeviceDriver &&other);
+        PicoDeviceDriver &operator=(PicoDeviceDriver &&other) noexcept;
 
         static std::optional<PicoDeviceDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<PicoDeviceDriver> create_driver(const DeviceConfig*config);

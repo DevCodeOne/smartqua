@@ -58,11 +58,11 @@ class Pcf8575Driver final {
         static inline constexpr char name[] = "pcf8575_driver";
 
         Pcf8575Driver(const Pcf8575Driver &other) = delete;
-        Pcf8575Driver(Pcf8575Driver &&other);
+        Pcf8575Driver(Pcf8575Driver &&other) noexcept;
         ~Pcf8575Driver();
 
         Pcf8575Driver &operator=(const Pcf8575Driver &other) = delete;
-        Pcf8575Driver &operator=(Pcf8575Driver &&other);
+        Pcf8575Driver &operator=(Pcf8575Driver &&other) noexcept;
 
         static std::optional<Pcf8575Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<Pcf8575Driver> create_driver(const DeviceConfig*config);

@@ -31,11 +31,11 @@ class PhProbeDriver final {
         static inline constexpr char name[] = "PhProbeDriver";
 
         PhProbeDriver(const PhProbeDriver &other) = delete;
-        PhProbeDriver(PhProbeDriver &&other);
+        PhProbeDriver(PhProbeDriver &&other) noexcept;
         ~PhProbeDriver() = default;
 
         PhProbeDriver &operator=(const PhProbeDriver &other) = delete;
-        PhProbeDriver &operator=(PhProbeDriver &&other);
+        PhProbeDriver &operator=(PhProbeDriver &&other) noexcept;
 
         static std::optional<PhProbeDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<PhProbeDriver> create_driver(const DeviceConfig*config);

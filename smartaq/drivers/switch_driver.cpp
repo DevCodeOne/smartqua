@@ -163,9 +163,9 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
 SwitchDriver::SwitchDriver(const DeviceConfig *config) : mConf(config) { }
 
-SwitchDriver::SwitchDriver(SwitchDriver &&other)  noexcept : mConf(other.mConf) { other.mConf = nullptr; }
+SwitchDriver::SwitchDriver(SwitchDriver &&other) noexcept noexcept : mConf(other.mConf) { other.mConf = nullptr; }
 
-SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other)  noexcept {
+SwitchDriver &SwitchDriver::operator=(SwitchDriver &&other) noexcept noexcept {
     using std::swap;
 
     other.mWatchValueThread.request_stop();

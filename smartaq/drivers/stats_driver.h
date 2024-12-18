@@ -24,11 +24,11 @@ template<typename DriverType>
 class SingleStats final {
     public:
         SingleStats(const SingleStats &other) = delete;
-        SingleStats(SingleStats &&other);
+        SingleStats(SingleStats &&other) noexcept;
         ~SingleStats();
 
         SingleStats &operator=(const SingleStats &other) = delete;
-        SingleStats &operator=(SingleStats &&other);
+        SingleStats &operator=(SingleStats &&other) noexcept;
 
         static std::optional<SingleStats> create(SingleStatSettings *stat_settings);
     private:
@@ -49,13 +49,13 @@ template<typename DriverType>
 SingleStats<DriverType>::SingleStats(SingleStatSettings *stat_settings) : m_stat_settings(stat_settings) { }
 
 template<typename DriverType>
-SingleStats<DriverType>::SingleStats(SingleStats && other) : m_stat_settings(other.m_stat_settings) { other.m_stat_settings = nullptr; }
+SingleStats<DriverType>::SingleStats(SingleStats && other) noexcept : m_stat_settings(other.m_stat_settings) { other.m_stat_settings = nullptr; }
 
 template<typename DriverType>
 SingleStats<DriverType>::~SingleStats() { DriverType::remove_stat(m_stat_settings); }
 
 template<typename DriverType>
-SingleStats<DriverType> &SingleStats<DriverType>::operator=(SingleStats &&other) {
+SingleStats<DriverType> &SingleStats<DriverType>::operator=(SingleStats &&other) noexcept {
     using std::swap;
 
     swap(m_stat_settings, other.m_stat_settings);

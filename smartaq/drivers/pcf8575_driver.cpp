@@ -105,7 +105,7 @@ Pcf8575Driver::Pcf8575Driver(const DeviceConfig*conf, i2c_dev_t device)
     : m_conf(conf), m_device(std::move(device)) { 
 }
 
-Pcf8575Driver::Pcf8575Driver(Pcf8575Driver &&other) : m_conf(other.m_conf), m_device(other.m_device) {
+Pcf8575Driver::Pcf8575Driver(Pcf8575Driver &&other) noexcept : m_conf(other.m_conf), m_device(other.m_device) {
     other.mReadingThread.request_stop();
     if (other.mReadingThread.joinable()) {
         other.mReadingThread.join();
@@ -117,7 +117,7 @@ Pcf8575Driver::Pcf8575Driver(Pcf8575Driver &&other) : m_conf(other.m_conf), m_de
     mReadingThread = std::jthread(&Pcf8575Driver::updatePinsThread, this);
  }
 
- Pcf8575Driver &Pcf8575Driver::operator=(Pcf8575Driver &&other) {
+ Pcf8575Driver &Pcf8575Driver::operator=(Pcf8575Driver &&other) noexcept {
     using std::swap;
 
     other.mReadingThread.request_stop();

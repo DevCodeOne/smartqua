@@ -16,72 +16,42 @@
 PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel)
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
+bool PinDriver::compute_pin_level(const DeviceValues &value, PinConfig *pinConf) {
+    std::optional<uint32_t> level{0u};
+
+    if (value.enable().has_value()) {
+        level = static_cast<uint32_t>(*value.enable());
+    } else if (value.percentage().has_value()) {
+        level = static_cast<bool>(*value.percentage());
+    }
+
+    if (!level.has_value()) {
+        return false;
+    }
+
+    const esp_err_t result = gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), static_cast<bool>(1 * static_cast<uint32_t>(pinConf->invert) - *level));
+    return result == ESP_OK;
+}
+
 DeviceOperationResult PinDriver::write_value(std::string_view what, const DeviceValues &value) {
     // TODO: should the last pin state be safed ?
     auto *pinConf = m_conf->accessConfig<PinConfig>();
-    esp_err_t result = ESP_FAIL;
-    
+
     if (pinConf == nullptr || pinConf->type == PinType::Input) {
         return DeviceOperationResult::not_supported;
     }
 
     if (pinConf->type == PinType::Pwm) {
-        decltype(value.generic_pwm()) pwmValue = 0;
-
-        if (value.generic_pwm().has_value()) {
-            pwmValue = *value.generic_pwm();
-        } else if (value.percentage().has_value()) {
-            static constexpr auto MaxPercentageValue = 100;
-            const auto clampedPercentage = std::clamp<decltype(value.percentage())::value_type>(*value.percentage(), 0, MaxPercentageValue);
-            pwmValue = static_cast<decltype(pwmValue)::value_type>((pinConf->max_value / MaxPercentageValue) * clampedPercentage);
-        }
-
-        if (!pwmValue.has_value()) {
-            return DeviceOperationResult::not_supported;
-        }
-
-        if (!pinConf->invert) {
-            m_current_value = std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
-        } else {
-            m_current_value = pinConf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
-        }
-
-        result = ESP_OK;
-        if (!pinConf->fade) {
-            if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
-                result = ledc_set_duty(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value);
-                result = ledc_update_duty(pinConf->timer_conf.speed_mode, pinConf->channel);
-                Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
-            } else {
-                Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
-            }
-        } else {
-            // Maybe do the fading in a dedicated thread, and block that thread ?
-            if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
-                result = ledc_set_fade_time_and_start(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
-                Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
-            } else {
-                Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
-            }
-        }
-    } else if (pinConf->type == PinType::Output) {
-        std::optional<uint32_t> level{0u};
-
-        if (value.enable().has_value()) {
-            level = static_cast<uint32_t>(static_cast<bool>(*value.enable()));
-        } else if (value.percentage().has_value()) {
-            level = static_cast<bool>(*value.percentage());
-        }
-
-        if (!level.has_value()) {
+        if (!adjust_pwm_output(value, pinConf)) {
             return DeviceOperationResult::failure;
         }
-
-        result = gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), static_cast<bool>(1 * static_cast<uint32_t>(pinConf->invert) - *level));
-
+    } else if (pinConf->type == PinType::Output) {
+        if (!compute_pin_level(value, pinConf)) {
+            return DeviceOperationResult::failure;
+        }
     }
 
-    return result == ESP_OK ? DeviceOperationResult::ok : DeviceOperationResult::failure;
+    return DeviceOperationResult::ok;
 }
 
 // TODO: maybe just return current value, for the other types
@@ -221,4 +191,60 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
 
     std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(PinConfig));
     return create_driver(&device_conf_out);
+}
+
+bool PinDriver::adjust_pwm_output(const DeviceValues &value, const PinConfig *pinConf) {
+    decltype(value.generic_pwm()) pwmValue = 0;
+
+    if (value.generic_pwm().has_value()) {
+        pwmValue = *value.generic_pwm();
+    } else if (value.percentage().has_value()) {
+        static constexpr auto MaxPercentageValue = 100;
+        const auto clampedPercentage = std::clamp<decltype(value.percentage())::value_type>(*value.percentage(), 0, MaxPercentageValue);
+        pwmValue = static_cast<decltype(pwmValue)::value_type>((pinConf->max_value / MaxPercentageValue) * clampedPercentage);
+    }
+
+    if (!pwmValue.has_value()) {
+        return false;
+    }
+
+    if (!pinConf->invert) {
+        m_current_value = std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
+    } else {
+        m_current_value = pinConf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
+    }
+
+    esp_err_t result = ESP_OK;
+    if (!pinConf->fade) {
+        if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
+            result = ledc_set_duty(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value);
+
+            if (result != ESP_OK) {
+                return false;
+            }
+            result = ledc_update_duty(pinConf->timer_conf.speed_mode, pinConf->channel);
+
+            if (result != ESP_OK) {
+                return false;
+            }
+
+            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
+        } else {
+            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        }
+    } else {
+        // Maybe do the fading in a dedicated thread, and block that thread ?
+        if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
+            result = ledc_set_fade_time_and_start(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+
+            if (result != ESP_OK) {
+                return false;
+            }
+
+            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
+        } else {
+            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        }
+    }
+    return true;
 }

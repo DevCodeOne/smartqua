@@ -75,9 +75,9 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const DeviceConfig*con
 
 PhProbeDriver::PhProbeDriver(const DeviceConfig*config) : mConf(config) { }
 
-PhProbeDriver::PhProbeDriver(PhProbeDriver &&other) : mConf(std::move(other.mConf)) { }
+PhProbeDriver::PhProbeDriver(PhProbeDriver &&other) noexcept : mConf(std::move(other.mConf)) { }
 
-PhProbeDriver &PhProbeDriver::operator=(PhProbeDriver &&other) {
+PhProbeDriver &PhProbeDriver::operator=(PhProbeDriver &&other) noexcept {
     using std::swap;
 
     swap(mConf, other.mConf);

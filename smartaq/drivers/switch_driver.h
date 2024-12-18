@@ -75,11 +75,11 @@ class SwitchDriver final {
         static inline constexpr char name[] = "SwitchDriver";
 
         SwitchDriver(const SwitchDriver &other) = delete;
-        SwitchDriver(SwitchDriver &&other);
+        SwitchDriver(SwitchDriver &&other) noexcept;
         ~SwitchDriver();
 
         SwitchDriver &operator=(const SwitchDriver &other) = delete;
-        SwitchDriver &operator=(SwitchDriver &&other);
+        SwitchDriver &operator=(SwitchDriver &&other) noexcept;
 
         static std::expected<SwitchDriver, const char *> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
         static std::expected<SwitchDriver, const char *> create_driver(const DeviceConfig *config);

@@ -25,19 +25,19 @@ struct LoadcellConfig {
     uint8_t doutGPIONum = 13;
 };
 
-class LoadcellDriver final {
+class LoadCellDriver final {
    public:
         static inline constexpr char name[] = "LoadcellDriver";
 
-        LoadcellDriver(const LoadcellDriver &other) = delete;
-        LoadcellDriver(LoadcellDriver &&other);
-        ~LoadcellDriver() = default;
+        LoadCellDriver(const LoadCellDriver &other) = delete;
+        LoadCellDriver(LoadCellDriver &&other) noexcept;
+        ~LoadCellDriver() = default;
 
-        LoadcellDriver &operator=(const LoadcellDriver &other) = delete;
-        LoadcellDriver &operator=(LoadcellDriver &&other);
+        LoadCellDriver &operator=(const LoadCellDriver &other) = delete;
+        LoadCellDriver &operator=(LoadCellDriver &&other) noexcept;
 
-        static std::optional<LoadcellDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
-        static std::optional<LoadcellDriver> create_driver(const DeviceConfig*config);
+        static std::optional<LoadCellDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<LoadCellDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value) const;
@@ -46,7 +46,7 @@ class LoadcellDriver final {
         DeviceOperationResult update_runtime_data();
 
     private:
-        LoadcellDriver(const DeviceConfig*conf, std::shared_ptr<GpioResource> doutGPIO, std::shared_ptr<GpioResource> sckGPIO, hx711_t &&dev);
+        LoadCellDriver(const DeviceConfig*conf, std::shared_ptr<GpioResource> doutGPIO, std::shared_ptr<GpioResource> sckGPIO, hx711_t &&dev);
         static int32_t convertToRealValue(int32_t rawValue, int32_t offset, int32_t scale);
 
         const DeviceConfig *mConf;

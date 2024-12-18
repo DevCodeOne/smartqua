@@ -110,7 +110,7 @@ Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) : m_conf(other.m_conf), m_pi
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
  }
 
- Ds18x20Driver &Ds18x20Driver::operator=(Ds18x20Driver &&other) {
+ Ds18x20Driver &Ds18x20Driver::operator=(Ds18x20Driver &&other) noexcept {
     using std::swap;
 
     Logger::log(LogLevel::Info, "Waiting for other thread to join move op");

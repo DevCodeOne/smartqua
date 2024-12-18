@@ -152,12 +152,12 @@ PicoDeviceDriver::PicoDeviceDriver(const DeviceConfig *conf, RuntimeAccessType a
     device = nullptr;
 }
 
-PicoDeviceDriver::PicoDeviceDriver(PicoDeviceDriver &&other) : mConf(other.mConf), mDevice(std::move(other.mDevice)), mAccess(other.mAccess) {
+PicoDeviceDriver::PicoDeviceDriver(PicoDeviceDriver &&other) noexcept : mConf(other.mConf), mDevice(std::move(other.mDevice)), mAccess(other.mAccess) {
     other.mDevice = nullptr;
     other.mConf = nullptr;
  }
 
- PicoDeviceDriver &PicoDeviceDriver::operator=(PicoDeviceDriver &&other) {
+ PicoDeviceDriver &PicoDeviceDriver::operator=(PicoDeviceDriver &&other) noexcept {
     using std::swap;
 
     swap(mConf, other.mConf);

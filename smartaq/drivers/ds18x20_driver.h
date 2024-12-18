@@ -28,7 +28,7 @@ class Ds18x20Driver final {
         ~Ds18x20Driver();
 
         Ds18x20Driver &operator=(const Ds18x20Driver &other) = delete;
-        Ds18x20Driver &operator=(Ds18x20Driver &&other);
+        Ds18x20Driver &operator=(Ds18x20Driver &&other) noexcept;
 
         static std::optional<Ds18x20Driver> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
         static std::optional<Ds18x20Driver> create_driver(const DeviceConfig *config);
