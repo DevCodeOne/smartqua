@@ -37,9 +37,8 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/ring_buffer.h
     utils/container/sample_container.h
     utils/container/bitset.h
-    utils/call_on_destructor.h
 
-    utils/time_utils.h
+        utils/time_utils.h
     utils/time_utils.cpp
 )
 

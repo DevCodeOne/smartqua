@@ -4,7 +4,6 @@
 
 #include "drivers/driver_interface.h"
 #include "drivers/device_resource.h"
-#include "utils/call_on_destructor.h"
 #include "utils/container/lookup_table.h"
 #include "utils/container/sample_container.h"
 
