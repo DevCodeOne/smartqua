@@ -14,6 +14,7 @@
 #include "drivers/device_resource.h"
 #include "utils/container/sample_container.h"
 #include "build_config.h"
+#include "utils/container/fixed_size_optional_array.h"
 
 enum struct Ads111xAddress : std::decay_t<decltype(ADS111X_ADDR_GND)> {
     GND = ADS111X_ADDR_GND,
@@ -87,6 +88,6 @@ class Ads111xDriver final {
         std::jthread mAnalogReadingsThread;
         std::array<SampleContainer<uint16_t, uint16_t, 10>, MaxChannels> mAnalogReadings;
 
-        static inline std::array<std::optional<Ads111xAddress>, 4> _device_addresses;
+        static inline FixedSizeOptionalArray<Ads111xAddress, 4> _device_addresses;
         static inline std::shared_mutex _instance_mutex;
 };

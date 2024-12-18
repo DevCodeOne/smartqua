@@ -12,6 +12,7 @@
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
 #include "utils/container/sample_container.h"
+#include "utils/container/fixed_size_optional_array.h"
 #include "build_config.h"
 
 struct ds18x20_driver_data final {
@@ -52,6 +53,6 @@ class Ds18x20Driver final {
         std::jthread mTemperatureThread;
         SampleContainer<float> mTemperatureReadings;
 
-        static inline std::array<std::optional<ds18x20_addr_t>, max_num_devices> _device_addresses;
+        static inline FixedSizeOptionalArray<ds18x20_addr_t, max_num_devices> _device_addresses;
         static inline std::shared_mutex _instance_mutex;
 };

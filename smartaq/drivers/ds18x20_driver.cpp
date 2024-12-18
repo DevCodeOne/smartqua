@@ -193,24 +193,14 @@ DeviceOperationResult Ds18x20Driver::update_runtime_data() {
 bool Ds18x20Driver::add_address(ds18x20_addr_t address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    bool adress_already_exists = std::any_of(Ds18x20Driver::_device_addresses.cbegin(), Ds18x20Driver::_device_addresses.cend(), 
-        [&address](const auto &already_found_address) {
-            return already_found_address.has_value() && *already_found_address == address;
-        });
-
-    if (adress_already_exists) {
+    if (_device_addresses.contains(address)) {
         Logger::log(LogLevel::Warning, "No new address, don't add this address");
         return false;
     }
 
-    auto first_empty_slot = std::find(Ds18x20Driver::_device_addresses.begin(), Ds18x20Driver::_device_addresses.end(), std::nullopt);
-
-    // No free addresses
-    if (first_empty_slot == Ds18x20Driver::_device_addresses.cend()) {
+    if (!_device_addresses.append(address)) {
         return false;
     }
-
-    *first_empty_slot = address;
 
     return true;
 }
@@ -218,16 +208,9 @@ bool Ds18x20Driver::add_address(ds18x20_addr_t address) {
 bool Ds18x20Driver::remove_address(ds18x20_addr_t address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    auto found_address = std::find_if(Ds18x20Driver::_device_addresses.begin(), Ds18x20Driver::_device_addresses.end(), 
-        [&address](auto &current_address) {
-            return current_address.has_value() && *current_address == address;
-        });
-
-    if (found_address == Ds18x20Driver::_device_addresses.end()) {
-        return false;
+    if (!_device_addresses.removeValue(address)) {
+        Logger::log(LogLevel::Warning, "Couldn't remove address, wasn't in the list");
     }
-
-    *found_address = std::nullopt;
 
     return true;
 }

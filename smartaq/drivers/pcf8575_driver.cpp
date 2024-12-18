@@ -235,44 +235,29 @@ void Pcf8575Driver::updatePinsThread(std::stop_token token, Pcf8575Driver *insta
 bool Pcf8575Driver::add_address(Pcf8575Address address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    bool adress_already_exists = std::any_of(Pcf8575Driver::_device_addresses.cbegin(), Pcf8575Driver::_device_addresses.cend(), 
-        [&address](const auto &already_found_address) {
-            return already_found_address.has_value() && *already_found_address == address;
-        });
-
-    if (adress_already_exists) {
+    if (_device_addresses.contains(address)) {
         Logger::log(LogLevel::Warning, "No new address, don't add this address");
         return false;
     }
 
-    auto first_empty_slot = std::find(Pcf8575Driver::_device_addresses.begin(), Pcf8575Driver::_device_addresses.end(), std::nullopt);
-
-    // No free addresses
-    if (first_empty_slot == Pcf8575Driver::_device_addresses.cend()) {
+    if (!_device_addresses.append(address)) {
+        Logger::log(LogLevel::Info, "Couldn't add address : %x, list is already full", (int) address);
         return false;
     }
 
     Logger::log(LogLevel::Info, "Adding address : %x ", (int) address);
-    *first_empty_slot = address;
-
     return true;
 }
 
 bool Pcf8575Driver::remove_address(Pcf8575Address address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    auto found_address = std::find_if(Pcf8575Driver::_device_addresses.begin(), Pcf8575Driver::_device_addresses.end(), 
-        [&address](auto &current_address) {
-            return current_address.has_value() && *current_address == address;
-        });
-
-    if (found_address == Pcf8575Driver::_device_addresses.end()) {
+    if (!_device_addresses.removeValue(address)) {
         Logger::log(LogLevel::Info, "Couldn't remove address  : %x : not found ", (int) address);
         return false;
     }
 
     Logger::log(LogLevel::Info, "Removing address : %x ", (int) address);
-    *found_address = std::nullopt;
 
     return true;
 }

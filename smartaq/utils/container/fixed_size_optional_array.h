@@ -50,6 +50,18 @@ public:
     }
 
     /**
+     * \brief Determines whether a specified element exists within the container.
+     * \param value The element to locate within the container.
+     * \return True if the specified element exists in the container, false otherwise.
+    */
+    [[nodiscard]] bool contains(const T &value) const {
+        return std::ranges::find_if(
+                   mData,
+                   [&](const std::optional<T> &elem) { return elem.has_value() && elem.value() == value; }
+               ) != mData.end();
+    }
+
+    /**
      * \brief Insert an element at the specified index.
      * \param index The index at which to insert the element.
      * \param value The value to insert.
@@ -93,6 +105,22 @@ public:
             return true;
         }
         return false;
+    }
+
+    /**
+     * \brief Removes all occurrences of the specified value from the collection
+     * \param value The value to be removed from the collection.
+     * \return Returns true if the value was successfully removed, false if the value was not found.
+     */
+    [[nodiscard]] bool removeValue(const T &value) {
+        bool removedValue = false;
+        for (auto &currentValue : mData) {
+            if (currentValue.has_value() && currentValue.value() == value) {
+                removedValue = true;
+                currentValue.reset();
+            }
+        }
+        return removedValue;
     }
 
     /**

@@ -12,6 +12,7 @@
 
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
+#include "utils/container/fixed_size_optional_array.h"
 #include "build_config.h"
 
 enum struct Pcf8575Address : uint8_t { Invalid = 0xFF };
@@ -86,6 +87,6 @@ class Pcf8575Driver final {
         uint16_t writtenValue = std::numeric_limits<uint16_t>::max();
         std::jthread mReadingThread;
 
-        static inline std::array<std::optional<Pcf8575Address>, 4> _device_addresses;
+        static inline FixedSizeOptionalArray<Pcf8575Address, 4> _device_addresses;
         static inline std::shared_mutex _instance_mutex;
 };

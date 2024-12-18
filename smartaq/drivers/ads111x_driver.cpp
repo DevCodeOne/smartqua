@@ -229,44 +229,28 @@ void Ads111xDriver::updateAnalogThread(std::stop_token token, Ads111xDriver *ins
 bool Ads111xDriver::addAddress(Ads111xAddress address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    bool adress_already_exists = std::any_of(Ads111xDriver::_device_addresses.cbegin(), Ads111xDriver::_device_addresses.cend(), 
-        [&address](const auto &already_found_address) {
-            return already_found_address.has_value() && *already_found_address == address;
-        });
-
-    if (adress_already_exists) {
+    if (_device_addresses.contains(address)) {
         Logger::log(LogLevel::Warning, "No new address, don't add this address");
         return false;
     }
 
-    auto first_empty_slot = std::find(Ads111xDriver::_device_addresses.begin(), Ads111xDriver::_device_addresses.end(), std::nullopt);
-
-    // No free addresses
-    if (first_empty_slot == Ads111xDriver::_device_addresses.cend()) {
+    if (!_device_addresses.append(address)) {
         return false;
     }
 
     Logger::log(LogLevel::Info, "Adding address : %x ", (int) address);
-    *first_empty_slot = address;
-
     return true;
 }
 
 bool Ads111xDriver::removeAddress(Ads111xAddress address) {
     std::unique_lock instance_guard{_instance_mutex};
 
-    auto found_address = std::find_if(Ads111xDriver::_device_addresses.begin(), Ads111xDriver::_device_addresses.end(), 
-        [&address](auto &current_address) {
-            return current_address.has_value() && *current_address == address;
-        });
-
-    if (found_address == Ads111xDriver::_device_addresses.end()) {
+    if (!_device_addresses.removeValue(address)) {
         Logger::log(LogLevel::Info, "Couldn't remove address  : %x : not found ", (int) address);
         return false;
     }
 
     Logger::log(LogLevel::Info, "Removing address : %x ", (int) address);
-    *found_address = std::nullopt;
 
     return true;
 }
