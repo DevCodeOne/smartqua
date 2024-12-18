@@ -5,9 +5,14 @@
 #include <ranges>
 #include <shared_mutex>
 
-template<std::size_t Size, typename T>
+template<typename T, std::size_t Size>
+/**
+ * \class FixedSizeOptionalArray
+ * \brief A fixed-size array holding std::optional elements, allowing optional storage of elements up to a predefined size.
+ */
 class FixedSizeOptionalArray {
 public:
+    using InnerContainerType = std::array<std::optional<T>, Size>;
     /**
      * \brief Default constructor.
      */
@@ -19,7 +24,6 @@ public:
      * \return A reference to the optional element at the specified index.
      */
     std::optional<T> &operator[](std::size_t index) {
-        std::shared_lock lock(mMtx);
         return mData[index];
     }
 
@@ -33,7 +37,6 @@ public:
 
     // Check if the array is empty
     [[nodiscard]] bool empty() const noexcept {
-        std::shared_lock lock(mMtx);
         return count() == 0;
     }
 
@@ -41,7 +44,6 @@ public:
      * \brief Clear the array.
      */
     void clear() noexcept {
-        std::unique_lock lock(mMtx);
         for (auto &elem: mData) {
             elem.reset();
         }
@@ -53,7 +55,6 @@ public:
      * \param value The value to insert.
      */
     void insert(std::size_t index, const T &value) {
-        std::unique_lock lock(mMtx);
         mData[index] = value;
     }
 
@@ -62,7 +63,6 @@ public:
      * \param index The index of the element to erase.
      */
     void erase(std::size_t index) {
-        std::unique_lock lock(mMtx);
         mData[index].reset();
     }
 
@@ -71,7 +71,6 @@ public:
      * \return The number of elements currently stored.
      */
     [[nodiscard]] std::size_t count() const noexcept {
-        std::shared_lock lock(mMtx);
         std::size_t cnt = 0;
         for (const auto &elem: mData) {
             if (elem.has_value()) {
@@ -87,7 +86,6 @@ public:
      * \return True if the element was appended, false otherwise.
      */
     [[nodiscard]] bool append(const T &value) {
-        std::unique_lock lock(mMtx);
         auto it = std::ranges::find_if(mData, [](auto &elem) { return !elem.has_value(); });
 
         if (it != mData.end()) {
@@ -97,7 +95,91 @@ public:
         return false;
     }
 
+    /**
+     * \brief Custom iterator for non-empty elements.
+     */
+    class Iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = T;
+        using difference_type = std::ptrdiff_t;
+        using pointer = T *;
+        using reference = T &;
+
+        Iterator(typename std::array<std::optional<T>, Size>::iterator current,
+                 typename std::array<std::optional<T>, Size>::iterator end)
+            : mCurrent(current), mEnd(end) {
+            // Move the iterator to the first non-empty element
+            advanceIfEmpty();
+        }
+
+        reference operator*() const {
+            return mCurrent->value();
+        }
+
+        pointer operator->() const {
+            return &mCurrent->value();
+        }
+
+        Iterator &operator++() {
+            ++mCurrent;
+            advanceIfEmpty();
+            return *this;
+        }
+
+        Iterator operator++(int) {
+            Iterator tmp = *this;
+            ++(*this);
+            return tmp;
+        }
+
+        friend bool operator==(const Iterator &a, const Iterator &b) {
+            return a.mCurrent == b.mCurrent;
+        }
+
+        friend bool operator!=(const Iterator &a, const Iterator &b) {
+            return !(a == b);
+        }
+
+    private:
+        void advanceIfEmpty() {
+            while (mCurrent != mEnd && !mCurrent->has_value()) {
+                ++mCurrent;
+            }
+        }
+
+        typename InnerContainerType::iterator mCurrent;
+        typename InnerContainerType::iterator mEnd;
+    };
+
+    Iterator begin() {
+        return Iterator(mData.begin(), mData.end());
+    }
+
+    Iterator end() {
+        return Iterator(mData.end(), mData.end());
+    }
+
+    /**
+     * \brief Get an iterator pointing to the first non-empty element.
+     * \return An iterator to the first non-empty element, or end() if no such element is found.
+     */
+    Iterator findFirstNonEmpty() {
+        return std::ranges::find_if(mData.begin(), mData.end(), [](const auto &elem) { return elem.has_value(); });
+    }
+
+    /**
+     * \brief Get an iterator pointing to the last non-empty element.
+     * \return An iterator to the last non-empty element, or end() if no such element is found.
+     */
+    Iterator findLastNonEmpty() {
+        auto it = std::ranges::find_if(mData.rbegin(), mData.rend(), [](const auto &elem) { return elem.has_value(); });
+        if (it != mData.rend()) {
+            return Iterator(it.base() - 1, mData.end());
+        }
+        return end();
+    }
+
 private:
-    std::array<std::optional<T>, Size> mData;
-    mutable std::shared_mutex mMtx;
+    InnerContainerType mData;
 };

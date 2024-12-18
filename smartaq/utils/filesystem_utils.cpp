@@ -32,7 +32,7 @@ bool ensure_path_exists(const char *path, uint32_t mask) {
 
     // Only use return codes of mkdir, stat is wayy to slow
     bool path_exists = true;
-    for (auto directory : ctre::range<directory_pattern>(path)) {
+    for (auto directory : ctre::search_all<directory_pattern>(path)) {
         std::string_view directoryView(directory.get<0>());
 
         std::strncat(pathCopy.data(), directoryView.data(), directoryView.size());

@@ -27,12 +27,8 @@ set(SMARTAQ_SOURCES
             "utils/idf_utils.cpp"
             # "storage/sd_filesystem.cpp"
             "utils/filesystem_utils.cpp"
-            "utils/time_utils.cpp"
             "utils/logger.cpp"
             "utils/web_utils.cpp"
-            "utils/container/lookup_table.h"
-            "utils/container/bitset.h"
-            "utils/call_on_destructor.h"
             "../external_libs/frozen/frozen.c")
 
 set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
@@ -40,6 +36,11 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/lookup_table.h
     utils/container/ring_buffer.h
     utils/container/sample_container.h
+    utils/container/bitset.h
+    utils/call_on_destructor.h
+
+    utils/time_utils.h
+    utils/time_utils.cpp
 )
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
@@ -79,10 +80,13 @@ endif()
 add_custom_target(deletebloat ALL
         COMMAND rm ${CMAKE_CURRENT_SOURCE_DIR}/../gui_smart_aq/build/*.map
         || true)
-add_library(smartaq_lib INTERFACE
+add_library(smartaq_lib STATIC
     ${SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES})
 target_include_directories(smartaq_lib INTERFACE .)
 
+if (TARGET ${COMPONENT_LIB})
+    target_link_libraries(${COMPONENT_LIB} PRIVATE smartaq_lib)
+endif()
 
 # spiffs_create_partition_image(storage ../gui_smart_aq/build/ FLASH_IN_PROJECT)
 # fatfs_create_spiflash_image(values ../values FLASH_IN_PROJECT)

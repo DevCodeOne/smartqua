@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(lookup_table, basic) {
+TEST(ResourceLookupTable, basic) {
     ResourceLookupTable<ThreadSafety::Safe, 0, 1, 2, 4> resources;
 
     // Doesn't exist should never return a valid flag

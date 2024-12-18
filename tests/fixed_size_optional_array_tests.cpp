@@ -3,13 +3,13 @@
 #include "utils/container/fixed_size_optional_array.h"
 
 TEST(FixedSizeOptionalArrayTest, DefaultConstructor) {
-    const FixedSizeOptionalArray<5, int> array;
+    const FixedSizeOptionalArray<int, 5> array;
     EXPECT_EQ(array.size(), 5);
     EXPECT_TRUE(array.empty());
 }
 
 TEST(FixedSizeOptionalArrayTest, InsertAndAccess) {
-    FixedSizeOptionalArray<5, int> array;
+    FixedSizeOptionalArray<int, 5> array;
     array.insert(0, 10);
     array.insert(1, 20);
     EXPECT_EQ(array[0].value(), 10);
@@ -18,7 +18,7 @@ TEST(FixedSizeOptionalArrayTest, InsertAndAccess) {
 }
 
 TEST(FixedSizeOptionalArrayTest, Erase) {
-    FixedSizeOptionalArray<5, int> array;
+    FixedSizeOptionalArray<int, 5> array;
     array.insert(0, 10);
     array.erase(0);
     EXPECT_FALSE(array[0].has_value());
@@ -26,7 +26,7 @@ TEST(FixedSizeOptionalArrayTest, Erase) {
 }
 
 TEST(FixedSizeOptionalArrayTest, Clear) {
-    FixedSizeOptionalArray<5, int> array;
+    FixedSizeOptionalArray<int, 5> array;
     array.insert(0, 10);
     array.insert(1, 20);
     array.clear();
@@ -36,7 +36,7 @@ TEST(FixedSizeOptionalArrayTest, Clear) {
 }
 
 TEST(FixedSizeOptionalArrayTest, Append) {
-    FixedSizeOptionalArray<2, int> array;
+    FixedSizeOptionalArray<int, 2> array;
     EXPECT_TRUE(array.append(10));
     EXPECT_TRUE(array.append(20));
     EXPECT_EQ(array[0].value(), 10);
@@ -45,7 +45,7 @@ TEST(FixedSizeOptionalArrayTest, Append) {
 }
 
 TEST(FixedSizeOptionalArrayTest, Count) {
-    FixedSizeOptionalArray<5, int> array;
+    FixedSizeOptionalArray<int, 5> array;
     array.insert(0, 10);
     array.insert(1, 20);
     EXPECT_EQ(array.count(), 2);

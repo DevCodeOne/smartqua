@@ -49,7 +49,7 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         Ads111xDriver,
                                         Pcf8575Driver,
                                         PinDriver, 
-                                        LoadcellDriver,
+                                        LoadCellDriver,
                                         #ifdef ENABLE_DAC_DRIVER
                                         DacDriver,
                                         #endif

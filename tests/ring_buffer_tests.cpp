@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(ring_buffer, basic) {
+TEST(RingBuffer, basic) {
     RingBuffer<int, 10> rb;
     for (size_t i = 0; i < 10; ++i) {
         rb.append(static_cast<int>(i));

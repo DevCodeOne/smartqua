@@ -3,12 +3,7 @@
 #include <type_traits>
 
 weekday getDayOfWeek() {
-    std::time_t now;
-    std::tm timeinfo;
-
-    time(&now);
-    localtime_r(&now, &timeinfo);
-
+    const auto timeinfo = currentTime();
     return static_cast<weekday>(timeinfo.tm_wday);
 }
 
@@ -26,4 +21,13 @@ weekday getNextDay(weekday ofThisDay) {
     }
 
     return static_cast<weekday>(static_cast<std::underlying_type_t<weekday>>(ofThisDay) + 1);
+}
+
+std::tm currentTime() {
+    std::time_t now;
+    std::tm timeinfo{};
+
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    return timeinfo;
 }

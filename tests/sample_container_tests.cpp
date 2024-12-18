@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(sample_container_float, basic) {
+TEST(SampleContainerFloat, basic) {
     SampleContainer<float, float, 20u> sample(1000.0f);
     auto currentTime = std::chrono::steady_clock::now();
     for (int i = 0; i < 20; ++i) {
