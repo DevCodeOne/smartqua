@@ -60,6 +60,21 @@
 #define TARGET_DEVICE ESP32
 #endif
 
+#ifndef MAX_SCHEDULE_CHANNEL_NAME_LENGTH
+#define SCHEDULE_MAX_CHANNEL_NAME_LENGTH 4
+#endif
+
+#ifndef SCHEDULE_MAX_NUM_CHANNELS
+#define SCHEDULE_MAX_NUM_CHANNELS 4
+#endif
+
+#ifndef SCHEDULE_MAX_NUM_CHANNELS
+#define SCHEDULE_MAX_NUM_CHANNELS 4
+#endif
+
+static inline constexpr uint8_t schedule_max_channel_name_length = SCHEDULE_MAX_CHANNEL_NAME_LENGTH;
+
+static inline constexpr uint8_t schedule_max_num_channels = SCHEDULE_MAX_NUM_CHANNELS;
 
 static inline constexpr uint8_t name_length = NAME_LENGTH;
 

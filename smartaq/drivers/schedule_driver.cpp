@@ -112,7 +112,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
         }
 
         bool missingData = false;
-        for (uint8_t i = 0; i < NumChannels; ++i) {
+        for (uint8_t i = 0; i < newConf.deviceIndices.size(); ++i) {
             if (newConf.channelNames[i].has_value() != newConf.deviceIndices[i].has_value()) {
                 missingData = true;
                 break;
@@ -230,7 +230,7 @@ std::optional<uint8_t> ScheduleDriver::channelIndex(std::string_view channelName
 
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
-    for (uint8_t i = 0; i < NumChannels; ++i) {
+    for (uint8_t i = 0; i < scheduleDriverConf->channelNames.size(); ++i) {
         if (!scheduleDriverConf->channelNames[i].has_value()) {
             continue;
         }
@@ -264,10 +264,10 @@ DeviceOperationResult ScheduleDriver::update_runtime_data() {
     return update_values(retrieveCurrentValues());
 }
 
-DeviceOperationResult ScheduleDriver::update_values(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values) {
+DeviceOperationResult ScheduleDriver::update_values(const ChannelData &values) {
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
-    for (int i = 0; i < NumChannels; ++i) {
+    for (int i = 0; i < values.size(); ++i) {
         const auto &currentValue = values[i];
         if (currentValue) {
             const auto &[currentDeviceIndex, currentChannelTime, valueToSet] = *currentValue;
@@ -286,7 +286,7 @@ DeviceOperationResult ScheduleDriver::update_values(const std::array<std::option
 
 }
 
-bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> &values) {
+bool ScheduleDriver::updateScheduleState(const ChannelData &values) {
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
     // All types except the single shot action type, don't need to store their state
@@ -314,9 +314,8 @@ bool ScheduleDriver::updateScheduleState(const std::array<std::optional<std::tup
     return true;
 }
 
-std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> ScheduleDriver::retrieveCurrentValues() {
-    // TODO: change data type for something more sensible
-    std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChannels> values;
+auto ScheduleDriver::retrieveCurrentValues() -> ChannelData {
+    ChannelData values;
     Logger::log(LogLevel::Info, "Schedule::retrieveCurrentValues");
     if (mConf == nullptr) {
         return values;
@@ -330,7 +329,7 @@ std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChann
         const auto timeOfDaySeconds = getTimeOfDay<std::chrono::seconds>();
         const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
 
-        // TODO: maybe add possibillity to search for the next timepoint which contains a specific channel
+        // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
         const auto currentTimePoint = schedule.findCurrentTimePoint(timeOfDaySeconds);
         const auto nextTimePoint = schedule.findNextTimePoint(timeOfDaySeconds);
 
@@ -371,7 +370,7 @@ std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, NumChann
         const auto timeOfDaySeconds = getTimeOfDay<std::chrono::seconds>();
         const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
 
-        // TODO: maybe add possibillity to search for the next timepoint which contains a specific channel
+        // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
         const auto currentTimePoint = schedule.findCurrentTimePoint(timeOfDaySeconds, DaySearchSettings::AllDays);
         const auto currentTimePointToday = schedule.findCurrentTimePoint(timeOfDaySeconds, DaySearchSettings::OnlyThisDay);
 
