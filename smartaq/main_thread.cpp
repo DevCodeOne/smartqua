@@ -9,8 +9,8 @@
 #include "network/wifi_manager.h"
 #include "network/webserver.h"
 #include "rest/devices_rest.h"
-#include "utils/idf_utils.h"
 #include "utils/logger.h"
+#include "utils/esp/idf_utils.h"
 
 #include <chrono>
 #include <optional>

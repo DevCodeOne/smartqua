@@ -14,10 +14,9 @@
 #include "frozen.h"
 
 #include "network/network_info.h"
-#include "utils/thread_utils.h"
 #include "storage/rest_storage.h"
-#include "utils/utils.h"
 #include "utils/filesystem_utils.h"
+#include "utils/esp/thread_utils.h"
 
 enum struct LogLevel {
     Debug, Info, Warning, Error

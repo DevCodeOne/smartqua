@@ -12,11 +12,10 @@
 #include "frozen.h"
 #include "utils/filesystem_utils.h"
 #include "utils/json_utils.h"
-#include "utils/schedule.h"
 // #include "utils/sd_filesystem.h"
-#include "utils/idf_utils.h"
+#include "utils/esp/idf_utils.h"
+#include "utils/time/schedule.h"
 #include "utils/logger.h"
-#include "utils/time_utils.h"
 #include "smartqua_config.h"
 
 // TODO: maybe fix target value range 0-100

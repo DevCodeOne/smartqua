@@ -13,10 +13,10 @@
 #include "stats_types.h"
 #include "build_config.h"
 #include "actions/device_actions.h"
-#include "utils/idf_utils.h"
 #include "utils/task_pool.h"
 #include "utils/check_assign.h"
 #include "utils/filesystem_utils.h"
+#include "utils/esp/idf_utils.h"
 #include "storage/sd_filesystem.h"
 
 // TODO: replace with new update runtime stuff like devices class

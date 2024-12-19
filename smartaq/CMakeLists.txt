@@ -23,12 +23,13 @@ set(SMARTAQ_SOURCES
             "drivers/switch_driver.h" "drivers/switch_driver.cpp"
             "drivers/rmt_stepper_driver.h" "drivers/rmt_stepper_driver.cpp"
             "drivers/pico_device_driver.h" "drivers/pico_device_driver.cpp"
-            "drivers/bme280_driver.h" "drivers/ bme280_driver.cpp"
-            "utils/idf_utils.cpp"
-            # "storage/sd_filesystem.cpp"
+            "drivers/bme280_driver.h" "drivers/bme280_driver.cpp"
+            "utils/esp/idf_utils.h" "utils/esp/idf_utils.cpp"
+            "utils/esp/thread_utils.h"
+            "utils/esp/web_utils.h" "utils/esp/web_utils.cpp"
+            "storage/sd_filesystem.cpp"
             "utils/filesystem_utils.cpp"
             "utils/logger.cpp"
-            "utils/web_utils.cpp"
             "../external_libs/frozen/frozen.c")
 
 set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
@@ -37,9 +38,8 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/ring_buffer.h
     utils/container/sample_container.h
     utils/container/bitset.h
-
-        utils/time_utils.h
-    utils/time_utils.cpp
+    utils/time/schedule.h
+    utils/time/time_utils.h utils/time/time_utils.cpp
 )
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")

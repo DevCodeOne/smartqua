@@ -12,9 +12,7 @@
 #include <chrono>
 #include <type_traits>
 
-#include "utils/thread_utils.h"
 #include "utils/logger.h"
-#include "build_config.h"
 
 using TaskFuncType = void(*)(void *);
 

@@ -23,7 +23,7 @@
 #include "esp_http_server.h"
 #include "esp_vfs_fat.h"
 
-#include "utils/web_utils.h"
+#include "utils/esp/web_utils.h"
 #include "utils/large_buffer_pool.h"
 #include "utils/ssl_credentials.h"
 #include "utils/logger.h"

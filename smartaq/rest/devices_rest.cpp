@@ -13,7 +13,7 @@
 #include "esp_http_server.h"
 #include "utils/filesystem_utils.h"
 #include "utils/logger.h"
-#include "utils/web_utils.h"
+#include "utils/esp/web_utils.h"
 #include "build_config.h"
 
 #include "runtime_access.h"

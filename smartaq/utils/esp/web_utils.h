@@ -11,8 +11,8 @@
 
 #include "esp_http_server.h"
 
-#include "utils/stack_string.h"
-#include "build_config.h"
+#include "../stack_string.h"
+#include "../../build_config.h"
 
 std::optional<unsigned int> extract_index_from_uri(const char *uri);
 

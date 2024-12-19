@@ -11,8 +11,8 @@
 #include "actions/device_actions.h"
 #include "actions/stats_actions.h"
 #include "actions/setting_actions.h"
-#include "utils/idf_utils.h"
 #include "utils/logger.h"
+#include "utils/esp/idf_utils.h"
 
 #include "drivers/ds18x20_driver.h"
 #include "drivers/ads111x_driver.h"
@@ -67,7 +67,9 @@ using SettingType = Settings<max_setting_size>;
 
 // TODO: add settings
 using GlobalStoreType = Store<
-    SingleTypeStore<DeviceSettingsType, LocalSaveType<DeviceSettingsType::TrivialRepresentationType, ConstexprPath("devices.bin")>>
+    SingleTypeStore<DeviceSettingsType,
+    LocalSaveType<DeviceSettingsType::TrivialRepresentationType,
+    ConstexprPath("devices.bin")>>
     // , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings.bin")>>
     >;
 extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;

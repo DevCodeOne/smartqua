@@ -1,5 +1,4 @@
-#include "utils/schedule.h"
-#include "utils/time_utils.h"
+#include "utils/time/schedule.h"
 
 #include <gtest/gtest.h>
 

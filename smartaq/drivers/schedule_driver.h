@@ -11,9 +11,9 @@
 #include "drivers/device_resource.h"
 #include "drivers/devices.h"
 #include "utils/stack_string.h"
-#include "utils/schedule.h"
 #include "utils/json_utils.h"
 #include "utils/logger.h"
+#include "utils/time/schedule.h"
 #include "build_config.h"
 
 enum struct DriverType {
