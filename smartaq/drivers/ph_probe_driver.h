@@ -22,8 +22,8 @@ struct PhProbeConfig {
     unsigned int temperatureDeviceId;
     PhValuePair lowerPhPair;
     PhValuePair higherPhPair;
-    stack_string<MaxArgumentLength> analogReadingArgument;
-    stack_string<MaxArgumentLength> temperatureReadingArgument;
+    BasicStackString<MaxArgumentLength> analogReadingArgument;
+    BasicStackString<MaxArgumentLength> temperatureReadingArgument;
 };
 
 class PhProbeDriver final {

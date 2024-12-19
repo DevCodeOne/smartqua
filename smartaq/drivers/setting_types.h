@@ -22,7 +22,7 @@ enum class SettingNames {
 struct SingleSetting {
     static constexpr char StorageName[] = "Setting";
 
-    using StringValueType = stack_string<16>;
+    using StringValueType = BasicStackString<16>;
 
     StringValueType name;
     TrivialVariant<StringValueType, int32_t, bool> value;

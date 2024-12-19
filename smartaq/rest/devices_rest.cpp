@@ -37,7 +37,7 @@ esp_err_t do_devices(httpd_req *req) {
         return ESP_OK;
     }
 
-    json_action_result result{};
+    JsonActionResult result{};
     auto [complete_match, index, what] = ctre::match<pattern>(req->uri);
 
     Logger::log(LogLevel::Debug, "Receiving input for device");
@@ -158,7 +158,7 @@ esp_err_t do_devices(httpd_req *req) {
     if (result.answer_len && buffer->data()[0] != '\0') {
         httpd_resp_set_type(req, "application/json");
         send_in_chunks(req, buffer->data(), result.answer_len);
-    } else if (result.answer_len == 0 && result.result == json_action_result_value::successfull) {
+    } else if (result.answer_len == 0 && result.result == JsonActionResultStatus::success) {
         httpd_resp_set_status(req, HTTPD_204);
         httpd_resp_send(req, "", 0);
     } else {

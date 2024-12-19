@@ -66,8 +66,8 @@ struct SwitchConfig {
     DeviceValues lowValue;
     DeviceValues highValue;
     DeviceValues maxAllowedDifference;
-    stack_string<MaxArgumentLength> readingArgument;
-    stack_string<MaxArgumentLength> targetArgument;
+    BasicStackString<MaxArgumentLength> readingArgument;
+    BasicStackString<MaxArgumentLength> targetArgument;
 };
 
 class SwitchDriver final {

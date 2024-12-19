@@ -52,8 +52,8 @@ struct read_from_json<int> {
 };
 
 template<size_t Size>
-struct read_from_json<stack_string<Size>> { 
-    static void read(const char *str, int len, stack_string<Size> &user_data) {
+struct read_from_json<BasicStackString<Size>> { 
+    static void read(const char *str, int len, BasicStackString<Size> &user_data) {
         user_data = std::string_view(str, len);
     }
 };
@@ -104,8 +104,8 @@ struct print_to_json<std::array<char, Size>> {
 };
 
 template<size_t Size>
-struct print_to_json<stack_string<Size>> {
-    static int print(json_out *out, stack_string<Size> &str) {
+struct print_to_json<BasicStackString<Size>> {
+    static int print(json_out *out, BasicStackString<Size> &str) {
         return json_printf(out, "%.*Q", str.len(), str.data());
     }
 };

@@ -14,10 +14,10 @@
 
 using stat_collection_operation = CollectionOperationResult;
 
-json_action_result get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result add_stat_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result remove_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result set_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult add_stat_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult remove_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult set_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 
 static inline constexpr size_t stat_uid = 20;
 

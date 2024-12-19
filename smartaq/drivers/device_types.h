@@ -41,7 +41,7 @@ enum struct DeviceValueUnit {
 struct DeviceConfig { 
     static constexpr char StorageName[] = "DeviceConfig";
 
-    stack_string<name_length> device_driver_name;
+    BasicStackString<name_length> device_driver_name;
     // TODO: add method to write driver conf
     mutable std::array<char, device_config_size> device_config; // Binary data
 

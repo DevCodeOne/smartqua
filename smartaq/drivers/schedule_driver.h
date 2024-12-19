@@ -14,7 +14,6 @@
 #include "utils/schedule.h"
 #include "utils/json_utils.h"
 #include "utils/logger.h"
-#include "storage/rest_storage.h"
 #include "build_config.h"
 
 enum struct DriverType {
@@ -25,12 +24,12 @@ static inline constexpr auto MaxLocalPathLength = 24;
 
 // TODO: consider own datatype for channelNames + deviceIndices
 struct ScheduleDriverData final {
-    std::array<std::optional<stack_string<schedule_max_channel_name_length>>, schedule_max_num_channels> channelNames;
+    std::array<std::optional<BasicStackString<schedule_max_channel_name_length>>, schedule_max_num_channels> channelNames;
     // TODO: change this to uint8_t later on
     std::array<std::optional<int>, schedule_max_num_channels> deviceIndices;
     std::array<DeviceValueUnit, schedule_max_num_channels> channelUnit{};
-    stack_string<MaxLocalPathLength> schedulePath;
-    stack_string<MaxLocalPathLength> scheduleStatePath;
+    BasicStackString<MaxLocalPathLength> schedulePath;
+    BasicStackString<MaxLocalPathLength> scheduleStatePath;
     DriverType type;
     uint16_t creationId = 0;
 };

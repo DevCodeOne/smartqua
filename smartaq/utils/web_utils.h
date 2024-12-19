@@ -105,8 +105,8 @@ int generate_link_list_website(char *dst, size_t dst_size, GeneratorFunction &ge
     
     offset += tmp_offset;
 
-    stack_string<512> link;
-    stack_string<256> name;
+    BasicStackString<512> link;
+    BasicStackString<256> name;
 
     while (gen_func(link, name)) {
         tmp_offset = snprintf(dst + offset, dst_size - offset,

@@ -17,7 +17,7 @@ static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
 // TODO: again replace with std::string_view, optimizie, first check if folder already exists
 bool ensure_path_exists(const char *path, uint32_t mask) {
-    stack_string<name_length * 2> pathCopy = path;
+    BasicStackString<name_length * 2> pathCopy = path;
 
     if (std::strlen(path) > decltype(pathCopy)::ArrayCapacity - 1) {
         return false;
@@ -85,7 +85,7 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
 
 int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
-    stack_string<name_length * 4> pathCopy = path;
+    BasicStackString<name_length * 4> pathCopy = path;
     auto opened_file = std::fopen(pathCopy.data(), "rb");
     DoFinally closeOp( [&opened_file]() {
         std::fclose(opened_file);
@@ -121,7 +121,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
 }
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
-    stack_string<name_length * 2> tmpPathCopy;
+    BasicStackString<name_length * 2> tmpPathCopy;
     copy_parent_directory(path.data(), tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity);
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
@@ -130,7 +130,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
         return false;
     }
 
-    stack_string<name_length * 2> pathCopy = path;
+    BasicStackString<name_length * 2> pathCopy = path;
 
     snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
         path.length(), path.data(), tmpExtension.length(), tmpExtension.data());

@@ -18,14 +18,14 @@
 bool writeDeviceValue(unsigned int index, std::string_view input, const DeviceValues &value, bool deferSaving = false);
 std::optional<DeviceValues> readDeviceValue(unsigned int index, std::string_view input);
 
-json_action_result get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-json_action_result set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len);
-json_action_result set_device_action(unsigned int index, std::string_view input, const DeviceValues &value, char *output_buffer, size_t output_buffer_len);
+JsonActionResult get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len);
+JsonActionResult set_device_action(unsigned int index, std::string_view input, const DeviceValues &value, char *output_buffer, size_t output_buffer_len);
 
-json_action_result write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 
 using DeviceCollectionOperation = CollectionOperationResult;
 

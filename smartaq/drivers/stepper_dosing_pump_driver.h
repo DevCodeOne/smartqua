@@ -10,7 +10,7 @@
 struct StepperDosingConfig {
     unsigned int deviceId = -1;
     int stepsTimesTenPerMl = 0;
-    stack_string<MaxArgumentLength> writeArgument;
+    BasicStackString<MaxArgumentLength> writeArgument;
 };
 
 // TODO: rename class to better reflect its purpose,

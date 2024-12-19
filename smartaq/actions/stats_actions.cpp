@@ -2,8 +2,8 @@
 
 #include "smartqua_config.h"
 
-json_action_result get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
-    json_action_result result{ 0, json_action_result_value::failed };
+JsonActionResult get_stats_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+    JsonActionResult result{ 0, JsonActionResultStatus::failed };
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
     if (!index.has_value()) {
         std::array<char, 1024> overview_buffer;
@@ -18,7 +18,7 @@ json_action_result get_stats_action(std::optional<unsigned int> index, const cha
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ data : %s }", overview_buffer.data());
             }
-            result.result = json_action_result_value::successfull;
+            result.result = JsonActionResultStatus::success;
         }
     } else {
         retrieve_stat_info stat_info {
@@ -33,20 +33,20 @@ json_action_result get_stats_action(std::optional<unsigned int> index, const cha
                 result.answer_len = json_printf(&answer, "{ data : %M }",
                     json_printf_single<std::decay_t<decltype(stat_info.result.value)::value_type>>, &(info));
             }
-            result.result = json_action_result_value::successfull;
+            result.result = JsonActionResultStatus::success;
         } else {
             if (output_buffer != nullptr && output_buffer_len != 0) {
                 result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
             }
-            result.result = json_action_result_value::failed;
+            result.result = JsonActionResultStatus::failed;
         }
     }
 
     return result;
 }
 
-json_action_result add_stat_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
-    json_action_result result{ 0, json_action_result_value::failed };
+JsonActionResult add_stat_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+    JsonActionResult result{ 0, JsonActionResultStatus::failed };
     json_token token{};
     json_token name_token{};
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
@@ -73,20 +73,20 @@ json_action_result add_stat_action(std::optional<unsigned int> index, const char
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", *to_add.result.index, "Ok added stat");
         }
-        result.result = json_action_result_value::successfull;
+        result.result = JsonActionResultStatus::success;
     } else {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
         }
-        result.result = json_action_result_value::failed;
+        result.result = JsonActionResultStatus::failed;
     }
 
     return result;
 }
 
-json_action_result remove_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+JsonActionResult remove_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
-    json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
+    JsonActionResult result { .answer_len = 0, .result = JsonActionResultStatus::failed };
     remove_stat del_stat{ .index = static_cast<size_t>(index) };
 
     global_store->writeEvent(del_stat);
@@ -95,20 +95,20 @@ json_action_result remove_stat_action(unsigned int index, const char *input, siz
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ index : %d, info : %Q}", del_stat.index, "Ok deleted stat");
         }
-        result.result = json_action_result_value::successfull;
+        result.result = JsonActionResultStatus::success;
     } else {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q }", "An error occured");
         }
-        result.result = json_action_result_value::failed;
+        result.result = JsonActionResultStatus::failed;
     }
 
     return result;
 }
 
-json_action_result set_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
+JsonActionResult set_stat_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len) {
     json_out answer = JSON_OUT_BUF(output_buffer, output_buffer_len);
-    json_action_result result { .answer_len = 0, .result = json_action_result_value::failed };
+    JsonActionResult result { .answer_len = 0, .result = JsonActionResultStatus::failed };
     json_token update_description{};
     set_stat to_update{};
     to_update.index = static_cast<size_t>(index);
@@ -126,12 +126,12 @@ json_action_result set_stat_action(unsigned int index, const char *input, size_t
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q}", "Ok wrote new values to stat");
         }
-        result.result = json_action_result_value::successfull;
+        result.result = JsonActionResultStatus::success;
     } else {
         if (output_buffer != nullptr && output_buffer_len != 0) {
             result.answer_len = json_printf(&answer, "{ info : %Q }", "An error while writing to the stat occured");
         }
-        result.result = json_action_result_value::failed;
+        result.result = JsonActionResultStatus::failed;
     }
 
     return result;

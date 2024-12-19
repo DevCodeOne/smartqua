@@ -16,7 +16,7 @@ static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/stats\/(?<index>[0-9]+
 esp_err_t do_stats(httpd_req *req) {
     Logger::log(LogLevel::Info, "Handle uri %s", req->uri);
     std::array<char, 2048> buf;
-    json_action_result result{};
+    JsonActionResult result{};
     auto [complete_match, index, what] = ctre::match<pattern>(req->uri);
 
     if (req->content_len > buf.size()) {

@@ -228,7 +228,7 @@ void StatsDriver<N>::stats_driver_task(void *) {
 
         auto result = get_devices_action(current_stat->device_index, nullptr, 0, data_out.data(), data_out.size() - 1);
 
-        if (result.result == json_action_result_value::successfull) {
+        if (result.result == JsonActionResultStatus::success) {
             Logger::log(LogLevel::Info, "Got %s", data_out.data());
             data_out[result.answer_len] = '\0';
             current_stat->last_checked = minutes_since_midnight;

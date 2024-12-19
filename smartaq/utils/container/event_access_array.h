@@ -30,7 +30,7 @@ namespace SmartAq::Utils {
 
             std::array<BaseType, Size> values;
             std::array<bool, Size> initialized;
-            std::array<stack_string<name_length>, Size> names;
+            std::array<BasicStackString<name_length>, Size> names;
     };
 
     namespace ArrayActions {

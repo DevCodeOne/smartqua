@@ -185,7 +185,7 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
         return DeviceOperationResult::failure;
     }
 
-    stack_string<16> tag{};
+    BasicStackString<16> tag{};
     unsigned int index = 0;
     // Format is 12FPWM
     // index -> 12
@@ -250,7 +250,7 @@ DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, Device
         return DeviceOperationResult::failure;
     }
 
-    stack_string<16> tag{};
+    BasicStackString<16> tag{};
     unsigned int index = 0;
     // Format is 12FPWM
     // index -> 12

@@ -14,7 +14,8 @@ enum struct DaySearchSettings {
 template<typename TimePointData, uint8_t TimePointsPerDay>
 class DaySchedule {
 public:
-    using TimePointArrayType = std::array<std::pair<std::chrono::seconds, TimePointData>, TimePointsPerDay>;
+    using TimePointType = std::pair<std::chrono::seconds, TimePointData>;
+    using TimePointArrayType = std::array<TimePointType, TimePointsPerDay>;
 
     static constexpr std::chrono::minutes InvalidTime = std::chrono::hours(24) + std::chrono::minutes(1);
 
@@ -188,7 +189,7 @@ auto WeekSchedule<TimePointData, TimePointsPerDay>::findCurrentTimePoint(const D
         return createResult(dayIndex, result);
     }
 
-    // If nothing was fount find the first available timepoint
+    // If nothing was found, find the first available timepoint
     uint8_t daysSearched = 0;
     while (result == daySchedules[dayIndex].end() && daysSearched < 8) {
         dayIndex = static_cast<uint32_t>(getPreviousDay(static_cast<weekday>(dayIndex)));

@@ -56,7 +56,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
             const auto valueView = variableMatch.get<value_name>().to_view();
 
             // TODO: check if this is safe
-            const stack_string<16> terminatedCopy{valueView};
+            const BasicStackString<16> terminatedCopy{valueView};
             char *end = 0;
             float value = std::strtof(terminatedCopy.data(), &end);
 
