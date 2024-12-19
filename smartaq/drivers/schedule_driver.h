@@ -103,6 +103,8 @@ class ScheduleDriver final {
 
         bool loadAndUpdateSchedule(const std::string_view &input);
         bool updateScheduleState(const ChannelData &values);
+        ChannelData interpolateValues(ScheduleDriverData *scheduleDriverConf);
+        ChannelData simpleValues(ScheduleDriverData *scheduleDriverConf);
         const DeviceConfig*mConf;
         ScheduleType schedule;
         ScheduleState scheduleState;

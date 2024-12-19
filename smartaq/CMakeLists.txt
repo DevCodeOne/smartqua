@@ -81,7 +81,7 @@ add_custom_target(deletebloat ALL
         || true)
 add_library(smartaq_lib STATIC
     ${SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES})
-target_include_directories(smartaq_lib INTERFACE .)
+target_include_directories(smartaq_lib PUBLIC .)
 
 if (TARGET ${COMPONENT_LIB})
     target_link_libraries(${COMPONENT_LIB} PRIVATE smartaq_lib)
