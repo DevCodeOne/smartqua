@@ -142,3 +142,39 @@ TEST_F(FixedSizeOptionalArrayRemoveAllOccurrencesTest, UpdatesArrayStateAfterRem
     EXPECT_FALSE(array.contains(30));  // Ensure 30 is removed
     EXPECT_EQ(array.count(), 3);       // Count should decrease correctly
 }
+
+TEST_F(FixedSizeOptionalArrayTest, IterateNonEmptyElements) {
+    std::vector<int> values;
+    for (auto it = array.begin(); it != array.end(); ++it) {
+        values.push_back(*it);
+    }
+
+    EXPECT_EQ(values.size(), 3);
+    EXPECT_EQ(values[0], 10);
+    EXPECT_EQ(values[1], 20);
+    EXPECT_EQ(values[2], 30);
+}
+
+TEST_F(FixedSizeOptionalArrayTest, EmptyArray) {
+    array.clear();
+
+    std::vector<int> values;
+    for (auto it = array.begin(); it != array.end(); ++it) {
+        values.push_back(*it);
+    }
+
+    EXPECT_EQ(values.size(), 0);
+}
+
+TEST_F(FixedSizeOptionalArrayTest, IterateAndModify) {
+    array.clear();
+    array.insert(1, 15);
+    array.insert(3, 25);
+
+    for (auto it = array.begin(); it != array.end(); ++it) {
+        *it += 5;
+    }
+
+    EXPECT_EQ(array[1], 20);
+    EXPECT_EQ(array[3], 30);
+}
