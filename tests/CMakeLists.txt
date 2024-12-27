@@ -13,9 +13,12 @@ add_executable(smartaq_tests
         sample_container_tests.cpp
         lookup_table_tests.cpp
         schedule_tests.cpp
-        fixed_size_optional_array_tests.cpp)
+        fixed_size_optional_array_tests.cpp
+        time_utils_tests.cpp)
 target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
+target_compile_options(smartaq_tests PRIVATE -coverage)
+target_link_options(smartaq_tests PRIVATE -coverage)
 
 include(GoogleTest)
-gtest_add_tests(TARGET smartaq_tests)
+gtest_add_tests(TARGET smartaq_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

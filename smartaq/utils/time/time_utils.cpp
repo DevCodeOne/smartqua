@@ -3,8 +3,11 @@
 #include <type_traits>
 
 weekday getDayOfWeek() {
-    const auto timeinfo = currentTime();
-    return static_cast<weekday>(timeinfo.tm_wday);
+    return getDayOfWeek(currentTime());
+}
+
+weekday getDayOfWeek(const std::tm &day) {
+    return static_cast<weekday>(day.tm_wday);
 }
 
 weekday getPreviousDay(weekday ofThisDay) {
