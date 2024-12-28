@@ -185,7 +185,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const DeviceConfig *
     }
 
     ScheduleDriver driver(device_conf_out);
-    auto result = loadFileCompletelyIntoBuffer(createdConf->schedulePath, buffer->data(), buffer->size());
+    auto result = loadFileCompletelyIntoBuffer(createdConf->schedulePath.getStringView(), buffer->data(), buffer->size());
 
     if (result <= 0) {
         Logger::log(LogLevel::Warning, "Couldn't open schedule file %s", createdConf->schedulePath.data());
@@ -208,13 +208,13 @@ bool ScheduleDriver::loadAndUpdateSchedule(const std::string_view &input) {
     json_scanf(input.data(), input.size(), "{ schedule : %M }", json_scanf_single<ScheduleDriver>, this);
     Logger::log(LogLevel::Info, "Writing schedule to %s", createdConf->schedulePath.data());
 
-    if (!safeWriteToFile(createdConf->schedulePath, ".tmp", input)) {
+    if (!safeWriteToFile(createdConf->schedulePath.getStringView(), ".tmp", input)) {
         Logger::log(LogLevel::Error, "Failed to write schedule, next reboot will have no schedule data !");
         return false;
     }
 
     ScheduleState newState;
-    if (!loadFileCompletelyIntoBuffer(createdConf->scheduleStatePath, (void *) &newState, sizeof(ScheduleState))) {
+    if (!loadFileCompletelyIntoBuffer(createdConf->scheduleStatePath.getStringView(), (void *) &newState, sizeof(ScheduleState))) {
         Logger::log(LogLevel::Warning, "Failed to read schedule state");
     }
 
@@ -260,10 +260,10 @@ DeviceOperationResult ScheduleDriver::call_device_action(DeviceConfig *conf, con
 }
 
 DeviceOperationResult ScheduleDriver::update_runtime_data() {
-    return update_values(retrieveCurrentValues());
+    return updateValues(retrieveCurrentValues());
 }
 
-DeviceOperationResult ScheduleDriver::update_values(const ChannelData &values) {
+DeviceOperationResult ScheduleDriver::updateValues(const ChannelData &values) {
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
     for (int i = 0; i < values.size(); ++i) {
@@ -304,7 +304,7 @@ bool ScheduleDriver::updateScheduleState(const ChannelData &values) {
     if (anyValueSet) {
         Logger::log(LogLevel::Debug, "Updating remote schedule state");
 
-        if (!safeWriteToFile(scheduleDriverConf->scheduleStatePath, ".tmp", (void *) &scheduleState, sizeof(scheduleState))) {
+        if (!safeWriteToFile(scheduleDriverConf->scheduleStatePath.getStringView(), ".tmp", (void *) &scheduleState, sizeof(scheduleState))) {
             Logger::log(LogLevel::Error, "Failed to write schedule state, next reboot will have no schedule data !");
             return false;
         }

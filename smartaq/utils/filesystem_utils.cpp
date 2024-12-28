@@ -15,27 +15,31 @@
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
-// TODO: again replace with std::string_view, optimizie, first check if folder already exists
+// TODO: again replace with std::string_view, optimize, first check if folder already exists
 bool ensure_path_exists(const char *path, uint32_t mask) {
-    BasicStackString<name_length * 2> pathCopy = path;
-
-    if (std::strlen(path) > decltype(pathCopy)::ArrayCapacity - 1) {
+    if (!BasicStackString<name_length * 2>::canHold(path)) {
         return false;
     }
+
+    BasicStackString<name_length * 2> pathCopy{path};
 
     if (int result = mkdir(pathCopy.data(), mask); result == EEXIST) {
         return true;
     }
 
-    // Clear pathCopy to start concatenating the folder names
-    pathCopy[0] = '\0';
+    pathCopy.clear();
 
-    // Only use return codes of mkdir, stat is wayy to slow
+    // Only use return codes of mkdir, stat is way to slow
     bool path_exists = true;
     for (auto directory : ctre::search_all<directory_pattern>(path)) {
         std::string_view directoryView(directory.get<0>());
 
-        std::strncat(pathCopy.data(), directoryView.data(), directoryView.size());
+        const bool appendResult = pathCopy.append(directoryView);
+
+        if (!appendResult) {
+            return false;
+        }
+
         int result = mkdir(pathCopy.data(), mask);
 
         if (result == ENOTDIR) {
@@ -85,7 +89,12 @@ bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
 
 int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
-    BasicStackString<name_length * 4> pathCopy = path;
+    using PathString = BasicStackString<name_length * 4>;
+    if (!PathString::canHold(path.data())) {
+        return -1;
+    }
+
+    PathString pathCopy{path};
     auto opened_file = std::fopen(pathCopy.data(), "rb");
     DoFinally closeOp( [&opened_file]() {
         std::fclose(opened_file);
@@ -121,8 +130,9 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
 }
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
-    BasicStackString<name_length * 2> tmpPathCopy;
-    copy_parent_directory(path.data(), tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity);
+    using PathString = BasicStackString<name_length * 2>;
+    PathString tmpPathCopy;
+    copy_parent_directory(path.data(), tmpPathCopy.data(), tmpPathCopy.capacity() - 1);
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
     if (!pathExists) {
@@ -130,7 +140,11 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
         return false;
     }
 
-    BasicStackString<name_length * 2> pathCopy = path;
+    if (!PathString::canHold(path.data())) {
+        return false;
+    }
+
+    PathString pathCopy{path};
 
     snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
         path.length(), path.data(), tmpExtension.length(), tmpExtension.data());

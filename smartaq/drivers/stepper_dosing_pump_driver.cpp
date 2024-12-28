@@ -70,7 +70,7 @@ DeviceOperationResult StepperDosingPumpDriver::write_value(std::string_view what
     Logger::log(LogLevel::Info, "Dosing %d ml", (int) *value.milliliter());
     auto stepsToDo = *value.milliliter() * (stepperConfig->stepsTimesTenPerMl / 10);
     const auto valueToSet = DeviceValues::create_from_unit(DeviceValueUnit::generic_unsigned_integral, stepsToDo);
-    writeDeviceValue(stepperConfig->deviceId, stepperConfig->writeArgument, valueToSet, true);
+    writeDeviceValue(stepperConfig->deviceId, static_cast<std::string_view>(stepperConfig->writeArgument), valueToSet, true);
 
     return DeviceOperationResult::ok;
 }
@@ -87,7 +87,7 @@ DeviceOperationResult StepperDosingPumpDriver::call_device_action(DeviceConfig*c
         }
 
         const auto valueToSet = DeviceValues::create_from_unit(DeviceValueUnit::generic_unsigned_integral, steps);
-        writeDeviceValue(stepperConfig->deviceId, stepperConfig->writeArgument, valueToSet, true);
+        writeDeviceValue(stepperConfig->deviceId, stepperConfig->writeArgument.getStringView(), valueToSet, true);
     } else if (action == "callibrate") {
         int steps = 200;
         float milliliter = 1.0f;

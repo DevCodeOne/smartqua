@@ -24,8 +24,8 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
         .lowValue = {},
         .highValue = {},
         .maxAllowedDifference = {},
-        .readingArgument = "",
-        .targetArgument = ""
+        .readingArgument = {},
+        .targetArgument = {}
     };
 
     json_token readingArgument {};
@@ -140,8 +140,7 @@ void SwitchDriver::watchValues(std::stop_token token, SwitchDriver *instance) {
 
 
         if (valueChanged) {
-            auto view = switchConfig->targetArgument.getStringView();
-            const auto result = writeDeviceValue(switchConfig->targetDeviceId, switchConfig->targetArgument, valueToSet, true);
+            const auto result = writeDeviceValue(switchConfig->targetDeviceId, switchConfig->targetArgument.getStringView(), valueToSet, true);
 
             if (result) {
                 Logger::log(LogLevel::Info, "Set new value to device %d", switchConfig->targetDeviceId);

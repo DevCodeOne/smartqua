@@ -13,8 +13,8 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
     PhProbeConfig newConf{
         .analogDeviceId = InvalidDeviceId,
         .temperatureDeviceId = InvalidDeviceId,
-        .analogReadingArgument = "",
-        .temperatureReadingArgument = ""
+        .analogReadingArgument = {},
+        .temperatureReadingArgument = {}
     };
 
     json_token analogReadingArgument {};

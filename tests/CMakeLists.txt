@@ -9,6 +9,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(smartaq_tests
+        basic_stack_string_tests.cpp
         ring_buffer_tests.cpp
         sample_container_tests.cpp
         lookup_table_tests.cpp
