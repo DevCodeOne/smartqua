@@ -26,10 +26,12 @@ template<typename T>
 concept SecondOrLargerDuration = LargerOrEqualDuration<T, std::chrono::seconds>;
 
 template<SecondOrLargerDuration DurationType>
-DurationType getTimeOfDay(const std::tm &timeinfo) {
+DurationType getTimeOfDay(const std::tm &timeInfo) {
     using namespace std::chrono;
-    return duration_cast<DurationType>(hours{timeinfo.tm_hour} + minutes{timeinfo.tm_min} + seconds{timeinfo.tm_sec}
-    );
+    return DurationType{hours{timeInfo.tm_hour}
+                        + minutes{timeInfo.tm_min}
+                        + seconds{timeInfo.tm_sec}
+    };
 }
 
 template<typename DurationType>

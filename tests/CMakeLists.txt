@@ -13,6 +13,7 @@ add_executable(smartaq_tests
         ring_buffer_tests.cpp
         sample_container_tests.cpp
         lookup_table_tests.cpp
+        day_schedule_tests.cpp
         schedule_tests.cpp
         fixed_size_optional_array_tests.cpp
         time_utils_tests.cpp)

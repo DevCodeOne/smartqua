@@ -38,11 +38,6 @@ struct ScheduleState {
     std::array<std::chrono::seconds, schedule_max_num_channels> channelTime{};
 };
 
-// TODO: Create percentage class, static_lookuptable
-struct ValueTimePoint {
-    std::array<std::optional<float>, schedule_max_num_channels> values;
-};
-
 /*
 class RestSchedule {
     public:
@@ -70,9 +65,10 @@ class RestSchedule {
 
 class ScheduleDriver final {
     public:
-        using ScheduleType = WeekSchedule<ValueTimePoint, 12>;
+        using ScheduleType = WeekSchedule<schedule_max_num_channels, float, 12>;
         using TimePointValueData = std::tuple<int, std::chrono::seconds, float>;
-        using ChannelData = std::array<std::optional<TimePointValueData>, schedule_max_num_channels>;
+        using ChannelData = ScheduleType::DayScheduleType::ChannelData;
+        using NewChannelValues = std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, schedule_max_num_channels>;
 
         static constexpr char name[] = "schedule_driver";
         static constexpr char schedulePathFormat[] = "%s/%d.json";
@@ -93,8 +89,7 @@ class ScheduleDriver final {
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
-        DeviceOperationResult update_values(const ChannelData &channel_data);
-        ChannelData retrieveCurrentValues();
+        DeviceOperationResult updateValues(const NewChannelValues &channel_data);
 
         std::optional<uint8_t> channelIndex(std::string_view channelName) const;
 
@@ -102,10 +97,12 @@ class ScheduleDriver final {
         ScheduleDriver(const DeviceConfig*conf);
 
         bool loadAndUpdateSchedule(const std::string_view &input);
-        bool updateScheduleState(const ChannelData &values);
-        ChannelData interpolateValues(ScheduleDriverData *scheduleDriverConf);
-        ChannelData simpleValues(ScheduleDriverData *scheduleDriverConf);
-        const DeviceConfig*mConf;
+        bool updateScheduleState(const NewChannelValues &values);
+        NewChannelValues retrieveCurrentValues();
+        NewChannelValues interpolateValues(ScheduleDriverData *scheduleDriverConf);
+        NewChannelValues simpleValues(ScheduleDriverData *scheduleDriverConf);
+
+        const DeviceConfig *mConf;
         ScheduleType schedule;
         ScheduleState scheduleState;
 
