@@ -1,27 +1,27 @@
 #include "filesystem_utils.h"
 
 #include <cstring>
-#include <cstdlib>
 #include <string_view>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "ctre.hpp"
 
-#include "utils/utils.h"
-#include "utils/logger.h"
+#include "utils/do_finally.h"
 #include "utils/stack_string.h"
-#include "build_config.h"
 
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
+// TODO: Move to header, when it is not dependent on esp32
+static constexpr size_t max_path_length = 128;
+
 // TODO: again replace with std::string_view, optimize, first check if folder already exists
 bool ensure_path_exists(const char *path, uint32_t mask) {
-    if (!BasicStackString<name_length * 2>::canHold(path)) {
+    if (!BasicStackString<max_path_length>::canHold(path)) {
         return false;
     }
 
-    BasicStackString<name_length * 2> pathCopy{path};
+    BasicStackString<max_path_length> pathCopy{path};
 
     if (int result = mkdir(pathCopy.data(), mask); result == EEXIST) {
         return true;
@@ -50,46 +50,9 @@ bool ensure_path_exists(const char *path, uint32_t mask) {
     return path_exists;
 }
 
-bool copy_parent_directory(const char *path, char *dst, size_t dst_len) {
-    std::string_view input(path);
-
-    int32_t copy_to_char = 0;
-
-    if (dst_len < 2) {
-        return false;
-    }
-
-    // If there is no parent directory
-    std::strncpy(dst, ".", dst_len);
-
-    // input.size ... 1 the 0-th position is not checked
-    for (auto i = input.size() - 1; i > 0; --i) {
-        if (input[i] == '/') {
-            // Check if previous char is not an escape char
-            if (input[i - 1] != '\\') {
-                copy_to_char = i - 1;
-                break;
-            }
-        }
-    }
-
-    if (copy_to_char == 0) {
-        return true;
-    }
-
-    // dst_len is too small to contain the path
-    if (dst_len <= copy_to_char + 1) {
-        return false;
-    }
-
-    // + 1 for terminating \0
-    std::strncpy(dst, path, copy_to_char + 1);
-    return true;
-}
-
 int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t dst_len) {
     // stack_string is zero terminated, also check for too long filename
-    using PathString = BasicStackString<name_length * 4>;
+    using PathString = BasicStackString<max_path_length>;
     if (!PathString::canHold(path.data())) {
         return -1;
     }
@@ -101,7 +64,7 @@ int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t ds
     });
 
     if (opened_file == nullptr) {
-        Logger::log(LogLevel::Error, "Couldn't open file %s", pathCopy.data());
+        // Logger::log(LogLevel::Error, "Couldn't open file %s", pathCopy.data());
         return -1;
     }
 
@@ -130,13 +93,13 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
 }
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
-    using PathString = BasicStackString<name_length * 2>;
+    using PathString = BasicStackString<max_path_length>;
     PathString tmpPathCopy;
-    copy_parent_directory(path.data(), tmpPathCopy.data(), tmpPathCopy.capacity() - 1);
+    parentPath(path.data(), tmpPathCopy);
     auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
     if (!pathExists) {
-        Logger::log(LogLevel::Error, "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
+        // Logger::log(LogLevel::Error, "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
         return false;
     }
 
@@ -151,7 +114,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
     FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "wb");
 
     if (tmpTargetFile == nullptr) {
-        Logger::log(LogLevel::Error, "Couldn't open file : %s", tmpPathCopy.data());
+        // Logger::log(LogLevel::Error, "Couldn't open file : %s", tmpPathCopy.data());
         return false;
     }
 
@@ -163,7 +126,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
         const auto written = std::fwrite(data, 1, length, tmpTargetFile);
 
         if (written != length) {
-            Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) length);
+            // Logger::log(LogLevel::Warning, "Didn't write enough bytes %d, %d", written, (int) length);
             return false;
         }
     }

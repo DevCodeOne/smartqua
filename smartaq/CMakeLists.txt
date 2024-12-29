@@ -28,7 +28,7 @@ set(SMARTAQ_SOURCES
             "utils/esp/thread_utils.h"
             "utils/esp/web_utils.h" "utils/esp/web_utils.cpp"
             "storage/sd_filesystem.cpp"
-            "utils/filesystem_utils.cpp"
+            "utils/esp/esp_filesystem_utils.h"
             "utils/logger.cpp"
             "../external_libs/frozen/frozen.c")
 
@@ -40,6 +40,7 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/bitset.h
     utils/time/schedule.h
     utils/time/time_utils.h utils/time/time_utils.cpp
+    utils/filesystem_utils.h utils/filesystem_utils.cpp
 )
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
@@ -82,6 +83,7 @@ add_custom_target(deletebloat ALL
 add_library(smartaq_lib STATIC
     ${SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES})
 target_include_directories(smartaq_lib PUBLIC .)
+target_include_directories(smartaq_lib PUBLIC "../header_only/ctre/single-header")
 
 if (TARGET ${COMPONENT_LIB})
     target_link_libraries(${COMPONENT_LIB} PRIVATE smartaq_lib)
