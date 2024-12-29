@@ -9,6 +9,10 @@
 // TODO: maybe put this function in an own file
 template<typename CharT>
 size_t safe_strlen(const CharT *data, size_t maxLength) {
+    if (data == nullptr) {
+        return 0;
+    }
+
     for (int i = 0; i < maxLength; ++i) {
         if (data[i] == '\0') {
             return i;
@@ -28,10 +32,12 @@ namespace String {
         explicit BasicStackString(const std::string_view &other);
         explicit BasicStackString(const char *other);
 
+        static bool canHold(size_t length);
         static bool canHold(const char *str);
         static bool canHold(const std::string_view &view);
 
         template<size_t OtherSize, typename = std::enable_if_t<OtherSize <= Size>>
+        requires (OtherSize <= Size)
         BasicStackString &operator=(const BasicStackString<CharT, OtherSize> &other);
         BasicStackString &operator=(const std::string_view &other);
         BasicStackString &operator=(const char *other);
@@ -47,6 +53,13 @@ namespace String {
 
         [[nodiscard]] std::string_view getStringView() const;
         [[nodiscard]] explicit operator std::string_view() const;
+
+        bool set(const char *value);
+        bool set(const char *value, size_t length);
+        bool set(const std::string_view &view);
+        template<size_t OtherLength>
+        requires (OtherLength <= Size)
+        bool set(const BasicStackString<CharT, OtherLength> &view);
 
         void clear();
         bool append(const char *str, size_t size);
@@ -69,6 +82,12 @@ namespace String {
     }
 
     template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::canHold(size_t length) {
+        // For terminating zero char
+        return length <= Size - 1;
+    }
+
+    template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::canHold(const char *str) {
         return safe_strlen(str, Size) <= Size - 1;
     }
@@ -78,9 +97,9 @@ namespace String {
         return canHold(view.data());
     }
 
-    // TODO: think about this, off by one error possibly, also probably use the other size ?
     template<typename CharT, size_t Size>
     template<size_t OtherSize, typename>
+    requires (OtherSize <= Size)
     BasicStackString<CharT, Size> &BasicStackString<CharT, Size>::operator=(const BasicStackString<CharT, OtherSize> &other) {
         std::memcpy(this->data(), other.data(), Size);
         this->data()[Size - 1] = '\0';
@@ -90,11 +109,7 @@ namespace String {
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size> &BasicStackString<CharT, Size>::operator=(const std::string_view &other) {
-        const auto toCopy = std::min(Size - 1, other.size());
-        std::memcpy(this->data(), other.data(), toCopy);
-        this->data()[toCopy] = '\0';
-
-        return *this;
+        return operator=(other.data());
     }
 
     template<typename CharT, size_t Size>
@@ -154,6 +169,33 @@ namespace String {
     }
 
     template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::set(const char *value) {
+        return set(value, safe_strlen(value, Size));
+    }
+
+    template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::set(const char *value, size_t length) {
+        if (!canHold(length)) {
+            return false;
+        }
+
+        std::memcpy(this->data(), value, length);
+        this->data()[length] = '\0';
+        return true;
+    }
+
+    template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::set(const std::string_view &view) {
+        return set(view.data());
+    }
+
+    template<typename CharT, size_t Size>
+    template<size_t OtherLength> requires (OtherLength <= Size)
+    bool BasicStackString<CharT, Size>::set(const BasicStackString<CharT, OtherLength> &view) {
+        return set(view.data());
+    }
+
+    template<typename CharT, size_t Size>
     void BasicStackString<CharT, Size>::clear() {
         std::memset(this->data(), '\0', Size - 1);
     }
@@ -168,7 +210,8 @@ namespace String {
             return false;
         }
 
-        std::strncat(this->data() + currentSize, str, stringLength);
+        std::memcpy(this->data() + currentSize, str, stringLength);
+        this->data()[newSize] = '\0';
 
         return true;
     }
