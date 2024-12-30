@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
 
+option(SMARTAQ_BUILD_TESTS "Enable tests" ON)
+
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
     message(WARNING "Building as esp32 project")
     set(EXTRA_COMPONENT_DIRS
@@ -19,12 +21,12 @@ if (NOT "$ENV{IDF_PATH}" STREQUAL "")
     set(BUILD_PICO_DEVICE_DRIVER OFF)
     add_subdirectory(external_libs/pico-driver)
 else()
-    option(SMARTAQ_BUILD_TESTS "Enable tests" ON)
     project(smartaq)
     add_subdirectory(smartaq)
 
     if (SMARTAQ_BUILD_TESTS)
         enable_testing()
+        include(CTest)
 
         add_subdirectory(tests)
     endif()

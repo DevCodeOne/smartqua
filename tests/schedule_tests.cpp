@@ -29,30 +29,31 @@ TEST_F(WeekScheduleTest, SetDaySchedule) {
 
     weekSchedule.setDaySchedule(weekday::tuesday, tuesdaySchedule);
 
-    auto result = weekSchedule.findCurrentTimePoint(14400s, DaySearchSettings::OnlyThisDay, weekday::tuesday);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->second, ChannelData{4});
+    auto result = weekSchedule.findCurrentEventStatus(14400s, DaySearchSettings::OnlyThisDay, weekday::tuesday);
+    ASSERT_TRUE(result[0].has_value());
+    EXPECT_EQ(result[0]->eventData, 4);
 }
 
 TEST_F(WeekScheduleTest, FindCurrentTimePoint) {
-    auto result = weekSchedule.findCurrentTimePoint(5000s,
+    auto result = weekSchedule.findCurrentEventStatus(5000s,
                                                     DaySearchSettings::OnlyThisDay, weekday::monday);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->second, ChannelData{1});
+    ASSERT_TRUE(result[0].has_value());
+    EXPECT_EQ(result[0]->eventData, 1);
 
-    result = weekSchedule.findCurrentTimePoint(20000s, DaySearchSettings::OnlyThisDay, weekday::monday);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->second, ChannelData{3});
+    result = weekSchedule.findCurrentEventStatus(20000s, DaySearchSettings::OnlyThisDay, weekday::monday);
+    ASSERT_TRUE(result[0].has_value());
+    EXPECT_EQ(result[0]->eventData, 3);
 }
 
 TEST_F(WeekScheduleTest, FindNextTimePoint) {
-    auto result = weekSchedule.findNextTimePoint(5000s,
+    auto result = weekSchedule.findNextEventStatus(5000s,
                                                  DaySearchSettings::OnlyThisDay, weekday::monday);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->second, ChannelData{2});
+    ASSERT_TRUE(result[0].has_value());
+    EXPECT_EQ(result[0]->eventData, 2);
 
-    result = weekSchedule.findNextTimePoint(20000s, DaySearchSettings::OnlyThisDay, weekday::monday);
-    EXPECT_FALSE(result.has_value());
+    result = weekSchedule.findNextEventStatus(20000s, DaySearchSettings::OnlyThisDay, weekday::monday);
+    EXPECT_FALSE(std::ranges::all_of(result, [](const auto &channelValue) { return channelValue.has_value(); }));
 }
 
-// TODO: Add tests for ALLDays search settings
+// TODO: Add tests for AllDays search settings
+// TODO: Also tests multiple channels
