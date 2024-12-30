@@ -321,8 +321,8 @@ auto ScheduleDriver::interpolateValues(ScheduleDriverData *scheduleDriverConf) -
     const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
 
     // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
-    const auto currentTimePoint = schedule.findCurrentTimePoint(timeOfDaySeconds);
-    const auto nextTimePoint = schedule.findNextTimePoint(timeOfDaySeconds);
+    const auto currentTimePoint = schedule.findCurrentEventStatus(timeOfDaySeconds);
+    const auto nextTimePoint = schedule.findNextEventStatus(timeOfDaySeconds);
 
     // TODO: current timepoint is not the actual current timepoint time, use the time of the timepoint!
     for (uint8_t i = 0; i < ScheduleType::Channels; ++i) {
@@ -332,24 +332,24 @@ auto ScheduleDriver::interpolateValues(ScheduleDriverData *scheduleDriverConf) -
             continue;
         }
 
-        if (!currentTimePoint || !currentTimePoint->second[i]) {
+        if (!currentTimePoint[i]) {
             continue;
         }
 
-        if (!nextTimePoint || !nextTimePoint->second[i]) {
+        if (!nextTimePoint[i]) {
             continue;
         }
 
-        const auto difference = *nextTimePoint->second[i] - *currentTimePoint->second[i];
-        std::chrono::seconds timeDifference = currentTimePoint->first - nextTimePoint->first;
+        const auto difference = nextTimePoint[i]->eventData - currentTimePoint[i]->eventData;
+        std::chrono::seconds timeDifference = currentTimePoint[i]->eventTime - nextTimePoint[i]->eventTime;
         if (std::abs(timeDifference.count()) < 1) {
             timeDifference = decltype(timeDifference)(1);
         }
         const std::chrono::seconds currentTimePointInEffectSince =
-                (std::chrono::hours{24 * static_cast<int>(currentDay)} + timeOfDaySeconds) - currentTimePoint->first;
+                (std::chrono::hours{24 * static_cast<int>(currentDay)} + timeOfDaySeconds) - currentTimePoint[i]->eventTime;
         const auto interpolationFactor = std::fabs(currentTimePointInEffectSince.count() / static_cast<float>(timeDifference.count()));
 
-        const auto newValue = *currentTimePoint->second[i] + difference * interpolationFactor;
+        const auto newValue = currentTimePoint[i]->eventData + difference * interpolationFactor;
         Logger::log(LogLevel::Info, "%.*s(%d)=%f , interpFactor=%f",
                     (int) scheduleDriverConf->channelNames[i]->len(), scheduleDriverConf->channelNames[i]->data(), *currentDeviceIndex,
                     newValue, interpolationFactor);
@@ -366,8 +366,8 @@ auto ScheduleDriver::simpleValues(ScheduleDriverData *scheduleDriverConf) -> New
     const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
 
     // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
-    const auto currentTimePoint = schedule.findCurrentTimePoint(timeOfDaySeconds, DaySearchSettings::AllDays);
-    const auto currentTimePointToday = schedule.findCurrentTimePoint(timeOfDaySeconds, DaySearchSettings::OnlyThisDay);
+    const auto currentTimePoint = schedule.findCurrentEventStatus(timeOfDaySeconds, DaySearchSettings::AllDays);
+    const auto currentTimePointToday = schedule.findCurrentEventStatus(timeOfDaySeconds, DaySearchSettings::OnlyThisDay);
 
     // If the state time is "in the future", assume day wrap around and reset
     const auto timeInWeek = sinceWeekBeginning<std::chrono::seconds>();
@@ -379,27 +379,27 @@ auto ScheduleDriver::simpleValues(ScheduleDriverData *scheduleDriverConf) -> New
             continue;
         }
 
-        if (!currentTimePoint || !currentTimePoint->second[i]) {
+        if (!currentTimePoint[i] || !currentTimePoint[i]->eventData) {
             continue;
         }
 
         // This action was already triggered, continue if the schedule type is single shot action
-        if (scheduleState.channelTime[i] < currentTimePoint->first /* event should be triggered, channel time indicates not triggered event */
+        if (scheduleState.channelTime[i] < currentTimePoint[i]->eventTime /* event should be triggered, channel time indicates not triggered event */
             || (scheduleState.channelTime[i] >= timeInWeek /* wrap around -> new week, channel time later then current time point */
-                && currentTimePointToday
-                && timeOfDaySeconds > currentTimePointToday->first)
+                && currentTimePointToday[i]
+                && timeOfDaySeconds > currentTimePointToday[i]->eventTime)
             || scheduleDriverConf->type != DriverType::Action) {
             if (scheduleState.channelTime[i] > timeInWeek) {
                 Logger::log(LogLevel::Info, "Wrap around event");
             }
 
-            if (currentTimePointToday) {
+            if (currentTimePointToday[i]) {
                 Logger::log(LogLevel::Info, "Triggering event because of a wrap around");
             } else {
                 Logger::log(LogLevel::Info, "Triggering event at %d > %d, %d, %d",
                             (int) scheduleState.channelTime[i].count(),
-                            (int) currentTimePoint->first.count(),
-                            (int) currentTimePointToday.has_value(),
+                            (int) currentTimePoint[i]->eventTime.count(),
+                            (int) currentTimePointToday[i].has_value(),
                             (int) timeOfDaySeconds.count());
             }
 
@@ -410,14 +410,14 @@ auto ScheduleDriver::simpleValues(ScheduleDriverData *scheduleDriverConf) -> New
             continue;
         }
 
-        const auto newValue = *currentTimePoint->second[i];
+        const auto newValue = currentTimePoint[i]->eventData;
 
         Logger::log(LogLevel::Info, "%.*s(%d) action(%d)",
                     (int) scheduleDriverConf->channelNames[i]->len(), scheduleDriverConf->channelNames[i]->data(), *currentDeviceIndex,
                     newValue);
 
         // TODO: maybe use same datatype which is already used in json stuff
-        values[i] = std::make_tuple(*currentDeviceIndex, currentTimePoint->first, newValue);
+        values[i] = std::make_tuple(*currentDeviceIndex, currentTimePoint[i]->eventTime, newValue);
     }
 
     return values;

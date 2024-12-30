@@ -13,32 +13,14 @@ public:
     using TimePointData = std::pair<std::chrono::seconds, ChannelData>;
     using TimePointDataArray = std::array<TimePointData, TimePointsPerDay>;
 
+    using ChannelEventResult = std::optional<std::pair<std::chrono::seconds, Datapoint>>;
+
     static constexpr std::chrono::minutes InvalidTime = std::chrono::hours(24) + std::chrono::minutes(1);
 
     DaySchedule() {
         for (auto &[currentTimeOnDay, currentData] : datapoints) {
             currentTimeOnDay = InvalidTime;
         }
-    }
-
-    template<typename DurationType>
-    auto findSlotWithTime(const DurationType &timeOfDay) {
-        return std::ranges::find_if(datapoints, [&timeOfDay](auto &currentPair) {
-            return currentPair.first == timeOfDay;
-        });
-    }
-
-    template<typename DurationType>
-    auto findSlotWithTime(const DurationType &timeOfDay) const {
-        return std::ranges::find_if(datapoints, [&timeOfDay](auto &currentPair) {
-            return currentPair.first == timeOfDay;
-        });
-    }
-
-    void reorderSchedule() {
-        std::ranges::sort(datapoints, [](const auto &lhs, const auto &rhs) {
-            return lhs.first < rhs.first;
-        });
     }
 
     template<typename DurationType>
@@ -73,49 +55,64 @@ public:
         return true;
     }
 
-    auto getFirstTimePointOfDay() const {
-        if (datapoints.cbegin()->first != InvalidTime) {
-            return datapoints.cbegin();
+    ChannelEventResult getFirstTimePointOfDay(uint8_t channelIndex) const {
+        const auto firstEntry = std::ranges::find_if(datapoints, [channelIndex](const auto &currentPair) {
+            return currentPair.second[channelIndex].has_value();
+        });
+
+        if (firstEntry == datapoints.cend()) {
+            return {};
         }
-        return datapoints.cend();
+
+        return { std::make_pair(firstEntry->first, *firstEntry->second[channelIndex]) };
     }
 
     // Return last point before the invalid timepoint section begins
-    auto getLastTimePointOfDay() const {
-        auto foundSlot = findSlotWithTime(InvalidTime);
-        if (foundSlot == datapoints.cbegin()) {
-            return datapoints.cend();
+    ChannelEventResult getLastTimePointOfDay(uint8_t channelIndex) const {
+        const auto lastEntry = std::find_if(datapoints.rbegin(), datapoints.rend(),
+                                            [channelIndex](const auto &currentPair) {
+                                                return currentPair.second[channelIndex].has_value();
+                                            });
+
+        if (lastEntry == datapoints.crend()) {
+            return {};
         }
-        return (foundSlot - 1);
+
+        const auto &value = (lastEntry.base() - 1);
+
+        return { std::make_pair(value->first, *value->second[channelIndex]) };
     }
 
     template<typename DurationType = std::chrono::seconds>
-    auto getCurrentTimePointOfDay(const DurationType &timeOfDay) const {
+    ChannelEventResult getCurrentTimePointOfDay(uint8_t channelIndex, const DurationType &timeOfDay) const {
         auto foundSlot = std::find_if(datapoints.crbegin(), datapoints.crend(),
-        [&timeOfDay](const auto &currentPair) {
-            return currentPair.first <= timeOfDay;
-        });
+                                      [&timeOfDay, channelIndex](const auto &currentPair) {
+                                          return currentPair.first <= timeOfDay && currentPair.second[channelIndex].
+                                                 has_value();
+                                      });
 
         if (foundSlot == datapoints.crend() || foundSlot->first == InvalidTime) {
-            return datapoints.cend();
+            return {};
         }
 
-        return (foundSlot.base() - 1);
+        const auto &value = (foundSlot.base() - 1);
+
+        return {  std::make_pair(value->first, *value->second[channelIndex]) };
     }
 
     template<typename DurationType = std::chrono::seconds>
-    auto getNextTimePointOfDay(const DurationType &timeOfDay) const {
+    ChannelEventResult getNextTimePointOfDay(uint8_t channelIndex, const DurationType &timeOfDay) const {
         // Find slot, which is the first to be later in the day
         auto foundSlot = std::ranges::find_if(datapoints,
-        [&timeOfDay](const auto &currentPair) {
-            return currentPair.first > timeOfDay;
+        [&timeOfDay, channelIndex](const auto &currentPair) {
+            return currentPair.first > timeOfDay && currentPair.second[channelIndex].has_value();
         });
 
         if (foundSlot == datapoints.cend() || foundSlot->first == InvalidTime) {
-            return datapoints.cend();
+            return {};
         }
 
-        return foundSlot;
+        return { std::make_pair(foundSlot->first, *foundSlot->second[channelIndex]) };
     }
 
     auto begin() const { return datapoints.cbegin(); }
@@ -123,4 +120,26 @@ public:
 
 private:
     TimePointDataArray datapoints;
+
+    template<typename DurationType>
+    auto findSlotWithTime(const DurationType &timeOfDay) {
+        return std::ranges::find_if(datapoints, [&timeOfDay](auto &currentPair) {
+            return currentPair.first == timeOfDay;
+        });
+    }
+
+    template<typename DurationType>
+    auto findSlotWithTime(const DurationType &timeOfDay) const {
+        return std::ranges::find_if(datapoints, [&timeOfDay](auto &currentPair) {
+            return currentPair.first == timeOfDay;
+        });
+    }
+
+    void reorderSchedule() {
+        std::ranges::sort(datapoints, [](const auto &lhs, const auto &rhs) {
+            return lhs.first < rhs.first;
+        });
+    }
+
+
 };
