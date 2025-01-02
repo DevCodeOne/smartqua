@@ -1,0 +1,167 @@
+#pragma once
+
+#include <optional>
+#include <array>
+#include <chrono>
+
+#include "utils/time/schedule.h"
+#include "utils/time/schedule_tracker_types.h"
+#include "utils/time/time_utils.h"
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+class ScheduleTracker final {
+public:
+    using MinimalTimeUnit = std::chrono::seconds;
+    using UnderlyingScheduleType = ScheduleType;
+    using OptionalChannelValue = std::optional<ValueType>;
+    using OptionalChannelValues = std::array<OptionalChannelValue, NumChannels>;
+    using TrackerTypeVariant = std::variant<
+        InterpolationTracker<ValueType>,
+        SingleShotTracker<ValueType>,
+        HoldTracker<ValueType> >;
+
+    ScheduleTracker(const ScheduleType *schedule, ScheduleTrackerType type) : mTrackerType(createTrackingType(type)),
+                                                                              mSchedule(schedule) {
+    }
+    ScheduleTracker(const ScheduleTracker &) = delete;
+    ScheduleTracker(ScheduleTracker &&) = default;
+    ScheduleTracker &operator=(const ScheduleTracker &) = delete;
+    ScheduleTracker &operator=(ScheduleTracker &&) = default;
+    ~ScheduleTracker() = default;
+
+    OptionalChannelValues getCurrentChannelValues() const;
+    OptionalChannelValue getCurrentChannelValue(uint8_t channelIndex, const std::tm &currentDate) const;
+
+    void setTrackingType(ScheduleTrackerType trackerType);
+
+    void updateAllChannelTimes(const std::tm &currentDate);
+    bool updateChannelTime(uint8_t channelIndex, const std::tm &currentDate);
+
+private:
+    std::array<MinimalTimeUnit, NumChannels> mChannelTimes;
+    TrackerTypeVariant mTrackerType;
+
+    const ScheduleType *mSchedule;
+
+    enum struct EventSelection {
+        Next, Current
+    };
+
+    typename ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const weekday &dayInWeek, const MinimalTimeUnit &timeToday) const;
+    static TrackerTypeVariant createTrackingType(ScheduleTrackerType trackerType);
+};
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+auto ScheduleTracker<ScheduleType, ValueType, NumChannels>::getCurrentChannelValues() const -> OptionalChannelValues {
+    OptionalChannelValues values;
+    for (uint8_t i = 0; i < NumChannels; ++i) {
+        values[i] = std::make_optional(getCurrentChannelValue(i, mChannelTimes[i]));
+    }
+    return values;
+}
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+auto ScheduleTracker<ScheduleType,
+    ValueType, NumChannels>::getCurrentChannelValue(uint8_t channelIndex,
+                                                    const std::tm &currentDate) const -> OptionalChannelValue {
+    if (channelIndex >= NumChannels) {
+        return {};
+    }
+
+    const auto timeSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>(currentDate);
+    const auto timeThisDay = getTimeOfDay<std::chrono::seconds>(currentDate);
+    const auto dayInWeek = getDayOfWeek(currentDate);
+
+    const auto currentEvent = getEvent(EventSelection::Current, channelIndex, dayInWeek, timeThisDay);
+    const auto nextEvent = getEvent(EventSelection::Next, channelIndex, dayInWeek, timeThisDay);
+
+    if (!currentEvent.has_value() || currentEvent->eventTime > timeSinceWeekBeginning) {
+        return {};
+    }
+
+    const auto eventInEffectSince = timeSinceWeekBeginning - currentEvent->eventTime;
+
+    const TrackingData<typename ScheduleType::SingleChannelStatus, std::chrono::seconds> trackerData{
+        .current = *currentEvent,
+        .next = nextEvent,
+        .channelTime = mChannelTimes[channelIndex],
+        .currentEventInEffectSince = eventInEffectSince
+    };
+
+    return std::visit([&trackerData](const auto &tracker) {
+        return tracker.getChannelValue(trackerData);
+    }, mTrackerType);
+}
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+auto ScheduleTracker<ScheduleType,
+    ValueType, NumChannels>::createTrackingType(ScheduleTrackerType trackerType) -> TrackerTypeVariant {
+    switch (trackerType) {
+        case ScheduleTrackerType::Interpolation:
+            return InterpolationTracker<ValueType>{};
+        case ScheduleTrackerType::SingleShot:
+            return SingleShotTracker<ValueType>{};
+        case ScheduleTrackerType::Hold:
+            return HoldTracker<ValueType>{};
+        default:
+            return {};
+    }
+}
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+void ScheduleTracker<ScheduleType, ValueType, NumChannels>::setTrackingType(ScheduleTrackerType trackerType) {
+    mTrackerType = createTrackingType(trackerType);
+}
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+void ScheduleTracker<ScheduleType, ValueType, NumChannels>::updateAllChannelTimes(const std::tm &currentDate) {
+    for (uint8_t i = 0; i < NumChannels; ++i) {
+        updateChannelTime(i, currentDate);
+    }
+}
+
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+bool ScheduleTracker<ScheduleType, ValueType, NumChannels>::updateChannelTime(uint8_t channelIndex,
+                                                                              const std::tm &currentDate) {
+    if (mChannelTimes.size() <= channelIndex) {
+        return false;
+    }
+
+    mChannelTimes[channelIndex] = sinceWeekBeginning<std::chrono::seconds>(currentDate);
+    return true;
+}
+
+// TODO: Only search for specified channel
+template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
+auto ScheduleTracker<ScheduleType,
+    ValueType, NumChannels>::getEvent(EventSelection selection, uint8_t channelIndex, const weekday &dayInWeek,
+                                      const MinimalTimeUnit &timeToday) const -> typename ScheduleType::OptionalSingleChannelStatus {
+    if (mSchedule == nullptr) {
+        return {};
+    }
+
+    auto foundEvent = mSchedule->currentEventStatus(timeToday, DaySearchSettings::AllDays, dayInWeek);
+
+    auto getEventData = [&channelIndex](const auto &event) -> typename ScheduleType::OptionalSingleChannelStatus {
+        if (event.size() <= channelIndex) {
+            return { };
+        }
+
+        auto &eventChannel = event[channelIndex];
+
+        if (!eventChannel.has_value()) {
+            return { };
+        }
+
+        return eventChannel;
+    };
+
+    if (selection == EventSelection::Next) {
+        return getEventData(foundEvent.next);
+    }
+    if (selection == EventSelection::Current) {
+        return getEventData(foundEvent.current);
+    }
+
+    return {};
+}

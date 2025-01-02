@@ -11,11 +11,13 @@ enum struct DaySearchSettings {
     OnlyThisDay, AllDays
 };
 
-template<typename TimePointData>
-struct SingleChannelStatus {
-    std::chrono::seconds eventTime;
-    TimePointData eventData;
-};
+namespace Detail {
+    template<typename TimePointData>
+    struct SingleChannelStatus {
+        std::chrono::seconds eventTime;
+        TimePointData eventData;
+    };
+}
 
 template<uint8_t NumChannels, typename TimePointData, uint8_t TimePointsPerDay>
 class WeekSchedule {
@@ -26,7 +28,9 @@ public:
     using DayScheduleArrayType = std::array<DayScheduleType, 7>;
     using TimePointInfoType = typename DayScheduleType::TimePointData;
 
-    using MultiChannelStatus = std::array<std::optional<SingleChannelStatus<TimePointData>>, NumChannels>;
+    using SingleChannelStatus = Detail::SingleChannelStatus<TimePointData>;
+    using OptionalSingleChannelStatus = std::optional<SingleChannelStatus>;
+    using MultiChannelStatus = std::array<OptionalSingleChannelStatus, NumChannels>;
 
     struct CurrentMultiChannelStatus {
         MultiChannelStatus current;
@@ -66,10 +70,10 @@ private:
     DayScheduleArrayType daySchedules;
 
     template<typename TimeUnit>
-    static SingleChannelStatus<TimePointData> createSingleChannelStatus(
+    static SingleChannelStatus createSingleChannelStatus(
         const auto dayIndex, const std::pair<TimeUnit, TimePointData> &timePointDay) {
         using std::chrono::hours;
-        return SingleChannelStatus<TimePointData>{
+        return SingleChannelStatus{
             .eventTime = std::chrono::seconds{hours{dayIndex * 24} + timePointDay.first},
             .eventData = timePointDay.second
         };

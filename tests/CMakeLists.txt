@@ -16,6 +16,7 @@ add_executable(smartaq_tests
         lookup_table_tests.cpp
         day_schedule_tests.cpp
         schedule_tests.cpp
+        schedule_tracker_tests.cpp
         fixed_size_optional_array_tests.cpp
         time_utils_tests.cpp)
 target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
