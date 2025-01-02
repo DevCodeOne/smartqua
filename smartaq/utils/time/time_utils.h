@@ -13,6 +13,7 @@ weekday getPreviousDay(weekday ofThisDay);
 weekday getNextDay(weekday ofThisDay);
 
 std::tm currentTime();
+bool validateTime(const std::tm &timeInfo);
 
 template<typename T, typename U>
 struct IsLargerOrEqualDuration {

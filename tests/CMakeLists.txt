@@ -10,6 +10,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(smartaq_tests
         basic_stack_string_tests.cpp
+        check_assign_tests.cpp
         ring_buffer_tests.cpp
         sample_container_tests.cpp
         lookup_table_tests.cpp
