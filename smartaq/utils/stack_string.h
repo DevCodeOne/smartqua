@@ -73,12 +73,12 @@ namespace String {
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size>::BasicStackString(const std::string_view &other) {
-        operator=(other);
+        set(other);
     }
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size>::BasicStackString(const char *other) {
-        operator=(other);
+        set(other);
     }
 
     template<typename CharT, size_t Size>
@@ -101,23 +101,19 @@ namespace String {
     template<size_t OtherSize, typename>
     requires (OtherSize <= Size)
     BasicStackString<CharT, Size> &BasicStackString<CharT, Size>::operator=(const BasicStackString<CharT, OtherSize> &other) {
-        std::memcpy(this->data(), other.data(), Size);
-        this->data()[Size - 1] = '\0';
-
+        set(other);
         return *this;
     }
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size> &BasicStackString<CharT, Size>::operator=(const std::string_view &other) {
-        return operator=(other.data());
+        set(other.data(), other.size());
+        return *this;
     }
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size> &BasicStackString<CharT, Size>::operator=(const char *other) {
-        const auto toCopy = std::min(Size - 1, safe_strlen(other, Size));
-        std::memcpy(this->data(), other, toCopy);
-        this->data()[toCopy] = '\0';
-
+        set(other);
         return *this;
     }
 
@@ -186,7 +182,7 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::set(const std::string_view &view) {
-        return set(view.data());
+        return set(view.data(), view.size());
     }
 
     template<typename CharT, size_t Size>
