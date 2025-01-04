@@ -212,31 +212,10 @@ class FilesystemSetting final {
                 return ESP_FAIL;
             }
 
-            /*
-            std::array<char, name_length> out_path{'\0'};
-            auto result = snprintf(out_path.data(), out_path.size(), "%s/%s", Path.value, FolderName);
-
-            if (result < 0) {
-                Logger::log(LogLevel::Error, "Couldn't write folder path");
+            if (!ensure_path_exists(Path.value)) {
+                Logger::log(LogLevel::Error, "Entrypoint is not there ... ");
                 return ESP_FAIL;
             }
-
-            bool out_folder_exists = ensure_path_exists(out_path.data());
-
-            if (!out_folder_exists) {
-                Logger::log(LogLevel::Error, "Couldn't create folder structure");
-                return ESP_FAIL;
-            }
-
-            auto target_file = openTmpFile();
-            DoFinally closeOp( [&target_file]() {
-                std::fclose(target_file);
-            });
-
-            if (!target_file) {
-                Logger::log(LogLevel::Error, "Couldn't open target file %s", SettingType::name);
-                return ESP_FAIL;
-            }*/
 
             m_initialized = true;
 
@@ -251,6 +230,8 @@ class FilesystemSetting final {
             Logger::log(LogLevel::Info, "Loading from filesystem");
             auto filename = SmallerBufferPoolType::get_free_buffer();
             copyFilenameToBuffer(filename);
+
+            Logger::log(LogLevel::Debug, "Trying to open file : %s", filename->data());
             auto opened_file = std::fopen(filename->data(), "r+");
             DoFinally closeOp( [&opened_file]() {
                 std::fclose(opened_file);
@@ -297,7 +278,7 @@ class FilesystemSetting final {
                 return ESP_OK;
             }
 
-            auto target_file = openTmpFile();
+            auto target_file = openTmpFile(true);
 
             if (!target_file) {
                 Logger::log(LogLevel::Info, "Couldn't open tmp file");

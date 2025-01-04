@@ -108,7 +108,7 @@ class LocalFlashStorage {
         const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, Path.value + 1);
 
         if (partition == nullptr) {
-            Logger::log(LogLevel::Error, "Couldn't find partition");
+            Logger::log(LogLevel::Error, "Couldn't find partition %.*s", Path.length, Path.value);
             return std::nullopt;
         }
 
@@ -119,7 +119,7 @@ class LocalFlashStorage {
         }
 
         initializeValues(partition, *handleOut);
-        Logger::log(LogLevel::Info, "Initialized Filesystem");
+        Logger::log(LogLevel::Info, "Initialized Filesystem %.*s", Path.length, Path.value);
         return LocalFlashStorage();
     }
 
@@ -131,6 +131,8 @@ class LocalFlashStorage {
         esp_vfs_fat_mount_config_t fatMountConfig{
             .format_if_mount_failed = true,
             .max_files = 12,
+            .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
+            .use_one_fat = false,
         };
 
         auto result = esp_vfs_fat_spiflash_mount_rw_wl(Path.value, Path.value + 1, &fatMountConfig, &handleOut);
@@ -139,6 +141,8 @@ class LocalFlashStorage {
             Logger::log(LogLevel::Error, "Couldn't mount fat filesystem : %s", esp_err_to_name(result));
             return std::nullopt;
         }
+
+        Logger::log(LogLevel::Debug, "Mounted partition with label %.*s at %.*s", Path.length - 1, Path.value + 1, Path.length, Path.value);
 
         return std::make_optional(handleOut);
     }
