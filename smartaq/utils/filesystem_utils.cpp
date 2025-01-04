@@ -13,7 +13,7 @@
 static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
 // TODO: Move to header, when it is not dependent on esp32
-static constexpr size_t max_path_length = 128;
+static constexpr size_t max_path_length = 32;
 
 // TODO: again replace with std::string_view, optimize, first check if folder already exists
 bool ensure_path_exists(const char *path, uint32_t mask) {
@@ -89,16 +89,20 @@ int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t ds
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::string_view input) {
     // Write terminating zero
-    return safeWriteToFile(path, tmpExtension, reinterpret_cast<const void *>(input.data()), input.length() + 1);
+    return safeWriteToFile(path, tmpExtension, input.data(), input.length() + 1);
 }
 
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
     using PathString = BasicStackString<max_path_length>;
-    PathString tmpPathCopy;
-    parentPath(path.data(), tmpPathCopy);
-    auto pathExists = ensure_path_exists(tmpPathCopy.data());
 
-    if (!pathExists) {
+    if (data == nullptr) {
+        return false;
+    }
+
+    PathString tmpPathCopy;
+    parentPath(path, tmpPathCopy);
+
+    if (!ensure_path_exists(tmpPathCopy.data())) {
         // Logger::log(LogLevel::Error, "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
         return false;
     }
@@ -106,8 +110,6 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
     if (!PathString::canHold(path.data())) {
         return false;
     }
-
-    PathString pathCopy{path};
 
     snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
         path.length(), path.data(), tmpExtension.length(), tmpExtension.data());
@@ -131,8 +133,6 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
         }
     }
 
-    std::remove(pathCopy.data());
-    auto rename_result = std::rename(tmpPathCopy.data(), pathCopy.data());
-
-    return rename_result >= 0;
+    std::remove(path.data());
+    return std::rename(tmpPathCopy.data(), path.data()) >= 0;
 }
