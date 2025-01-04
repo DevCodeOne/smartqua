@@ -20,8 +20,10 @@ public:
         SingleShotTracker<ValueType>,
         HoldTracker<ValueType> >;
 
-    ScheduleTracker(const ScheduleType *schedule, ScheduleTrackerType type) : mTrackerType(createTrackingType(type)),
+    ScheduleTracker(const ScheduleType *schedule, ScheduleEventTransitionMode type) : mTrackerType(createTrackingType(type)),
                                                                               mSchedule(schedule) {
+    }
+    explicit ScheduleTracker(const ScheduleType *schedule) : ScheduleTracker(schedule, ScheduleEventTransitionMode::Hold) {
     }
     ScheduleTracker(const ScheduleTracker &) = delete;
     ScheduleTracker(ScheduleTracker &&) = default;
@@ -29,13 +31,22 @@ public:
     ScheduleTracker &operator=(ScheduleTracker &&) = default;
     ~ScheduleTracker() = default;
 
-    OptionalChannelValues getCurrentChannelValues() const;
+    OptionalChannelValues getCurrentChannelValues(const std::tm &currentDate) const;
     OptionalChannelValue getCurrentChannelValue(uint8_t channelIndex, const std::tm &currentDate) const;
 
-    void setTrackingType(ScheduleTrackerType trackerType);
+    void setTrackingType(ScheduleEventTransitionMode trackerType);
 
     void updateAllChannelTimes(const std::tm &currentDate);
     bool updateChannelTime(uint8_t channelIndex, const std::tm &currentDate);
+
+    const std::array<MinimalTimeUnit, NumChannels> &getChannelTimes() const {
+        return mChannelTimes;
+    }
+
+    // TODO: Maybe add tests, so only valid times are set?
+    void setChannelTimes(std::array<MinimalTimeUnit, NumChannels> &channelTimes) {
+        std::copy(channelTimes.begin(), channelTimes.end(), mChannelTimes.begin());
+    }
 
 private:
     std::array<MinimalTimeUnit, NumChannels> mChannelTimes;
@@ -48,14 +59,14 @@ private:
     };
 
     typename ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const weekday &dayInWeek, const MinimalTimeUnit &timeToday) const;
-    static TrackerTypeVariant createTrackingType(ScheduleTrackerType trackerType);
+    static TrackerTypeVariant createTrackingType(ScheduleEventTransitionMode trackerType);
 };
 
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
-auto ScheduleTracker<ScheduleType, ValueType, NumChannels>::getCurrentChannelValues() const -> OptionalChannelValues {
+auto ScheduleTracker<ScheduleType, ValueType, NumChannels>::getCurrentChannelValues(const std::tm &currentDate) const -> OptionalChannelValues {
     OptionalChannelValues values;
     for (uint8_t i = 0; i < NumChannels; ++i) {
-        values[i] = std::make_optional(getCurrentChannelValue(i, mChannelTimes[i]));
+        values[i] = getCurrentChannelValue(i, currentDate);
     }
     return values;
 }
@@ -95,13 +106,13 @@ auto ScheduleTracker<ScheduleType,
 
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
 auto ScheduleTracker<ScheduleType,
-    ValueType, NumChannels>::createTrackingType(ScheduleTrackerType trackerType) -> TrackerTypeVariant {
+    ValueType, NumChannels>::createTrackingType(ScheduleEventTransitionMode trackerType) -> TrackerTypeVariant {
     switch (trackerType) {
-        case ScheduleTrackerType::Interpolation:
+        case ScheduleEventTransitionMode::Interpolation:
             return InterpolationTracker<ValueType>{};
-        case ScheduleTrackerType::SingleShot:
+        case ScheduleEventTransitionMode::SingleShot:
             return SingleShotTracker<ValueType>{};
-        case ScheduleTrackerType::Hold:
+        case ScheduleEventTransitionMode::Hold:
             return HoldTracker<ValueType>{};
         default:
             return {};
@@ -109,7 +120,7 @@ auto ScheduleTracker<ScheduleType,
 }
 
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
-void ScheduleTracker<ScheduleType, ValueType, NumChannels>::setTrackingType(ScheduleTrackerType trackerType) {
+void ScheduleTracker<ScheduleType, ValueType, NumChannels>::setTrackingType(ScheduleEventTransitionMode trackerType) {
     mTrackerType = createTrackingType(trackerType);
 }
 

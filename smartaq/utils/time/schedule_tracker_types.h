@@ -4,14 +4,13 @@
 #include <cstdint>
 
 // Tracker type enum
-enum struct ScheduleTrackerType {
+enum struct ScheduleEventTransitionMode {
     Interpolation,
     SingleShot,
     Hold
 };
 
 // TODO: Add concept for eventOffset
-
 template<typename EventType, typename MinimalTimeUnit>
 struct TrackingData {
     EventType current;
