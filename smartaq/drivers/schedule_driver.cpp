@@ -55,20 +55,20 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
             const auto valueView = variableMatch.get<value_name>().to_view();
 
             // TODO: check if this is safe
-            const BasicStackString<16> terminatedCopy{valueView};
+            const BasicStackString<16> terminatedCopy{ valueView };
             char *end = 0;
             float value = std::strtof(terminatedCopy.data(), &end);
 
-            // TODO: think what to do on error
             if (end == terminatedCopy.data()) {
-                Logger::log(LogLevel::Warning, "Couldn't parse float value in ScheduleDriver data");
+                Logger::log(LogLevel::Warning, "Couldn't parse float value %.*s in ScheduleDriver data", terminatedCopy.length(), terminatedCopy.data());
+                return std::nullopt;
             }
 
-            // TODO: if this fails, should the whole op fail ?
             if (auto channelIndex = driver.channelIndex(variableView)) {
                 timePointData[*channelIndex] = value;
             } else {
                 Logger::log(LogLevel::Warning, "Couldn't find channel %.*s", variableView.length(), variableView.data());
+                return std::nullopt;
             }
 
             containsData = true;
@@ -101,24 +101,26 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
         // TODO: Use device_names instead of the indices
         // TODO: maybe do channel_desc, instead of the individual arrays
         json_scanf(input.data(), input.size(), "{ type : %M, channel_names : %M, devices : %M, channel_units : %M }", 
-        json_scanf_single<DriverType>, &newConf.type,
+        json_scanf_single<ScheduleEventTransitionMode>, &newConf.type,
         json_scanf_array<decltype(newConf.channelNames)>, &newConf.channelNames,
         json_scanf_array<decltype(newConf.deviceIndices)>, &newConf.deviceIndices,
         json_scanf_array<decltype(newConf.channelUnit)>, &newConf.channelUnit);
 
         for (const auto &channelName : newConf.channelNames) {
-            Logger::log(LogLevel::Info, "%.*s", channelName->len(), channelName->data());
+            Logger::log(LogLevel::Debug, "Length of Channel name: %d %.*s", channelName->len(), channelName->len(), channelName->data());
         }
 
         bool missingData = false;
         for (uint8_t i = 0; i < newConf.deviceIndices.size(); ++i) {
             if (newConf.channelNames[i].has_value() != newConf.deviceIndices[i].has_value()) {
+                Logger::log(LogLevel::Warning, "Channel %d has no device index nor a channel name", i);
                 missingData = true;
                 break;
             }
         }
 
         if (missingData) {
+            Logger::log(LogLevel::Warning, "Couldn't create schedule driver, missing channel names or device indices");
             return std::nullopt;
         }
 
@@ -128,6 +130,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     std::tm timeinfo;
     std::time_t now;
 
+    Logger::log(LogLevel::Debug, "Waiting for clock sync");
     wait_for_clock_sync(&now, &timeinfo);
 
     // Id is based on the devices used in the channels
@@ -213,12 +216,33 @@ bool ScheduleDriver::loadAndUpdateSchedule(const std::string_view &input) {
         return false;
     }
 
-    ScheduleState newState;
-    if (!loadFileCompletelyIntoBuffer(createdConf->scheduleStatePath.getStringView(), (void *) &newState, sizeof(ScheduleState))) {
+    return readChannelTimes();
+}
+
+bool ScheduleDriver::readChannelTimes() {
+    auto createdConf = mConf->accessConfig<ScheduleDriverData>();
+
+    Logger::log(LogLevel::Info, "Reading channel times of schedule");
+    std::array<std::chrono::seconds, ScheduleType::Channels> channelTimes{};
+    if (!loadFileCompletelyIntoBuffer(createdConf->scheduleStatePath.getStringView(), channelTimes.data(), sizeof(decltype(channelTimes)))) {
         Logger::log(LogLevel::Warning, "Failed to read schedule state");
+        return false;
     }
 
-    scheduleState = newState;
+    scheduleTracker.setChannelTimes(channelTimes);
+    return true;
+}
+
+bool ScheduleDriver::updateChannelTimes() const {
+    auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
+
+    const auto &channelTimes = scheduleTracker.getChannelTimes();
+
+    if (!safeWritePodToFile(scheduleDriverConf->scheduleStatePath.getStringView(), ".tmp", &channelTimes)) {
+        Logger::log(LogLevel::Error, "Failed to write schedule state, next reboot will have no schedule data !");
+        return false;
+    }
+
     return true;
 }
 
@@ -241,7 +265,7 @@ std::optional<uint8_t> ScheduleDriver::channelIndex(std::string_view channelName
     return std::nullopt;
 }
 
-ScheduleDriver::ScheduleDriver(const DeviceConfig *conf) : mConf(conf) {}
+ScheduleDriver::ScheduleDriver(const DeviceConfig *conf) : mConf(conf), schedule(), scheduleTracker(&schedule) {}
 
 DeviceOperationResult ScheduleDriver::write_value(std::string_view what, const DeviceValues &value) {
     return DeviceOperationResult::not_supported;
@@ -260,184 +284,52 @@ DeviceOperationResult ScheduleDriver::call_device_action(DeviceConfig *conf, con
 }
 
 DeviceOperationResult ScheduleDriver::update_runtime_data() {
-    return updateValues(retrieveCurrentValues());
+    return updateValues();
 }
 
-DeviceOperationResult ScheduleDriver::updateValues(const NewChannelValues &values) {
+DeviceOperationResult ScheduleDriver::updateValues() {
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
-    for (int i = 0; i < values.size(); ++i) {
-        const auto &currentValue = values[i];
-        if (currentValue) {
-            const auto &[currentDeviceIndex, currentChannelTime, valueToSet] = *currentValue;
+    std::time_t now = std::time(nullptr);
+    std::tm *currentDate = std::localtime(&now);
+    bool wasUpdated = false;
 
-            Logger::log(LogLevel::Info, "Creating with channel_unit %d", (int) scheduleDriverConf->channelUnit[i]);
-            const auto newValue = DeviceValues::create_from_unit(scheduleDriverConf->channelUnit[i], valueToSet);
-            auto setResult = set_device_action(currentDeviceIndex, std::string_view(), newValue, nullptr, 0);
-        }   else {
-            Logger::log(LogLevel::Debug, "Nothing to set");
-        }
+    if (!currentDate) {
+        Logger::log(LogLevel::Warning, "Couldn't get current date");
+        return DeviceOperationResult::failure;
     }
 
-    updateScheduleState(values);
+    const auto newValues = scheduleTracker.getCurrentChannelValues(*currentDate);
+
+    for (int i = 0; i < newValues.size(); ++i) {
+        if (!newValues[i].has_value()) {
+            Logger::log(LogLevel::Debug, "Nothing to set");
+            continue;
+        }
+
+        const auto currentValue = *newValues[i];
+
+        if (scheduleDriverConf->deviceIndices.size() <= i || !scheduleDriverConf->deviceIndices[i].has_value()) {
+            Logger::log(LogLevel::Warning, "There aren't enough devices indices or they aren't set correctly");
+            continue;
+        }
+
+        const auto currentDeviceIndex = *scheduleDriverConf->deviceIndices[i];
+
+        Logger::log(LogLevel::Info, "Creating with channel_unit %d", (int) scheduleDriverConf->channelUnit[i]);
+        const auto newValue = DeviceValues::create_from_unit(scheduleDriverConf->channelUnit[i], currentValue);
+        auto setResult = set_device_action(currentDeviceIndex, std::string_view(), newValue, nullptr, 0);
+
+        // TODO: check setResult
+
+        scheduleTracker.updateChannelTime(i, *currentDate);
+        wasUpdated = true;
+    }
+
+    if (wasUpdated) {
+        updateChannelTimes();
+    }
 
     return DeviceOperationResult::ok;
 
-}
-
-bool ScheduleDriver::updateScheduleState(const NewChannelValues &values) {
-    auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
-
-    // All types except the single shot action type, don't need to store their state
-    if (scheduleDriverConf->type != DriverType::Action) {
-        return true;
-    }
-
-    bool anyValueSet = false;
-    for (size_t i = 0; i < scheduleState.channelTime.size(); ++i) {
-        if (values[i]) {
-            scheduleState.channelTime[i] = std::get<1>(*values[i]);
-            anyValueSet = true;
-        }
-    }
-
-    if (anyValueSet) {
-        Logger::log(LogLevel::Debug, "Updating remote schedule state");
-
-        if (!safeWriteToFile(scheduleDriverConf->scheduleStatePath.getStringView(), ".tmp", (void *) &scheduleState, sizeof(scheduleState))) {
-            Logger::log(LogLevel::Error, "Failed to write schedule state, next reboot will have no schedule data !");
-            return false;
-        }
-    }
-
-    return true;
-}
-
-auto ScheduleDriver::interpolateValues(ScheduleDriverData *scheduleDriverConf) -> NewChannelValues {
-    NewChannelValues values;
-    Logger::log(LogLevel::Info, "Interpolating correct values");
-    const auto currentDay = getDayOfWeek();
-    const auto timeOfDaySeconds = getTimeOfDay<std::chrono::seconds>();
-    const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
-
-    // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
-    const auto currentTimePoint = schedule.findCurrentEventStatus(timeOfDaySeconds);
-    const auto nextTimePoint = schedule.findNextEventStatus(timeOfDaySeconds);
-
-    // TODO: current timepoint is not the actual current timepoint time, use the time of the timepoint!
-    for (uint8_t i = 0; i < ScheduleType::Channels; ++i) {
-        const auto &currentChannelName = scheduleDriverConf->channelNames[i];
-        const auto &currentDeviceIndex = scheduleDriverConf->deviceIndices[i];
-        if (!currentChannelName.has_value() || !currentDeviceIndex.has_value()) {
-            continue;
-        }
-
-        if (!currentTimePoint[i]) {
-            continue;
-        }
-
-        if (!nextTimePoint[i]) {
-            continue;
-        }
-
-        const auto difference = nextTimePoint[i]->eventData - currentTimePoint[i]->eventData;
-        std::chrono::seconds timeDifference = currentTimePoint[i]->eventTime - nextTimePoint[i]->eventTime;
-        if (std::abs(timeDifference.count()) < 1) {
-            timeDifference = decltype(timeDifference)(1);
-        }
-        const std::chrono::seconds currentTimePointInEffectSince =
-                (std::chrono::hours{24 * static_cast<int>(currentDay)} + timeOfDaySeconds) - currentTimePoint[i]->eventTime;
-        const auto interpolationFactor = std::fabs(currentTimePointInEffectSince.count() / static_cast<float>(timeDifference.count()));
-
-        const auto newValue = currentTimePoint[i]->eventData + difference * interpolationFactor;
-        Logger::log(LogLevel::Info, "%.*s(%d)=%f , interpFactor=%f",
-                    (int) scheduleDriverConf->channelNames[i]->len(), scheduleDriverConf->channelNames[i]->data(), *currentDeviceIndex,
-                    newValue, interpolationFactor);
-
-        values[i] = std::make_tuple(*currentDeviceIndex, secondsSinceWeekBeginning, newValue);
-    }
-    return values;
-}
-
-auto ScheduleDriver::simpleValues(ScheduleDriverData *scheduleDriverConf) -> NewChannelValues {
-    NewChannelValues values;
-    Logger::log(LogLevel::Info, "Checking possible actions");
-    const auto timeOfDaySeconds = getTimeOfDay<std::chrono::seconds>();
-    const auto secondsSinceWeekBeginning = sinceWeekBeginning<std::chrono::seconds>();
-
-    // TODO: maybe add possibility to search for the next timepoint which contains a specific channel
-    const auto currentTimePoint = schedule.findCurrentEventStatus(timeOfDaySeconds, DaySearchSettings::AllDays);
-    const auto currentTimePointToday = schedule.findCurrentEventStatus(timeOfDaySeconds, DaySearchSettings::OnlyThisDay);
-
-    // If the state time is "in the future", assume day wrap around and reset
-    const auto timeInWeek = sinceWeekBeginning<std::chrono::seconds>();
-
-    for (uint8_t i = 0; i < ScheduleType::Channels; ++i) {
-        const auto &currentChannelName = scheduleDriverConf->channelNames[i];
-        const auto &currentDeviceIndex = scheduleDriverConf->deviceIndices[i];
-        if (!currentChannelName.has_value() || !currentDeviceIndex.has_value()) {
-            continue;
-        }
-
-        if (!currentTimePoint[i] || !currentTimePoint[i]->eventData) {
-            continue;
-        }
-
-        // This action was already triggered, continue if the schedule type is single shot action
-        if (scheduleState.channelTime[i] < currentTimePoint[i]->eventTime /* event should be triggered, channel time indicates not triggered event */
-            || (scheduleState.channelTime[i] >= timeInWeek /* wrap around -> new week, channel time later then current time point */
-                && currentTimePointToday[i]
-                && timeOfDaySeconds > currentTimePointToday[i]->eventTime)
-            || scheduleDriverConf->type != DriverType::Action) {
-            if (scheduleState.channelTime[i] > timeInWeek) {
-                Logger::log(LogLevel::Info, "Wrap around event");
-            }
-
-            if (currentTimePointToday[i]) {
-                Logger::log(LogLevel::Info, "Triggering event because of a wrap around");
-            } else {
-                Logger::log(LogLevel::Info, "Triggering event at %d > %d, %d, %d",
-                            (int) scheduleState.channelTime[i].count(),
-                            (int) currentTimePoint[i]->eventTime.count(),
-                            (int) currentTimePointToday[i].has_value(),
-                            (int) timeOfDaySeconds.count());
-            }
-
-        } else {
-            Logger::log(LogLevel::Info, "Event was already triggered channelTime : %d, timeInWeek %d",
-                        (int) scheduleState.channelTime[i].count(), (int) timeInWeek.count());
-
-            continue;
-        }
-
-        const auto newValue = currentTimePoint[i]->eventData;
-
-        Logger::log(LogLevel::Info, "%.*s(%d) action(%d)",
-                    (int) scheduleDriverConf->channelNames[i]->len(), scheduleDriverConf->channelNames[i]->data(), *currentDeviceIndex,
-                    newValue);
-
-        // TODO: maybe use same datatype which is already used in json stuff
-        values[i] = std::make_tuple(*currentDeviceIndex, currentTimePoint[i]->eventTime, newValue);
-    }
-
-    return values;
-}
-
-auto ScheduleDriver::retrieveCurrentValues() -> NewChannelValues {
-    Logger::log(LogLevel::Info, "Schedule::retrieveCurrentValues");
-    if (mConf == nullptr) {
-        return {};
-    }
-
-    auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
-
-    if (scheduleDriverConf->type == DriverType::Interpolate) {
-        return interpolateValues(scheduleDriverConf);
-    }
-    if (scheduleDriverConf->type == DriverType::Action || scheduleDriverConf->type == DriverType::ActionHold) {
-        return simpleValues(scheduleDriverConf);
-    }
-
-    Logger::log(LogLevel::Info, "Schedule type is not possible");
-    return {};
 }

@@ -3,10 +3,10 @@
 #include <array>
 #include <optional>
 #include <cstdint>
-#include <utility>
 #include <chrono>
 #include <string_view>
 
+#include "build_config.h"
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
 #include "drivers/devices.h"
@@ -14,11 +14,7 @@
 #include "utils/json_utils.h"
 #include "utils/logger.h"
 #include "utils/time/schedule.h"
-#include "build_config.h"
-
-enum struct DriverType {
-    Interpolate, Action, ActionHold
-};
+#include "utils/time/schedule_tracker.h"
 
 static inline constexpr auto MaxLocalPathLength = 24;
 
@@ -30,12 +26,8 @@ struct ScheduleDriverData final {
     std::array<DeviceValueUnit, schedule_max_num_channels> channelUnit{};
     BasicStackString<MaxLocalPathLength> schedulePath;
     BasicStackString<MaxLocalPathLength> scheduleStatePath;
-    DriverType type;
+    ScheduleEventTransitionMode type;
     uint16_t creationId = 0;
-};
-
-struct ScheduleState {
-    std::array<std::chrono::seconds, schedule_max_num_channels> channelTime{};
 };
 
 /*
@@ -66,9 +58,8 @@ class RestSchedule {
 class ScheduleDriver final {
     public:
         using ScheduleType = WeekSchedule<schedule_max_num_channels, float, 12>;
-        using TimePointValueData = std::tuple<int, std::chrono::seconds, float>;
-        using ChannelData = ScheduleType::DayScheduleType::ChannelData;
-        using NewChannelValues = std::array<std::optional<std::tuple<int, std::chrono::seconds, float>>, schedule_max_num_channels>;
+        using ScheduleTrackerType = ScheduleTracker<ScheduleType, float, schedule_max_num_channels>;
+        using NewChannelValues = ScheduleTrackerType::OptionalChannelValues;
 
         static constexpr char name[] = "schedule_driver";
         static constexpr char schedulePathFormat[] = "%s/%d.json";
@@ -89,22 +80,20 @@ class ScheduleDriver final {
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
-        DeviceOperationResult updateValues(const NewChannelValues &channel_data);
 
         std::optional<uint8_t> channelIndex(std::string_view channelName) const;
 
     private:
         ScheduleDriver(const DeviceConfig*conf);
 
+        DeviceOperationResult updateValues();
         bool loadAndUpdateSchedule(const std::string_view &input);
-        bool updateScheduleState(const NewChannelValues &values);
-        NewChannelValues retrieveCurrentValues();
-        NewChannelValues interpolateValues(ScheduleDriverData *scheduleDriverConf);
-        NewChannelValues simpleValues(ScheduleDriverData *scheduleDriverConf);
+        bool readChannelTimes();
+        bool updateChannelTimes() const;
 
         const DeviceConfig *mConf;
         ScheduleType schedule;
-        ScheduleState scheduleState;
+        ScheduleTrackerType scheduleTracker;
 
         friend struct read_from_json<ScheduleDriver>;
 };
@@ -121,19 +110,19 @@ payload : {
     }
 */
 template<>
-struct read_from_json<DriverType> {
-    static void read(const char *str, int len, DriverType &driverType) {
+struct read_from_json<ScheduleEventTransitionMode> {
+    static void read(const char *str, int len, ScheduleEventTransitionMode &driverType) {
         if (str != nullptr && len > 0) {
             std::string_view as_view{str, static_cast<size_t>(len)};
 
             Logger::log(LogLevel::Debug, "Reading DriverType %.*s", as_view.size(), as_view.data());
 
             if (as_view == "action") {
-                driverType = DriverType::Action;
+                driverType = ScheduleEventTransitionMode::SingleShot;
             } else if (as_view == "action_hold") { 
-                driverType = DriverType::ActionHold;
+                driverType = ScheduleEventTransitionMode::Hold;
             } else if (as_view == "interpolate") {
-                driverType = DriverType::Interpolate;
+                driverType = ScheduleEventTransitionMode::Interpolation;
             }
         }
     }
