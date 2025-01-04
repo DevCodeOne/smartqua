@@ -26,6 +26,7 @@ enum struct ContentType {
 static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9]+)(?:\/(?<what>[\w\-]+)|\/)?)"};
 
 // TODO: backup functionality has be in a different api slot
+// TODO: Run actions in main thread, so no stack overflows happen
 esp_err_t do_devices(httpd_req *req) {
     Logger::log(LogLevel::Info, "This thread id %d", std::this_thread::get_id());
     Logger::log(LogLevel::Info, "Handle uri %s", req->uri);

@@ -50,7 +50,7 @@ namespace Detail {
             bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
-                config.stack_size = 4096;
+                config.stack_size = 4096 * 4;
                 config.keep_alive_enable = false;
                 config.lru_purge_enable = true;
                 config.recv_wait_timeout = 5;
