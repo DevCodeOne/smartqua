@@ -34,7 +34,7 @@ void print_health(void *) {
     localtime_r(&now, &timeinfo);
     strftime(timeout.data(), timeout.size(), "%c", &timeinfo);
 
-    auto bytesWritten = CurrentSystem::printSystemHealthToString(buffer->data(), buffer->size());
+    [[maybe_unused]] const auto bytesWritten = CurrentSystem::printSystemHealthToString(buffer->data(), buffer->size());
 
     Logger::log(LogLevel::Warning, "%s", buffer->data());
     Logger::log(LogLevel::Warning, "%s", timeout.data());
