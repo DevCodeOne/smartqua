@@ -20,6 +20,11 @@ jobs:
         with:
           submodules: true
 
+      - name: Initialize and update specific submodules
+        run: |
+          git submodule init
+          git submodule update --depth=1 header_only/ctre
+
       - uses: lukka/get-cmake@latest
       - name: Run CMake+Ninja+CTest to build packages and generate/build/test the code.
         uses: lukka/run-cmake@v10
