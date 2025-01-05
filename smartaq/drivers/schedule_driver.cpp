@@ -49,7 +49,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
         std::from_chars(minsView.data(), minsView.data() + minsView.size(), minsValue);
         const std::chrono::seconds timeOfDay = std::chrono::hours(hoursValue) + std::chrono::minutes(minsValue);
 
-        std::array<std::optional<float>, schedule_max_num_channels> timePointData;
+        std::array<std::optional<float>, schedule_max_num_channels> timePointData{};
         for (auto variableMatch : ctre::search_all<varextraction_regexp>(timePointMatch.get<vars_name>())) {
             const auto variableView = variableMatch.get<variable_name>().to_view();
             const auto valueView = variableMatch.get<value_name>().to_view();
@@ -64,8 +64,9 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
                 return std::nullopt;
             }
 
-            if (auto channelIndex = driver.channelIndex(variableView)) {
+            if (auto channelIndex = driver.channelIndex(variableView); channelIndex.has_value()) {
                 timePointData[*channelIndex] = value;
+                Logger::log(LogLevel::Debug, "Adding timepoint @ %u:%u with value : %f to channel : %d", hoursValue, minsValue, value, *channelIndex);
             } else {
                 Logger::log(LogLevel::Warning, "Couldn't find channel %.*s", variableView.length(), variableView.data());
                 return std::nullopt;
@@ -75,11 +76,16 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
         }
 
         if (containsData) {
-            Logger::log(LogLevel::Info, "Inserting Timepoint into schedule");
-            generatedSchedule.insertTimePoint(timeOfDay, timePointData);
+            Logger::log(LogLevel::Debug, "Inserting time point into schedule");
+            const auto couldInsert = generatedSchedule.insertTimePoint(timeOfDay, timePointData);
+
+            if (!couldInsert) {
+                Logger::log(LogLevel::Warning, "Couldn't insert time point into schedule");
+                return std::nullopt;
+            }
         } else {
             const auto varsView = timePointMatch.get<vars_name>().to_view();
-            Logger::log(LogLevel::Warning, "%.*s didn't cointain any parseable data", 
+            Logger::log(LogLevel::Warning, "%.*s didn't contain any parseable data",
                 varsView.length(), varsView.data());
         }
 
@@ -87,6 +93,16 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
 
     if (!containsData) {
         return std::nullopt;
+    }
+
+    for (const auto &timePoint : generatedSchedule) {
+        Logger::log(LogLevel::Debug, "Timepoint @ %u :", static_cast<uint32_t>(timePoint.first.count()));
+
+        for (uint8_t currentChannel = 0; currentChannel < timePoint.second.size(); ++currentChannel) {
+            if (timePoint.second[currentChannel].has_value()) {
+                Logger::log(LogLevel::Debug, "\t Timepoint data[%d] : %f", currentChannel, *timePoint.second[currentChannel]);
+            }
+        }
     }
 
     return generatedSchedule;
@@ -127,8 +143,8 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
         std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(ScheduleDriverData));
     }
     
-    std::tm timeinfo;
-    std::time_t now;
+    std::tm timeinfo{};
+    std::time_t now{};
 
     Logger::log(LogLevel::Debug, "Waiting for clock sync");
     wait_for_clock_sync(&now, &timeinfo);
@@ -216,6 +232,8 @@ bool ScheduleDriver::loadAndUpdateSchedule(const std::string_view &input) {
         return false;
     }
 
+    scheduleTracker.setTrackingType(createdConf->type);
+
     return readChannelTimes();
 }
 
@@ -299,6 +317,8 @@ DeviceOperationResult ScheduleDriver::updateValues() {
         return DeviceOperationResult::failure;
     }
 
+    Logger::log(LogLevel::Debug, "ScheduleDriver::updateValues");
+
     const auto newValues = scheduleTracker.getCurrentChannelValues(*currentDate);
 
     for (int i = 0; i < newValues.size(); ++i) {
@@ -310,7 +330,6 @@ DeviceOperationResult ScheduleDriver::updateValues() {
         const auto currentValue = *newValues[i];
 
         if (scheduleDriverConf->deviceIndices.size() <= i || !scheduleDriverConf->deviceIndices[i].has_value()) {
-            Logger::log(LogLevel::Warning, "There aren't enough devices indices or they aren't set correctly");
             continue;
         }
 

@@ -134,13 +134,13 @@ struct read_from_json<ScheduleDriver> {
     static void read(const char *str, int len, ScheduleDriver &userData) {
         std::array<json_token, 8> dayTokens{};
         json_scanf(str, len, "{ mon : %T, tue : %T, wed : %T, thu : %T, fri : %T, sat : %T, sun : %T, repeating : %T }",
-            &dayTokens[static_cast<uint32_t>(weekday::monday)],
-            &dayTokens[static_cast<uint32_t>(weekday::tuesday)],
-            &dayTokens[static_cast<uint32_t>(weekday::wednesday)],
-            &dayTokens[static_cast<uint32_t>(weekday::thursday)],
-            &dayTokens[static_cast<uint32_t>(weekday::friday)],
-            &dayTokens[static_cast<uint32_t>(weekday::saturday)],
-            &dayTokens[static_cast<uint32_t>(weekday::sunday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::monday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::tuesday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::wednesday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::thursday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::friday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::saturday)],
+            &dayTokens[static_cast<uint32_t>(WeekDay::sunday)],
             &dayTokens[7]);
 
         // Maybe allow mixture between repeating and other days, which override the repeating value
@@ -153,7 +153,7 @@ struct read_from_json<ScheduleDriver> {
             }
 
             for (uint8_t i = 0; i < 7; ++i) {
-                userData.schedule.setDaySchedule(weekday(i), *result);
+                userData.schedule.setDaySchedule(WeekDay(i), *result);
             }
             return;
         }
