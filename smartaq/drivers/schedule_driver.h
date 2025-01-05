@@ -66,11 +66,11 @@ class ScheduleDriver final {
         static constexpr char scheduleStatePathFormat[] = "%s/%d.state";
 
         ScheduleDriver(const ScheduleDriver &other) = delete;
-        ScheduleDriver(ScheduleDriver &&other) = default;
+        ScheduleDriver(ScheduleDriver &&other) noexcept;
         ~ScheduleDriver() = default;
 
         ScheduleDriver &operator=(const ScheduleDriver &other) = delete;
-        ScheduleDriver &operator=(ScheduleDriver &&other) = default;
+        ScheduleDriver &operator=(ScheduleDriver &&other);
 
         static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig&device_conf_out);
         static std::optional<ScheduleDriver> create_driver(const DeviceConfig*config);

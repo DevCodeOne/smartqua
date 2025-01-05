@@ -12,7 +12,7 @@
 #include "frozen.h"
 #include "utils/filesystem_utils.h"
 #include "utils/json_utils.h"
-// #include "utils/sd_filesystem.h"
+
 #include "utils/esp/idf_utils.h"
 #include "utils/time/schedule.h"
 #include "utils/logger.h"
@@ -28,8 +28,20 @@ static constexpr inline ctll::fixed_string vars_name{"vars"};
 static constexpr inline ctll::fixed_string variable_name{"variable"};
 static constexpr inline ctll::fixed_string value_name{"value"};
 
-constexpr unsigned int numberOfBits(unsigned int x) {
+static constexpr unsigned int numberOfBits(unsigned int x) {
     return x < 2 ? x : 1 + numberOfBits(x >> 1);
+}
+
+static void logTimePointData(const ScheduleDriver::ScheduleType::DayScheduleType &schedule) {
+    for (const auto &timePoint : schedule) {
+        Logger::log(LogLevel::Debug, "Timepoint @ %u :", static_cast<uint32_t>(timePoint.first.count()));
+
+        for (uint8_t currentChannel = 0; currentChannel < timePoint.second.size(); ++currentChannel) {
+            if (timePoint.second[currentChannel].has_value()) {
+                Logger::log(LogLevel::Debug, "\t Timepoint data[%d] : %f", currentChannel, *timePoint.second[currentChannel]);
+            }
+        }
+    }
 }
 
 std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(const ScheduleDriver &driver, const std::string_view &strValue) {
@@ -95,17 +107,20 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
         return std::nullopt;
     }
 
-    for (const auto &timePoint : generatedSchedule) {
-        Logger::log(LogLevel::Debug, "Timepoint @ %u :", static_cast<uint32_t>(timePoint.first.count()));
-
-        for (uint8_t currentChannel = 0; currentChannel < timePoint.second.size(); ++currentChannel) {
-            if (timePoint.second[currentChannel].has_value()) {
-                Logger::log(LogLevel::Debug, "\t Timepoint data[%d] : %f", currentChannel, *timePoint.second[currentChannel]);
-            }
-        }
-    }
+    logTimePointData(generatedSchedule);
 
     return generatedSchedule;
+}
+
+ScheduleDriver::ScheduleDriver(ScheduleDriver &&other) noexcept : mConf(other.mConf), schedule(std::move(other.schedule)),
+                                                                  scheduleTracker(&schedule) {
+}
+
+ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) {
+    mConf = other.mConf;
+    schedule = other.schedule;
+    scheduleTracker.setSchedule(&schedule);
+    return *this;
 }
 
 std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_view &input, DeviceConfig &device_conf_out) {
