@@ -1,8 +1,6 @@
 #include "utils/time/time_utils.h"
 
 #include <gtest/gtest.h>
-#include <gmock/gmock.h>
-
 
 class TimeUtilsTests : public ::testing::Test {
 protected:

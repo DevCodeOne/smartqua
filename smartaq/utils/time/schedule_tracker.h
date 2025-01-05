@@ -3,6 +3,7 @@
 #include <optional>
 #include <array>
 #include <chrono>
+#include <variant>
 
 #include "utils/time/schedule.h"
 #include "utils/time/schedule_tracker_types.h"
