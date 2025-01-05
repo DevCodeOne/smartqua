@@ -2,7 +2,6 @@
 
 #include <cstring>
 #include <string_view>
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "ctre.hpp"
@@ -111,8 +110,9 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
         return false;
     }
 
-    snprintf(tmpPathCopy.data(), decltype(tmpPathCopy)::ArrayCapacity - 1, "%.*s%.*s",
-        path.length(), path.data(), tmpExtension.length(), tmpExtension.data());
+    snprintf(tmpPathCopy.data(), PathString::capacity(), "%.*s%.*s",
+             static_cast<int>(path.length()), path.data(), static_cast<int>(tmpExtension.length()),
+             tmpExtension.data());
     FILE *tmpTargetFile = std::fopen(tmpPathCopy.data(), "wb");
 
     if (tmpTargetFile == nullptr) {
