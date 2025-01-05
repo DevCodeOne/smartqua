@@ -67,7 +67,13 @@ public:
     }
 
     auto &setDaySchedule(WeekDay day, const DayScheduleType &daySchedule) {
-        daySchedules[static_cast<uint32_t>(day)] = daySchedule;
+        const auto dayIndex = static_cast<uint32_t>(day);
+
+        if (dayIndex >= daySchedules.size()) {
+            return *this;
+        }
+
+        daySchedules[dayIndex] = daySchedule;
         return *this;
     }
 
@@ -79,6 +85,7 @@ private:
         const auto dayIndex, const std::pair<TimeUnit, TimePointData> &timePointDay) {
         using std::chrono::hours;
         return SingleChannelStatus{
+            // TODO: Probably will cause bugs e.g. saturday to sunday offset will be negative
             .eventTime = std::chrono::seconds{hours{dayIndex * 24} + timePointDay.first},
             .eventData = timePointDay.second
         };
@@ -90,7 +97,6 @@ private:
 
 };
 
-// TODO: Rework this into one method
 template<uint8_t NumChannels, typename TimePointData, uint8_t TimePointsPerDay>
 template<typename DurationType>
 auto WeekSchedule<NumChannels, TimePointData, TimePointsPerDay>::findCurrentEventStatus(const DurationType &unitThisDay, WeekDay day, DaySearchSettings settings) const -> MultiChannelStatus {
@@ -147,7 +153,10 @@ TimePointData, TimePointsPerDay>::findEventStatus(EventSelection selection, cons
         }
 
         if (result.has_value()) {
+            Logger::log(LogLevel::Debug, "Found event for channel %d", currentChannel);
             status[currentChannel] = createSingleChannelStatus(dayIndex, *result);
+        } else {
+            Logger::log(LogLevel::Debug, "No event found for channel %d", currentChannel);
         }
     }
 

@@ -39,6 +39,10 @@ public:
     void updateAllChannelTimes(const std::tm &currentDate);
     bool updateChannelTime(uint8_t channelIndex, const std::tm &currentDate);
 
+    void setSchedule(const ScheduleType *schedule) {
+        mSchedule = schedule;
+    }
+
     const std::array<MinimalTimeUnit, NumChannels> &getChannelTimes() const {
         return mChannelTimes;
     }
