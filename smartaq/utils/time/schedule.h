@@ -7,6 +7,9 @@
 #include "utils/time/time_utils.h"
 #include "utils/time/day_schedule.h"
 
+#include "build_config.h"
+#include "utils/logger.h"
+
 enum struct DaySearchSettings {
     OnlyThisDay, AllDays
 };
