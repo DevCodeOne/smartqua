@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: true
 
       - uses: lukka/get-cmake@latest
       - name: Run CMake+Ninja+CTest to build packages and generate/build/test the code.
