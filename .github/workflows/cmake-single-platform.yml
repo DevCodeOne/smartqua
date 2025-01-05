@@ -17,8 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: true
+        # with:
+        #   submodules: true
 
       - name: Initialize and update specific submodules
         run: |
