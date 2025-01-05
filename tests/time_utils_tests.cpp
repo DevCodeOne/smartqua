@@ -26,16 +26,16 @@ protected:
 };
 
 TEST_F(TimeUtilsTests, GetDayOfWeekTest) {
-    weekday daysOfWeek[] = {
-        weekday::sunday, weekday::monday, weekday::tuesday, weekday::wednesday, weekday::thursday,
-        weekday::friday, weekday::saturday
+    WeekDay daysOfWeek[] = {
+        WeekDay::sunday, WeekDay::monday, WeekDay::tuesday, WeekDay::wednesday, WeekDay::thursday,
+        WeekDay::friday, WeekDay::saturday
     };
 
     // Iterate over each day of the week
     for (int i = 0; i < 7; i++) {
         testTime.tm_wday = i; // Set weekday
-        weekday expected = daysOfWeek[i];
-        weekday result = getDayOfWeek(testTime);
+        WeekDay expected = daysOfWeek[i];
+        WeekDay result = getDayOfWeek(testTime);
         EXPECT_EQ(expected, result) << "Failed for day " << i;
     }
 }

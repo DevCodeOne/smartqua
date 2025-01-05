@@ -39,6 +39,7 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/container/sample_container.h
     utils/container/bitset.h
     utils/time/schedule.h
+    utils/time/schedule_tracker.h
     utils/time/time_utils.h utils/time/time_utils.cpp
     utils/filesystem_utils.h utils/filesystem_utils.cpp
 )

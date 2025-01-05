@@ -23,6 +23,7 @@ target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
 target_compile_options(smartaq_tests PRIVATE -coverage)
 target_link_options(smartaq_tests PRIVATE -coverage)
+target_compile_definitions(smartaq_tests PRIVATE TARGET_DEVICE=2)
 
 include(GoogleTest)
 gtest_add_tests(TARGET smartaq_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

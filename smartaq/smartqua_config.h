@@ -11,7 +11,6 @@
 #include "actions/device_actions.h"
 #include "actions/stats_actions.h"
 #include "actions/setting_actions.h"
-#include "utils/logger.h"
 #include "utils/esp/idf_utils.h"
 
 #include "drivers/ds18x20_driver.h"

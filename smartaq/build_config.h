@@ -55,6 +55,7 @@
 
 #define RPI0        0
 #define ESP32       1
+#define OTHER       2
 
 #ifndef TARGET_DEVICE
 #define TARGET_DEVICE ESP32
@@ -108,21 +109,29 @@ constexpr static inline auto sclDefaultPin = 16;
 
 #include "utils/logger.h"
 
-using Logger = ApplicationLogger<VoidSink>;
+#if TARGET_DEVICE == ESP32
+    #include "utils/esp/esp_logger_utils.h"
+    using Logger = ApplicationLogger<EspIdfBackend, VoidSink>;
+#else
+    using Logger = ApplicationLogger<PrintfBackend, VoidSink>;
+#endif
 
-#include "utils/large_buffer_pool.h"
+// TODO: Create system agnostic version of this
+#if TARGET_DEVICE == ESP32
+    #include "utils/large_buffer_pool.h"
+    // TODO: make configurable
+    using LargeBufferPoolType = LargeBufferPool<num_large_buffers, large_buffer_size, BufferLocation::heap>;
+    using SmallerBufferPoolType = LargeBufferPool<20, 64, BufferLocation::heap>;
 
-// TODO: make configurable
-using LargeBufferPoolType = LargeBufferPool<num_large_buffers, large_buffer_size, BufferLocation::heap>;
-using SmallerBufferPoolType = LargeBufferPool<20, 64, BufferLocation::heap>;
+    #include "utils/task_pool.h"
 
-#include "utils/task_pool.h"
+    using MainTaskPool = TaskPool<max_task_pool_size>;
 
-using MainTaskPool = TaskPool<max_task_pool_size>;
 
-// Device specific section
-#if __has_include("sdkconfig.h")
+    // Device specific section
+    #if __has_include("sdkconfig.h")
     #include "sdkconfig.h"
+    #endif
 #endif
 
 #ifndef DEFAULT_HOST_NAME
