@@ -3,28 +3,35 @@
 #include "utils/time/time_utils.h"
 #include "utils/check_assign.h"
 
-weekday getDayOfWeek() {
+WeekDay getDayOfWeek() {
     return getDayOfWeek(currentTime());
 }
 
-weekday getDayOfWeek(const std::tm &day) {
-    return static_cast<weekday>(day.tm_wday);
+WeekDay getDayOfWeek(const std::tm &day) {
+    return static_cast<WeekDay>(day.tm_wday);
 }
 
-weekday getPreviousDay(weekday ofThisDay) {
-    if (ofThisDay == weekday::sunday) {
-        return weekday::saturday;
+WeekDay getPreviousDay(WeekDay ofThisDay) {
+    if (ofThisDay == WeekDay::sunday) {
+        return WeekDay::saturday;
     }
 
-    return static_cast<weekday>(static_cast<std::underlying_type_t<weekday>>(ofThisDay) - 1);
+    return static_cast<WeekDay>(static_cast<std::underlying_type_t<WeekDay>>(ofThisDay) - 1);
 }
 
-weekday getNextDay(weekday ofThisDay) {
-    if (ofThisDay == weekday::saturday) {
-        return weekday::sunday;
+WeekDay getNextDay(WeekDay ofThisDay) {
+    if (ofThisDay == WeekDay::saturday) {
+        return WeekDay::sunday;
     }
 
-    return static_cast<weekday>(static_cast<std::underlying_type_t<weekday>>(ofThisDay) + 1);
+    return static_cast<WeekDay>(static_cast<std::underlying_type_t<WeekDay>>(ofThisDay) + 1);
+}
+
+WeekDay getDayInDirection(WeekDay ofThisDay, DaySearchDirection direction) {
+    if (direction == DaySearchDirection::Previous) {
+        return getPreviousDay(ofThisDay);
+    }
+    return getNextDay(ofThisDay);
 }
 
 std::tm currentTime() {

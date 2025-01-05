@@ -18,9 +18,7 @@ public:
     static constexpr std::chrono::minutes InvalidTime = std::chrono::hours(24) + std::chrono::minutes(1);
 
     DaySchedule() {
-        for (auto &[currentTimeOnDay, currentData] : datapoints) {
-            currentTimeOnDay = InvalidTime;
-        }
+        std::ranges::fill(datapoints, std::make_pair(InvalidTime, ChannelData{}));
     }
 
     template<typename DurationType>
@@ -38,6 +36,7 @@ public:
 
         foundSlot->first = eventAt;
         foundSlot->second = data;
+
         reorderSchedule();
         return true;
     }
@@ -57,7 +56,7 @@ public:
 
     ChannelEventResult getFirstTimePointOfDay(uint8_t channelIndex) const {
         const auto firstEntry = std::ranges::find_if(datapoints, [channelIndex](const auto &currentPair) {
-            return currentPair.second[channelIndex].has_value();
+            return currentPair.first != InvalidTime && currentPair.second[channelIndex].has_value();
         });
 
         if (firstEntry == datapoints.cend()) {
@@ -71,7 +70,8 @@ public:
     ChannelEventResult getLastTimePointOfDay(uint8_t channelIndex) const {
         const auto lastEntry = std::find_if(datapoints.rbegin(), datapoints.rend(),
                                             [channelIndex](const auto &currentPair) {
-                                                return currentPair.second[channelIndex].has_value();
+                                                return currentPair.first != InvalidTime && currentPair.second[
+                                                           channelIndex].has_value();
                                             });
 
         if (lastEntry == datapoints.crend()) {

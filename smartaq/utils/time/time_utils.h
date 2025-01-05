@@ -2,15 +2,20 @@
 
 #include <chrono>
 
-enum struct weekday : uint32_t {
+enum struct WeekDay : uint8_t {
     sunday = 0, monday = 1, tuesday = 2, wednesday = 3, thursday = 4, friday = 5, saturday = 6
 };
 
-weekday getDayOfWeek(const std::tm &timeInfo);
-weekday getDayOfWeek();
+enum struct DaySearchDirection {
+    Previous, Next
+};
 
-weekday getPreviousDay(weekday ofThisDay);
-weekday getNextDay(weekday ofThisDay);
+WeekDay getDayOfWeek(const std::tm &timeInfo);
+WeekDay getDayOfWeek();
+
+WeekDay getPreviousDay(WeekDay ofThisDay);
+WeekDay getNextDay(WeekDay ofThisDay);
+WeekDay getDayInDirection(WeekDay ofThisDay, DaySearchDirection direction);
 
 std::tm currentTime();
 bool validateTime(const std::tm &timeInfo);

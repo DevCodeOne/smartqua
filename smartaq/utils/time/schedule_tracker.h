@@ -58,7 +58,7 @@ private:
         Next, Current
     };
 
-    typename ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const weekday &dayInWeek, const MinimalTimeUnit &timeToday) const;
+    typename ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const WeekDay &dayInWeek, const MinimalTimeUnit &timeToday) const;
     static TrackerTypeVariant createTrackingType(ScheduleEventTransitionMode trackerType);
 };
 
@@ -86,7 +86,8 @@ auto ScheduleTracker<ScheduleType,
     const auto currentEvent = getEvent(EventSelection::Current, channelIndex, dayInWeek, timeThisDay);
     const auto nextEvent = getEvent(EventSelection::Next, channelIndex, dayInWeek, timeThisDay);
 
-    if (!currentEvent.has_value() || currentEvent->eventTime > timeSinceWeekBeginning) {
+    if (!currentEvent.has_value()) {
+        Logger::log(LogLevel::Debug, "No current event for channel %d", channelIndex);
         return {};
     }
 
@@ -145,13 +146,13 @@ bool ScheduleTracker<ScheduleType, ValueType, NumChannels>::updateChannelTime(ui
 // TODO: Only search for specified channel
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
 auto ScheduleTracker<ScheduleType,
-    ValueType, NumChannels>::getEvent(EventSelection selection, uint8_t channelIndex, const weekday &dayInWeek,
+    ValueType, NumChannels>::getEvent(EventSelection selection, uint8_t channelIndex, const WeekDay &dayInWeek,
                                       const MinimalTimeUnit &timeToday) const -> typename ScheduleType::OptionalSingleChannelStatus {
     if (mSchedule == nullptr) {
         return {};
     }
 
-    auto foundEvent = mSchedule->currentEventStatus(timeToday, DaySearchSettings::AllDays, dayInWeek);
+    auto foundEvent = mSchedule->currentEventStatus(timeToday, dayInWeek, DaySearchSettings::AllDays);
 
     auto getEventData = [&channelIndex](const auto &event) -> typename ScheduleType::OptionalSingleChannelStatus {
         if (event.size() <= channelIndex) {

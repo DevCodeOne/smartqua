@@ -3,6 +3,8 @@
 #include <optional>
 #include <cstdint>
 
+#include "utils/logger.h"
+
 // Tracker type enum
 enum struct ScheduleEventTransitionMode {
     Interpolation,
@@ -24,6 +26,7 @@ template<typename ValueType>
 struct HoldTracker {
     template<typename EventType, typename MinimalTimeUnit>
     std::optional<ValueType> getChannelValue(const TrackingData<EventType, MinimalTimeUnit> &trackingData) const {
+        Logger::log(LogLevel::Debug, "Current event data is: %f", trackingData.current.eventData);
         return { trackingData.current.eventData };
     }
 };
@@ -39,6 +42,9 @@ struct InterpolationTracker {
         if (!nextEvent) {
             return {};
         }
+
+        Logger::log(LogLevel::Debug, "Current event data is: %d, next event data is : %d", (int) (currentEvent.eventData * 100),
+                    (int) (nextEvent->eventData * 100));
 
         const auto difference = nextEvent->eventTime - currentEvent.eventTime;
         const auto valueDifference = nextEvent->eventData - currentEvent.eventData;
@@ -67,6 +73,7 @@ template<typename ValueType>
 struct SingleShotTracker {
     template<typename EventType, typename MinimalTimeUnit>
     std::optional<ValueType> getChannelValue(const TrackingData<EventType, MinimalTimeUnit> &trackingData) const {
+        Logger::log(LogLevel::Debug, "Current event data is: %f", trackingData.current.eventData);
         // Event has already been triggered
         if (trackingData.channelTime >= trackingData.current.eventTime) {
             return {};
