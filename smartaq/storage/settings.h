@@ -22,12 +22,13 @@
 
 enum struct SettingInitType { instant, lazy_load };
 
+template<typename T>
+concept StandardLayoutType = std::is_standard_layout_v<T>;
+
 #if TARGET_DEVICE == ESP32
-template<typename SettingType, auto InitType = SettingInitType::lazy_load>
+template<StandardLayoutType SettingType, auto InitType = SettingInitType::lazy_load>
 class NvsSetting {
    public:
-    static_assert(std::is_standard_layout_v<SettingType>,
-        "SettingType has to conform to the standard layout concept");
 
     using setting_type = SettingType;
 
@@ -161,25 +162,18 @@ class FilesystemSetting final {
         }
 
     private:
-        template<typename ArrayType>
-        bool copyTmpFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s.tmp", sizeof(FilesystemType::path.value),
-                                   FilesystemType::path.value,
-                                   sizeof(Path.value), Path.value);
-            return result > 0 && result < dst->size();
-        }
 
         template<typename ArrayType>
-        bool copyFilenameToBuffer(ArrayType &dst) {
-            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s", sizeof(FilesystemType::path.value),
+        bool copyFilenameToBuffer(ArrayType &dst, const char *extension = "") {
+            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s%s", sizeof(FilesystemType::path.value),
                                    FilesystemType::path.value,
-                                   sizeof(Path.value), Path.value);
+                                   sizeof(Path.value), Path.value, extension);
             return result > 0 && result < dst->size();
         }
 
         FILE *openTmpFile(bool createIfNotExists = true) {
             auto filename = SmallerBufferPoolType::get_free_buffer();
-            copyTmpFilenameToBuffer(filename);
+            copyFilenameToBuffer(filename, ".tmp");
 
             Logger::log(LogLevel::Info, "Trying to open tmp file : %s", filename->data());
             auto opened_file = fopen(filename->data(), "r+");
@@ -298,7 +292,7 @@ class FilesystemSetting final {
                 auto filename = SmallerBufferPoolType::get_free_buffer();
                 auto tmp_filename = SmallerBufferPoolType::get_free_buffer();
                 // TODO: check results of both methods
-                copyTmpFilenameToBuffer(tmp_filename);
+                copyFilenameToBuffer(tmp_filename, ".tmp");
                 copyFilenameToBuffer(filename);
                 std::remove(filename->data());
                 Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename->data(), filename->data());
@@ -342,8 +336,7 @@ struct RestRemoteSettingPathGenerator {
     }
 };
 
-template<typename SettingType, SettingInitType InitType = SettingInitType::lazy_load>
-requires (std::is_standard_layout_v<SettingType>)
+template<StandardLayoutType SettingType, SettingInitType InitType = SettingInitType::lazy_load>
 class RestRemoteSetting {
     public:
         using PathGeneratorType = RestRemoteSettingPathGenerator<SettingType, InitType>;
