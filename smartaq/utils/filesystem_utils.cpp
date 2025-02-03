@@ -91,6 +91,33 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
     return safeWriteToFile(path, tmpExtension, input.data(), input.length() + 1);
 }
 
+FileSystemStatus writeTestFile(const char *path, std::string_view content) {
+    FILE *testFile = fopen(path, "w+");
+    if (testFile == nullptr) {
+        return FileSystemStatus::NoOpen;
+    }
+    if (fwrite(content.data(), 1, content.length(), testFile) != content.length()) {
+        return FileSystemStatus::NoWrite;
+    }
+    fseek(testFile, 0L, SEEK_SET);
+    FileSystemStatus validateStatus = FileSystemStatus::Ok;
+    for (auto currentChar: content) {
+        const auto read = fgetc(testFile);
+        if (read != currentChar) {
+            validateStatus = FileSystemStatus::NoValidate;
+            break;
+        }
+    }
+    fclose(testFile);
+
+    if (validateStatus != FileSystemStatus::Ok) {
+        remove(path);
+        return validateStatus;
+    }
+
+    return remove(path) == 0 ? FileSystemStatus::Ok : FileSystemStatus::NoRemove;
+}
+
 bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const void *data, size_t length) {
     using PathString = BasicStackString<max_path_length>;
 

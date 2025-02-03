@@ -52,6 +52,12 @@ bool safeWritePodToFile(std::string_view path, std::string_view tmpExtension, co
     return safeWriteToFile(path, tmpExtension, reinterpret_cast<const void *>(value), sizeof(TrivialType));
 }
 
+enum struct FileSystemStatus {
+    NoOpen, NoWrite, NoValidate, NoRemove, Ok
+};
+
+FileSystemStatus writeTestFile(const char *path, std::string_view content);
+
 template<size_t N>
 struct ConstexprPath {
     constexpr explicit ConstexprPath(const char (&path)[N]) {

@@ -142,7 +142,28 @@ class LocalFlashStorage {
             return std::nullopt;
         }
 
-        Logger::log(LogLevel::Debug, "Mounted partition with label %.*s at %.*s", Path.length - 1, Path.value + 1, Path.length, Path.value);
+        const auto filesystemCheck = writeTestFile("test.tmp", "test");
+        switch (filesystemCheck) {
+            case FileSystemStatus::NoOpen:
+            Logger::log(LogLevel::Error, "Couldn't open test file, partition probably doesn't work");
+            break;
+            case FileSystemStatus::NoWrite:
+            Logger::log(LogLevel::Error, "Couldn't write to test file, partition probably doesn't work");
+            break;
+            case FileSystemStatus::NoValidate:
+            Logger::log(LogLevel::Error, "Couldn't validate test file, partition probably doesn't work");
+            break;
+            case FileSystemStatus::NoRemove:
+            Logger::log(LogLevel::Error, "Couldn't remove test file, partition probably doesn't work");
+            break;
+            case FileSystemStatus::Ok:
+            Logger::log(LogLevel::Debug, "Mounted partition with label %.*s at %.*s", Path.length - 1, Path.value + 1, Path.length, Path.value);
+        }
+
+        if (filesystemCheck != FileSystemStatus::Ok) {
+            return std::nullopt;
+        }
+
 
         return std::make_optional(handleOut);
     }
