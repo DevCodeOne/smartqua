@@ -136,13 +136,64 @@ TEST(BasicStackStringTests, setAnotherBasicStackString) {
 
 TEST(BasicStackStringTests, safeStrLen) {
     const char *validStr = "Hello, World!";
-    EXPECT_EQ(safe_strlen(validStr, 255), 13);
+    EXPECT_EQ(safeStrLen(validStr, 255), 13);
 
     const char *emptyStr = "";
-    EXPECT_EQ(safe_strlen(emptyStr, 255), 0);
+    EXPECT_EQ(safeStrLen(emptyStr, 255), 0);
 
     const char *nullStr = nullptr;
-    EXPECT_EQ(safe_strlen(nullStr, 255), 0);
+    EXPECT_EQ(safeStrLen(nullStr, 255), 0);
 
-    EXPECT_EQ(safe_strlen("Hello, World!", 10), 10);
+    EXPECT_EQ(safeStrLen("Hello, World!", 10), 10);
+}
+
+TEST(BasicStackStringTests, equalOperator) {
+    BasicStackString<10> string1("12345");
+    BasicStackString<10> string2("12345");
+    BasicStackString<10> string3("54321");
+    BasicStackString<5> string4("123");
+
+    // Test equality of two strings with identical content
+    EXPECT_TRUE(string1 == string2);
+
+    // Test inequality of two strings with different content
+    EXPECT_FALSE(string1 == string3);
+
+    // Test inequality of two strings with different sizes
+    EXPECT_FALSE(string1 == string4);
+
+    // Test self-equality
+    EXPECT_TRUE(string1 == string1);
+
+    // Test empty string equality
+    BasicStackString<10> emptyString1;
+    BasicStackString<10> emptyString2;
+    EXPECT_TRUE(emptyString1 == emptyString2);
+
+    // Test inequality of empty string and a non-empty string
+    EXPECT_FALSE(emptyString1 == string1);
+}
+
+
+TEST(BasicStackStringTests, stringViewEqualityOperator) {
+    BasicStackString<5> string("1234");
+    std::string_view shortView("1234");
+    std::string_view longView("123456789");
+
+    // Test equality of string with a matching string_view
+    EXPECT_TRUE(string == shortView);
+
+    // Test inequality of string with a longer string_view
+    EXPECT_FALSE(string == longView);
+
+    // Test inequality when string_view is empty
+    std::string_view emptyView("");
+    EXPECT_FALSE(string == emptyView);
+
+    // Test inequality of an empty BasicStackString with a non-empty string_view
+    BasicStackString<5> emptyString;
+    EXPECT_FALSE(emptyString == shortView);
+
+    // Test equality of an empty BasicStackString with an empty string_view
+    EXPECT_TRUE(emptyString == emptyView);
 }

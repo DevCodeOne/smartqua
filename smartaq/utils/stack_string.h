@@ -8,7 +8,7 @@
 
 // TODO: maybe put this function in an own file
 template<typename CharT>
-size_t safe_strlen(const CharT *data, size_t maxLength) {
+size_t safeStrLen(const CharT *data, size_t maxLength) {
     if (data == nullptr) {
         return 0;
     }
@@ -28,7 +28,7 @@ namespace String {
 
         static constexpr size_t ArrayCapacity = Size;
 
-        BasicStackString() = default;
+        BasicStackString();
         explicit BasicStackString(const std::string_view &other);
         explicit BasicStackString(const char *other);
 
@@ -61,6 +61,11 @@ namespace String {
         requires (OtherLength <= Size)
         bool set(const BasicStackString<CharT, OtherLength> &view);
 
+        bool operator==(const std::string_view &other) const;
+        template<size_t OtherSize>
+        bool operator==(const BasicStackString<CharT, OtherSize> &other) const;
+        bool operator==(const char *other) const;
+
         void clear();
         bool append(const char *str, size_t size);
         bool append(const char *str);
@@ -70,6 +75,11 @@ namespace String {
         requires (OtherStrSize <= Size)
         bool append(const BasicStackString<CharT, OtherStrSize> &other);
     };
+
+    template<typename CharT, size_t Size>
+    BasicStackString<CharT, Size>::BasicStackString() {
+        std::memset(this->data(), '\0', Size - 1);
+    }
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size>::BasicStackString(const std::string_view &other) {
@@ -89,7 +99,7 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::canHold(const char *str) {
-        return safe_strlen(str, Size) <= Size - 1;
+        return safeStrLen(str, Size) <= Size - 1;
     }
 
     template<typename CharT, size_t Size>
@@ -145,13 +155,13 @@ namespace String {
 
     template<typename CharT, size_t Size>
     size_t BasicStackString<CharT, Size>::len() const {
-        return safe_strlen(this->data(), Size);
+        return safeStrLen(this->data(), Size);
     }
 
 
     template<typename CharT, size_t Size>
     size_t BasicStackString<CharT, Size>::length() const {
-        return safe_strlen(this->data(), Size);
+        return safeStrLen(this->data(), Size);
     }
 
     template<typename CharT, size_t Size>
@@ -166,7 +176,7 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::set(const char *value) {
-        return set(value, safe_strlen(value, Size));
+        return set(value, safeStrLen(value, Size));
     }
 
     template<typename CharT, size_t Size>
@@ -192,6 +202,26 @@ namespace String {
     }
 
     template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::operator==(const char *otherStr) const {
+        const auto ownLen = len();
+        const auto otherLen = safeStrLen(otherStr, Size);
+        return otherLen == ownLen && std::strncmp(this->data(), otherStr, ownLen) == 0;
+    }
+
+    template<typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::operator==(const std::string_view &other) const {
+        return operator==(other.data());
+    }
+
+    template<typename CharT, size_t Size>
+    template<size_t OtherSize>
+    bool BasicStackString<CharT, Size>::operator==(const BasicStackString<CharT, OtherSize> &otherStr) const {
+        const auto ownLen = len();
+        const auto otherLen = otherStr.len();
+        return ownLen == otherLen && std::strncmp(this->data(), otherStr.data(), ownLen) == 0;
+    }
+
+    template<typename CharT, size_t Size>
     void BasicStackString<CharT, Size>::clear() {
         std::memset(this->data(), '\0', Size - 1);
     }
@@ -199,7 +229,7 @@ namespace String {
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::append(const char *str, size_t size) {
         const auto currentSize = len();
-        const auto stringLength = safe_strlen(str, Size);
+        const auto stringLength = safeStrLen(str, Size);
         const auto newSize = currentSize + stringLength;
 
         if (newSize >= Size - 1) {
@@ -214,7 +244,7 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::append(const char *str) {
-        return append(str, safe_strlen(str, Size));
+        return append(str, safeStrLen(str, Size));
     }
 
     template<typename CharT, size_t Size>
