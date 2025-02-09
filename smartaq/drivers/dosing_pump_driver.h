@@ -5,29 +5,28 @@
 
 #include "build_config.h"
 #include "drivers/device_types.h"
-#include "build_config.h"
 
 struct StepperDosingConfig {
     unsigned int deviceId = -1;
-    int stepsTimesTenPerMl = 0;
+    int unitTimesTenPerMl = 0;
     BasicStackString<MaxArgumentLength> writeArgument;
 };
 
 // TODO: rename class to better reflect its purpose,
 // this class should also be able to dose in time e.g. let the pump run for a specific time frame
-class StepperDosingPumpDriver final {
+class DosingPumpDriver final {
     public:
-        static inline constexpr char name[] = "dosing_pump";
+        static constexpr char name[] = "dosing_pump";
 
-        StepperDosingPumpDriver(const StepperDosingPumpDriver &other) = delete;
-        StepperDosingPumpDriver(StepperDosingPumpDriver &&other) = default;
-        ~StepperDosingPumpDriver() = default;
+        DosingPumpDriver(const DosingPumpDriver &other) = delete;
+        DosingPumpDriver(DosingPumpDriver &&other) = default;
+        ~DosingPumpDriver() = default;
 
-        StepperDosingPumpDriver &operator=(const StepperDosingPumpDriver &other) = delete;
-        StepperDosingPumpDriver &operator=(StepperDosingPumpDriver &&other) = default;
+        DosingPumpDriver &operator=(const DosingPumpDriver &other) = delete;
+        DosingPumpDriver &operator=(DosingPumpDriver &&other) = default;
 
-        static std::optional<StepperDosingPumpDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
-        static std::optional<StepperDosingPumpDriver> create_driver(const DeviceConfig*config);
+        static std::optional<DosingPumpDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<DosingPumpDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const { return DeviceOperationResult::not_supported; }
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
@@ -37,7 +36,7 @@ class StepperDosingPumpDriver final {
 
     private:
 
-        StepperDosingPumpDriver(const DeviceConfig *conf);
+        DosingPumpDriver(const DeviceConfig *conf);
 
         const DeviceConfig *mConf;
 };
