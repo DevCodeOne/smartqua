@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <iterator>
+#include <optional>
 #include <type_traits>
 
 template <typename T, size_t N>
@@ -35,8 +36,38 @@ class RingBuffer {
         return m_size == 0;
     }
 
-    // TODO: implement
-    // ring_buffer &pop(T &out) { }
+    void removeFront() {
+        if (empty()) {
+            return;
+        }
+        m_offset = (m_offset + 1) % m_data.size();
+        --m_size;
+    }
+
+    void removeBack() {
+        if (empty()) {
+            return;
+        }
+        --m_size;
+    }
+
+    [[nodiscard]] std::optional<T> takeBack() {
+        if (empty()) {
+            return std::nullopt;
+        }
+        auto value = m_data[calculateRealIndex(m_size - 1)];
+        removeBack();
+        return { std::move(value) };
+    }
+
+    [[nodiscard]] std::optional<T> takeFront() {
+        if (empty()) {
+            return std::nullopt;
+        }
+        auto value = m_data[calculateRealIndex(0)];
+        removeFront();
+        return { std::move(value) };
+    }
 
     T &front() { return operator[](0); }
 
