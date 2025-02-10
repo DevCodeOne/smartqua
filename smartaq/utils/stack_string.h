@@ -28,7 +28,10 @@ namespace String {
 
         static constexpr size_t ArrayCapacity = Size;
 
-        BasicStackString();
+        /**
+        * A default constructed string has no defined size, so it is trivial constructible
+        */
+        BasicStackString() = default;
         explicit BasicStackString(const std::string_view &other);
         explicit BasicStackString(const char *other);
 
@@ -75,11 +78,6 @@ namespace String {
         requires (OtherStrSize <= Size)
         bool append(const BasicStackString<CharT, OtherStrSize> &other);
     };
-
-    template<typename CharT, size_t Size>
-    BasicStackString<CharT, Size>::BasicStackString() {
-        std::memset(this->data(), '\0', Size - 1);
-    }
 
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size>::BasicStackString(const std::string_view &other) {

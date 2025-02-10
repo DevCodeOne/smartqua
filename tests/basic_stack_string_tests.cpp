@@ -166,8 +166,8 @@ TEST(BasicStackStringTests, equalOperator) {
     EXPECT_TRUE(string1 == string1);
 
     // Test empty string equality
-    BasicStackString<10> emptyString1;
-    BasicStackString<10> emptyString2;
+    BasicStackString<10> emptyString1{""};
+    BasicStackString<10> emptyString2{""};
     EXPECT_TRUE(emptyString1 == emptyString2);
 
     // Test inequality of empty string and a non-empty string
@@ -191,7 +191,7 @@ TEST(BasicStackStringTests, stringViewEqualityOperator) {
     EXPECT_FALSE(string == emptyView);
 
     // Test inequality of an empty BasicStackString with a non-empty string_view
-    BasicStackString<5> emptyString;
+    BasicStackString<5> emptyString{""};
     EXPECT_FALSE(emptyString == shortView);
 
     // Test equality of an empty BasicStackString with an empty string_view
