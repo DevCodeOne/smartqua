@@ -178,3 +178,78 @@ TEST_F(FixedSizeOptionalArrayTest, IterateAndModify) {
     EXPECT_EQ(array[1], 20);
     EXPECT_EQ(array[3], 30);
 }
+
+// Test for removeIf
+TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldRemoveMatchingElements) {
+    // Insert some elements into the array
+    array.clear();
+    EXPECT_TRUE(array.append(1));
+    EXPECT_TRUE(array.append(2));
+    EXPECT_TRUE(array.append(3));
+    EXPECT_TRUE(array.append(4));
+
+    // Remove all even numbers
+    bool result = array.removeIf([](int value) { return value % 2 == 0; });
+
+    // Verify successful removal
+    EXPECT_TRUE(result);
+    EXPECT_FALSE(array.contains(2));
+    EXPECT_FALSE(array.contains(4));
+    EXPECT_TRUE(array.contains(1));
+    EXPECT_TRUE(array.contains(3));
+}
+
+TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldNotAffectArrayWhenNoMatch) {
+    // Insert some elements into the array
+    array.clear();
+    EXPECT_TRUE(array.append(1));
+    EXPECT_TRUE(array.append(3));
+    EXPECT_TRUE(array.append(5));
+
+    // Try to remove elements greater than 10 (none exist)
+    bool result = array.removeIf([](int value) { return value > 10; });
+
+    // Verify no removal occurred
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(array.contains(1));
+    EXPECT_TRUE(array.contains(3));
+    EXPECT_TRUE(array.contains(5));
+}
+
+TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldWorkForEmptyArray) {
+    // Attempt to remove from an empty array
+    array.clear();
+    bool result = array.removeIf([](int value) { return value % 2 == 0; });
+
+    // Verify no removal and result remains false
+    EXPECT_FALSE(result);
+    EXPECT_TRUE(array.empty());
+}
+
+// Test for full
+TEST_F(FixedSizeOptionalArrayTest, Full_ShouldReturnTrueWhenArrayIsFull) {
+    // Fill the array fully
+    array.clear();
+    for (std::size_t i = 0; i < array.size(); i++) {
+        EXPECT_TRUE(array.append(static_cast<int>(i)));
+    }
+
+    // Verify the array is full
+    EXPECT_TRUE(array.full());
+}
+
+TEST_F(FixedSizeOptionalArrayTest, Full_ShouldReturnFalseWhenArrayIsNotFull) {
+    // Partially fill the array
+    array.clear();
+    EXPECT_TRUE(array.append(1));
+    EXPECT_TRUE(array.append(2));
+
+    // Verify the array is not full
+    EXPECT_FALSE(array.full());
+}
+
+TEST_F(FixedSizeOptionalArrayTest, Full_ShouldReturnFalseWhenArrayIsEmpty) {
+    // Verify the array is not full when empty
+    array.clear();
+    EXPECT_FALSE(array.full());
+}

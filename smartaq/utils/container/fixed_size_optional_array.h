@@ -7,8 +7,11 @@
 
 template<typename T, std::size_t Size>
 /**
- * \class FixedSizeOptionalArray
- * \brief A fixed-size array holding std::optional elements, allowing optional storage of elements up to a predefined size.
+ * \brief A fixed-size optional array container.
+ *
+ * This class provides a container of fixed size where each element
+ * is an optional value. It provides utilities for managing and
+ * accessing the array elements, ensuring flexible storage and retrieval.
  */
 class FixedSizeOptionalArray {
 public:
@@ -123,6 +126,30 @@ public:
         return removedValue;
     }
 
+
+    /**
+     * \brief Remove elements from the container if a predicate is satisfied.
+     * \param predicate A callable object that takes an element as input and returns true if the condition is met, false otherwise.
+     * \return True if one, or more elements satisfying the predicate were found and removed, false otherwise.
+     */
+    template<typename Predicate>
+    [[nodiscard]] bool removeIf(Predicate predicate) {
+        // TODO: The data can be manipulated here, which is convenient, but unwanted.
+        //  Add method which does exactly what we can do here and pass const ref here
+        bool hasRemovedElement = false;
+        for (auto &currentElement : mData) {
+            if (currentElement.has_value() && predicate(currentElement.value())) {
+                currentElement.reset();
+                hasRemovedElement = true;
+            }
+        }
+
+        return hasRemovedElement;
+    }
+
+    [[nodiscard]] bool full() const {
+        return count() == Size;
+    }
     /**
      * \brief Custom iterator for non-empty elements.
      */
