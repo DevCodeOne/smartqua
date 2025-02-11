@@ -133,9 +133,7 @@ public:
      * \return True if one, or more elements satisfying the predicate were found and removed, false otherwise.
      */
     template<typename Predicate>
-    [[nodiscard]] bool removeIf(Predicate predicate) {
-        // TODO: The data can be manipulated here, which is convenient, but unwanted.
-        //  Add method which does exactly what we can do here and pass const ref here
+    [[nodiscard]] bool modifyOrRemove(Predicate predicate) {
         bool hasRemovedElement = false;
         for (auto &currentElement : mData) {
             if (currentElement.has_value() && predicate(currentElement.value())) {

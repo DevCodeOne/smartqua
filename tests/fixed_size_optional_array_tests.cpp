@@ -180,7 +180,7 @@ TEST_F(FixedSizeOptionalArrayTest, IterateAndModify) {
 }
 
 // Test for removeIf
-TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldRemoveMatchingElements) {
+TEST_F(FixedSizeOptionalArrayTest, ModifyOrRemove_ShouldRemoveMatchingElements) {
     // Insert some elements into the array
     array.clear();
     EXPECT_TRUE(array.append(1));
@@ -189,7 +189,7 @@ TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldRemoveMatchingElements) {
     EXPECT_TRUE(array.append(4));
 
     // Remove all even numbers
-    bool result = array.removeIf([](int value) { return value % 2 == 0; });
+    bool result = array.modifyOrRemove([](int value) { return value % 2 == 0; });
 
     // Verify successful removal
     EXPECT_TRUE(result);
@@ -199,7 +199,7 @@ TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldRemoveMatchingElements) {
     EXPECT_TRUE(array.contains(3));
 }
 
-TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldNotAffectArrayWhenNoMatch) {
+TEST_F(FixedSizeOptionalArrayTest, ModifyOrRemove_ShouldNotAffectArrayWhenNoMatch) {
     // Insert some elements into the array
     array.clear();
     EXPECT_TRUE(array.append(1));
@@ -207,7 +207,7 @@ TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldNotAffectArrayWhenNoMatch) {
     EXPECT_TRUE(array.append(5));
 
     // Try to remove elements greater than 10 (none exist)
-    bool result = array.removeIf([](int value) { return value > 10; });
+    bool result = array.modifyOrRemove([](int value) { return value > 10; });
 
     // Verify no removal occurred
     EXPECT_FALSE(result);
@@ -216,10 +216,10 @@ TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldNotAffectArrayWhenNoMatch) {
     EXPECT_TRUE(array.contains(5));
 }
 
-TEST_F(FixedSizeOptionalArrayTest, RemoveIf_ShouldWorkForEmptyArray) {
+TEST_F(FixedSizeOptionalArrayTest, ModifyOrRemove_ShouldWorkForEmptyArray) {
     // Attempt to remove from an empty array
     array.clear();
-    bool result = array.removeIf([](int value) { return value % 2 == 0; });
+    bool result = array.modifyOrRemove([](int value) { return value % 2 == 0; });
 
     // Verify no removal and result remains false
     EXPECT_FALSE(result);
