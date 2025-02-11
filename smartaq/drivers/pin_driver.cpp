@@ -16,21 +16,80 @@
 PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel)
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
 
-bool PinDriver::compute_pin_level(const DeviceValues &value, PinConfig *pinConf) {
-    std::optional<uint32_t> level{0u};
+bool PinDriver::conditionalInvert(bool currentLevel, bool invert) {
+    return invert ? !currentLevel : currentLevel;
+}
+
+std::optional<bool> PinDriver::computePinLevel(const DeviceValues &value, const PinConfig *pinConf) {
+    bool level{false};
 
     if (value.enable().has_value()) {
-        level = static_cast<uint32_t>(*value.enable());
+        level = *value.enable();
     } else if (value.percentage().has_value()) {
         level = static_cast<bool>(*value.percentage());
+    } else {
+        return {};
     }
 
-    if (!level.has_value()) {
+    return { conditionalInvert(level, pinConf->invert) };
+}
+
+bool PinDriver::adjustPinLevel(const DeviceValues &value, const PinConfig *pinConf) {
+    const auto newLevel = computePinLevel(value, pinConf);
+
+    if (!newLevel.has_value()) {
         return false;
     }
 
-    const esp_err_t result = gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), static_cast<bool>(1 * static_cast<uint32_t>(pinConf->invert) - *level));
+    m_current_value = *newLevel;
+
+    const esp_err_t result = gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), *newLevel);
     return result == ESP_OK;
+}
+
+void PinDriver::resetPinTimed(void *instance) {
+    auto *pinDriverInstance = static_cast<PinDriver *>(instance);
+    const auto *pinConf = pinDriverInstance->m_conf->accessConfig<PinConfig>();
+
+    Logger::log(LogLevel::Debug,
+                "Resetting pin %d to previous value : %d", pinConf->gpio_num, static_cast<int>(pinConf->invert));
+
+    const auto oldValue = conditionalInvert(pinDriverInstance->m_current_value, pinConf->invert);
+    gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), oldValue);
+}
+
+bool PinDriver::adjustTimedValue(const DeviceValues value, const PinConfig *pinConf) {
+    // TODO: use time instead of generic_unsigned_integral, or in addition to it
+    using namespace std::chrono;
+    seconds secondsTillReset{0};
+    if (value.seconds()) {
+        secondsTillReset = seconds(*value.seconds());
+    } else if (value.generic_unsigned_integral()) {
+        secondsTillReset = seconds(*value.generic_unsigned_integral());
+    } else {
+        return false;
+    }
+
+    Logger::log(LogLevel::Debug, "Setting pin %d to value : %d", pinConf->gpio_num,
+        static_cast<int>(!pinConf->invert));
+    gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), !pinConf->invert);
+
+    auto timedTask = _timedOutputTasks.postTask(TaskDescription{
+        .single_shot = true,
+        .func_ptr = &resetPinTimed,
+        .interval = secondsTillReset,
+        .argument = this,
+        .description = "Reset gpio to previous value",
+        .last_executed = duration_cast<seconds>(steady_clock::now().time_since_epoch())
+    });
+
+    if (timedTask.id() == TaskId::invalid) {
+        resetPinTimed(this);
+        return false;
+    }
+
+    trackedTasked = std::move(timedTask);
+    return true;
 }
 
 DeviceOperationResult PinDriver::write_value(std::string_view what, const DeviceValues &value) {
@@ -41,14 +100,24 @@ DeviceOperationResult PinDriver::write_value(std::string_view what, const Device
         return DeviceOperationResult::not_supported;
     }
 
-    if (pinConf->type == PinType::Pwm) {
-        if (!adjust_pwm_output(value, pinConf)) {
-            return DeviceOperationResult::failure;
-        }
-    } else if (pinConf->type == PinType::Output) {
-        if (!compute_pin_level(value, pinConf)) {
-            return DeviceOperationResult::failure;
-        }
+    switch (pinConf->type) {
+        case PinType::Pwm:
+            if (!adjustPwmOutput(value, pinConf)) {
+                return DeviceOperationResult::failure;
+            }
+            break;
+        case PinType::Output:
+            if (!adjustPinLevel(value, pinConf)) {
+                return DeviceOperationResult::failure;
+            }
+            break;
+        case PinType::Timed:
+            if (!adjustTimedValue(value, pinConf)) {
+                return DeviceOperationResult::failure;
+            }
+            break;
+        default:
+            return DeviceOperationResult::not_supported;
     }
 
     return DeviceOperationResult::ok;
@@ -56,7 +125,7 @@ DeviceOperationResult PinDriver::write_value(std::string_view what, const Device
 
 // TODO: maybe just return current value, for the other types
 DeviceOperationResult PinDriver::read_value(std::string_view what, DeviceValues &values) const {
-    auto *pinConf = m_conf->accessConfig<PinConfig>();
+    const auto *pinConf = m_conf->accessConfig<PinConfig>();
 
     if (pinConf->type == PinType::Input) {
         return DeviceOperationResult::not_supported;
@@ -82,12 +151,63 @@ DeviceOperationResult PinDriver::get_info(char *output_buffer, size_t output_buf
     return DeviceOperationResult::ok;
 }
 
-std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
-    static std::once_flag init_fading{};
-    std::call_once(init_fading, [](){ 
-        Logger::log(LogLevel::Info, "Initialized fading");
-        ledc_fade_func_install(0); 
+void PinDriver::initPinDriverStatics() {
+    static std::once_flag initPinDriverStatics{};
+    std::call_once(initPinDriverStatics, [](){
+        Logger::log(LogLevel::Info, "Initialized static pin settings and threads");
+        _timedOutputThread = std::jthread([](std::stop_token token) {
+            while (!token.stop_requested()) {
+                const auto beforeExec = std::chrono::steady_clock::now();
+                _timedOutputTasks.doWork();
+                if (std::chrono::steady_clock::now() - beforeExec < std::chrono::milliseconds(500)) {
+                    std::this_thread::sleep_until(beforeExec + std::chrono::milliseconds(500));
+                }
+            }
+        });
+        ledc_fade_func_install(0);
     });
+}
+
+std::optional<PinDriver> PinDriver::createPwmConfig(const DeviceConfig *config, PinConfig *pinConf, std::shared_ptr<GpioResource> gpio) {
+    auto timer = DeviceResource::get_timer_resource(pinConf->timer_conf);
+
+    if (timer == nullptr || !timer->isValid()) {
+        Logger::log(LogLevel::Warning, "Couldn't create ledc driver or timer wasn't valid");
+        return std::nullopt;
+    }
+
+    auto channel = DeviceResource::get_led_channel();
+
+    if (channel == nullptr) {
+        Logger::log(LogLevel::Warning, "Couldn't create channel");
+        return std::nullopt;
+    }
+
+    // TODO: do this differently, in led_channel
+    ledc_channel_config_t ledc_channel{};
+    ledc_channel.gpio_num = gpio->gpio_num();
+    // TODO: enable for older esp32
+    // ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_LOW_SPEED_MODE : LEDC_LOW_SPEED_MODE;
+    ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
+    ledc_channel.channel = channel->channelNum();
+    pinConf->channel = ledc_channel.channel;
+    ledc_channel.timer_sel = timer->timerNum();
+    ledc_channel.duty = 0;
+    ledc_channel.hpoint = 0;
+    ledc_channel.intr_type = ledc_intr_type_t::LEDC_INTR_DISABLE;
+
+    auto result = ledc_channel_config(&ledc_channel);
+
+    if (result != ESP_OK) {
+        Logger::log(LogLevel::Warning, "Couldn't create ledc driver");
+        return std::nullopt;
+    }
+
+    return std::make_optional(PinDriver{config, timer, gpio, channel});
+}
+
+std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
+    initPinDriverStatics();
 
     auto *pinConf = config->accessConfig<PinConfig>();
 
@@ -112,45 +232,11 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
         return std::nullopt;
     }
 
-    if (pinConf->type == PinType::Pwm) {
-        auto timer = DeviceResource::get_timer_resource(pinConf->timer_conf);
-
-        if (timer == nullptr || !timer->isValid()) {
-            Logger::log(LogLevel::Warning, "Couldn't create ledc driver or timer wasn't valid");
-            return std::nullopt;
-        }
-
-        auto channel = DeviceResource::get_led_channel();
-
-        if (channel == nullptr) {
-            Logger::log(LogLevel::Warning, "Couldn't create channel");
-            return std::nullopt;
-        }
-
-        // TODO: do this differently, in led_channel 
-        ledc_channel_config_t ledc_channel{};
-        ledc_channel.gpio_num = gpio->gpio_num();
-        // TODO: enable for older esp32
-        // ledc_channel.speed_mode = timer->timer_conf().freq_hz > 1000 ? LEDC_LOW_SPEED_MODE : LEDC_LOW_SPEED_MODE;
-        ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
-        ledc_channel.channel = channel->channelNum();
-        pinConf->channel = ledc_channel.channel;
-        ledc_channel.timer_sel = timer->timerNum();
-        ledc_channel.duty = 0;
-        ledc_channel.hpoint = 0; 
-        ledc_channel.intr_type = ledc_intr_type_t::LEDC_INTR_DISABLE;
-
-        auto result = ledc_channel_config(&ledc_channel);
-
-        if (result != ESP_OK) {
-            Logger::log(LogLevel::Warning, "Couldn't create ledc driver");
-            return std::nullopt;
-        }
-
-        return std::make_optional(PinDriver{config, timer, gpio, channel});
-    } 
-
     Logger::log(LogLevel::Info, "create_driver added new device");
+
+    if (pinConf->type == PinType::Pwm) {
+        return createPwmConfig(config, pinConf, gpio);
+    }
 
     return std::make_optional(PinDriver{config, nullptr, gpio, nullptr});
 }
@@ -193,7 +279,7 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
     return create_driver(&device_conf_out);
 }
 
-bool PinDriver::adjust_pwm_output(const DeviceValues &value, const PinConfig *pinConf) {
+bool PinDriver::adjustPwmOutput(const DeviceValues &value, const PinConfig *pinConf) {
     decltype(value.generic_pwm()) pwmValue = 0;
 
     if (value.generic_pwm().has_value()) {
@@ -215,36 +301,32 @@ bool PinDriver::adjust_pwm_output(const DeviceValues &value, const PinConfig *pi
     }
 
     esp_err_t result = ESP_OK;
+    if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) == m_current_value) {
+        Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+    }
+
     if (!pinConf->fade) {
-        if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
-            result = ledc_set_duty(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value);
+        result = ledc_set_duty(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value);
 
-            if (result != ESP_OK) {
-                return false;
-            }
-            result = ledc_update_duty(pinConf->timer_conf.speed_mode, pinConf->channel);
-
-            if (result != ESP_OK) {
-                return false;
-            }
-
-            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
-        } else {
-            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        if (result != ESP_OK) {
+            return false;
         }
+        result = ledc_update_duty(pinConf->timer_conf.speed_mode, pinConf->channel);
+
+        if (result != ESP_OK) {
+            return false;
+        }
+
+        Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
     } else {
         // Maybe do the fading in a dedicated thread, and block that thread ?
-        if (ledc_get_duty(pinConf->timer_conf.speed_mode, pinConf->channel) != m_current_value) {
-            result = ledc_set_fade_time_and_start(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
+        result = ledc_set_fade_time_and_start(pinConf->timer_conf.speed_mode, pinConf->channel, m_current_value, 1000, ledc_fade_mode_t::LEDC_FADE_NO_WAIT);
 
-            if (result != ESP_OK) {
-                return false;
-            }
-
-            Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
-        } else {
-            Logger::log(LogLevel::Info, "New Value is the same as the old one %d", m_current_value);
+        if (result != ESP_OK) {
+            return false;
         }
+
+        Logger::log(LogLevel::Info, "Setting new value %d", m_current_value);
     }
     return true;
 }

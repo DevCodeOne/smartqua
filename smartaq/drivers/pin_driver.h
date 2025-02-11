@@ -8,18 +8,20 @@
 
 #include "driver/ledc.h"
 
-#include "drivers/device_types.h"
-#include "drivers/device_resource.h"
 #include "hal/gpio_types.h"
 
+#include "drivers/device_types.h"
+#include "drivers/device_resource.h"
+#include "utils/task_pool.h"
+
 enum struct PinType {
-    Input, Output, Pwm, Invalid
+    Input, Output, Pwm, Timed, Invalid
 };
 
 template<>
 struct read_from_json<PinType> {
     static void read(const char *str, int len, PinType &type) {
-        std::string_view input(str, len);
+        BasicStackString<16> input(std::string_view(str, len));
 
         type = PinType::Invalid;
 
@@ -29,6 +31,8 @@ struct read_from_json<PinType> {
             type = PinType::Output;
         } else if (input == "PWM" || input == "Pwm" || input == "pwm") {
             type = PinType::Pwm;
+        } else if (input == "Timed" || input == "timed") {
+            type = PinType::Timed;
         }
     }
 };
@@ -49,26 +53,49 @@ class PinDriver final {
     public:
         static constexpr char name[] = "pin_driver";
 
+        PinDriver(const PinDriver &) = delete;
+        PinDriver(PinDriver &&) noexcept = default;
         ~PinDriver() = default;
+
+        PinDriver &operator=(const PinDriver &) = delete;
+        PinDriver &operator=(PinDriver &&) noexcept = default;
 
         static std::optional<PinDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
         static std::optional<PinDriver> create_driver(const DeviceConfig*config);
 
-        static bool compute_pin_level(const DeviceValues &value, PinConfig *pinConf);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
+
         DeviceOperationResult update_runtime_data();
     private:
         PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel);
 
-        bool adjust_pwm_output(const DeviceValues &value, const PinConfig *pinConf);
+        bool adjustPinLevel(const DeviceValues &value, const PinConfig *pinConf);
+        bool adjustPwmOutput(const DeviceValues &value, const PinConfig *pinConf);
+        bool adjustTimedValue(const DeviceValues value, const PinConfig *pinConf);
+
+        static std::optional<bool> computePinLevel(
+            const DeviceValues &value, const PinConfig *pinConf);
+        static bool conditionalInvert(bool currentLevel, bool invert);
+
+        static void resetPinTimed(void *instance);
+        static void initPinDriverStatics();
+
+        static std::optional<PinDriver> createPwmConfig(const DeviceConfig *config, PinConfig *pinConf,
+                                                        std::shared_ptr<GpioResource> gpio);
+
+        using TimedOutputTaskPool = TaskPool<32u>;
 
         const DeviceConfig*m_conf = nullptr;
         std::shared_ptr<TimerResource> m_timer = nullptr;
         std::shared_ptr<GpioResource> m_gpio = nullptr;
         std::shared_ptr<LedChannel> m_channel = nullptr;
-        uint16_t m_current_value = 0;
+        uint32_t m_current_value = 0;
+        TaskResourceTracker<TimedOutputTaskPool> trackedTasked{};
+
+        static inline TaskPool<32u> _timedOutputTasks;
+        static inline std::optional<std::jthread> _timedOutputThread;
 };
