@@ -8,6 +8,8 @@
 #include "utils/time/schedule.h"
 #include "utils/time/schedule_tracker_types.h"
 #include "utils/time/time_utils.h"
+#include "utils/logger.h"
+#include "build_config.h"
 
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
 class ScheduleTracker final {
@@ -88,8 +90,12 @@ auto ScheduleTracker<ScheduleType,
     const auto timeThisDay = getTimeOfDay<std::chrono::seconds>(currentDate);
     const auto dayInWeek = getDayOfWeek(currentDate);
 
-    const auto currentEvent = getEvent(EventSelection::Current, channelIndex, dayInWeek, timeThisDay);
-    const auto nextEvent = getEvent(EventSelection::Next, channelIndex, dayInWeek, timeThisDay);
+    auto getEventData = [&](const EventSelection selection) {
+        return getEvent(selection, channelIndex, dayInWeek, timeThisDay);
+    };
+
+    const auto currentEvent = getEventData(EventSelection::Current);
+    const auto nextEvent = getEventData(EventSelection::Next);
 
     if (!currentEvent.has_value()) {
         Logger::log(LogLevel::Debug, "No current event for channel %d", channelIndex);
@@ -102,7 +108,8 @@ auto ScheduleTracker<ScheduleType,
         .current = *currentEvent,
         .next = nextEvent,
         .channelTime = mChannelTimes[channelIndex],
-        .currentEventInEffectSince = eventInEffectSince
+        .currentEventInEffectSince = eventInEffectSince,
+        .now = timeSinceWeekBeginning
     };
 
     return std::visit([&trackerData](const auto &tracker) {
@@ -115,10 +122,13 @@ auto ScheduleTracker<ScheduleType,
     ValueType, NumChannels>::createTrackingType(ScheduleEventTransitionMode trackerType) -> TrackerTypeVariant {
     switch (trackerType) {
         case ScheduleEventTransitionMode::Interpolation:
+            Logger::log(LogLevel::Debug, "Using interpolation tracker");
             return InterpolationTracker<ValueType>{};
         case ScheduleEventTransitionMode::SingleShot:
+            Logger::log(LogLevel::Debug, "Using single shot tracker");
             return SingleShotTracker<ValueType>{};
         case ScheduleEventTransitionMode::Hold:
+            Logger::log(LogLevel::Debug, "Using hold tracker");
             return HoldTracker<ValueType>{};
         default:
             return {};
