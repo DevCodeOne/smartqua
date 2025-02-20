@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 
 enum struct WeekDay : uint8_t {
     sunday = 0, monday = 1, tuesday = 2, wednesday = 3, thursday = 4, friday = 5, saturday = 6
@@ -56,4 +57,18 @@ DurationType sinceWeekBeginning(const std::tm &timeInfo) {
 template<typename DurationType>
 DurationType sinceWeekBeginning() {
     return getTimeOfDay<DurationType>(currentTime());
-};
+}
+
+template<typename DurationType>
+requires (LargerOrEqualDuration<DurationType, std::chrono::hours>)
+DurationType diffWithDurationSinceWeekBeginning(const DurationType &end, const DurationType &start) {
+    using namespace std::chrono;
+    auto durationInWeek = duration_cast<DurationType>(days{7});
+    auto diff = end - start;
+    if (diff <= DurationType{0}) {
+        const auto offset = std::ceil(std::fabs(diff.count() / static_cast<float>(durationInWeek.count())));
+        diff += duration_cast<DurationType>(durationInWeek * offset);
+    }
+
+    return diff;
+}

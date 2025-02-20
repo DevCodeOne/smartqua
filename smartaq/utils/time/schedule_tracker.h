@@ -102,7 +102,7 @@ auto ScheduleTracker<ScheduleType,
         return {};
     }
 
-    const auto eventInEffectSince = timeSinceWeekBeginning - currentEvent->eventTime;
+    const auto eventInEffectSince = diffWithDurationSinceWeekBeginning(timeSinceWeekBeginning, currentEvent->eventTime);
 
     const TrackingData<typename ScheduleType::SingleChannelStatus, std::chrono::seconds> trackerData{
         .current = *currentEvent,

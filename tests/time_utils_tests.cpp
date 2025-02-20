@@ -6,15 +6,14 @@ class TimeUtilsTests : public ::testing::Test {
 protected:
     std::tm testTime;
 
-    TimeUtilsTests() {
+    TimeUtilsTests() :testTime{} {
         // Set a known time
         testTime.tm_hour = 10; // 10:00:00
         testTime.tm_min = 0;
         testTime.tm_sec = 0;
     }
 
-    ~TimeUtilsTests() override {
-    }
+    ~TimeUtilsTests() override = default;
 
     void SetUp() override {
     }
@@ -86,4 +85,19 @@ TEST_F(TimeUtilsTests, IsLargerOrEqualDurationForDays) {
     EXPECT_FALSE((IsLargerOrEqualDuration<CurrentType, std::chrono::hours>::value));
     EXPECT_FALSE((IsLargerOrEqualDuration<CurrentType, std::chrono::milliseconds>::value));
     EXPECT_FALSE((IsLargerOrEqualDuration<CurrentType, std::chrono::microseconds>::value));
+}
+
+TEST_F(TimeUtilsTests, diffWithDurationSinceWeekBeginning) {
+    auto makeTime = [](const auto days, const auto hours, const auto minutes) {
+        return std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::hours(hours) + std::chrono::minutes(minutes) + std::chrono::days(days));
+    };
+
+    auto beginning = makeTime(0, 0, 0);
+    auto beginningLastWeek = makeTime(6, 23, 0);
+    auto end = makeTime(0, 1, 0);
+
+    EXPECT_EQ(diffWithDurationSinceWeekBeginning(end, beginning), std::chrono::hours(1));
+    EXPECT_EQ(diffWithDurationSinceWeekBeginning(end, beginning), std::chrono::hours(1));
+    EXPECT_EQ(diffWithDurationSinceWeekBeginning(end, beginningLastWeek), std::chrono::hours(2));
 }
