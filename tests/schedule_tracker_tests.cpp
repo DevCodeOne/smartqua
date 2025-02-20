@@ -189,3 +189,23 @@ TEST_F(ScheduleTrackerTests, EventAfterWrapAround) {
     ASSERT_TRUE(value.has_value());
     EXPECT_EQ(*value, 1);
 }
+
+
+TEST_F(ScheduleTrackerTests, EventNextDay) {
+    struct Event { int eventData; std::chrono::seconds eventTime; };
+    const auto channelTimeAt = std::chrono::days{0} + std::chrono::hours{12};
+    const auto eventAt = std::chrono::days{1} + std::chrono::hours{12};
+    const auto now = std::chrono::days{1} + std::chrono::hours{13};
+    TrackingData<Event, std::chrono::seconds> trackingData {
+        .current = Event{1, eventAt },
+        .next = std::nullopt,
+        .channelTime = channelTimeAt,
+        .currentEventInEffectSince = eventAt - now,
+        .now = now
+    };
+
+    SingleShotTracker<int> tracker;
+    auto value = tracker.getChannelValue(trackingData);
+    ASSERT_TRUE(value.has_value());
+    EXPECT_EQ(*value, 1);
+}
