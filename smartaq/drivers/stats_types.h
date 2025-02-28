@@ -5,7 +5,7 @@
 
 #include "frozen.h"
 
-#include "utils/json_utils.h"
+#include "utils/serialization/json_utils.h"
 
 enum single_stat_operation_result {
     ok, failure

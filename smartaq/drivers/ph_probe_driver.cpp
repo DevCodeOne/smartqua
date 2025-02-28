@@ -9,7 +9,7 @@
 #include "utils/check_assign.h"
 
 
-std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     PhProbeConfig newConf{
         .analogDeviceId = InvalidDeviceId,
         .temperatureDeviceId = InvalidDeviceId,
@@ -64,9 +64,9 @@ std::optional<PhProbeDriver> PhProbeDriver::create_driver(const std::string_view
             temperatureReadingArgument.len); 
     }
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(PhProbeConfig));
+    deviceConfOut.insertConfig(&newConf);
 
-    return create_driver(&device_conf_out);
+    return create_driver(&deviceConfOut);
 }
 
 std::optional<PhProbeDriver> PhProbeDriver::create_driver(const DeviceConfig*config) {

@@ -6,14 +6,13 @@
 #include "build_config.h"
 #include "drivers/device_types.h"
 
-struct StepperDosingConfig {
+struct DosingPumpConfig {
     unsigned int deviceId = -1;
     int unitTimesTenPerMl = 0;
     BasicStackString<MaxArgumentLength> writeArgument;
 };
 
-// TODO: rename class to better reflect its purpose,
-// this class should also be able to dose in time e.g. let the pump run for a specific time frame
+// TODO: this class should also be able to dose in time e.g. let the pump run for a specific time frame
 class DosingPumpDriver final {
     public:
         static constexpr char name[] = "dosing_pump";
@@ -25,7 +24,7 @@ class DosingPumpDriver final {
         DosingPumpDriver &operator=(const DosingPumpDriver &other) = delete;
         DosingPumpDriver &operator=(DosingPumpDriver &&other) = default;
 
-        static std::optional<DosingPumpDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<DosingPumpDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<DosingPumpDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const { return DeviceOperationResult::not_supported; }

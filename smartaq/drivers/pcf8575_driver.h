@@ -65,7 +65,7 @@ class Pcf8575Driver final {
         Pcf8575Driver &operator=(const Pcf8575Driver &other) = delete;
         Pcf8575Driver &operator=(Pcf8575Driver &&other) noexcept;
 
-        static std::optional<Pcf8575Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<Pcf8575Driver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<Pcf8575Driver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);

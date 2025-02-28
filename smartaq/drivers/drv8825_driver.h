@@ -25,13 +25,13 @@ class DRV8825Driver final {
         static inline constexpr char name[] = "drv8825_driver";
 
         DRV8825Driver(const DRV8825Driver &other) = delete;
-        DRV8825Driver(DRV8825Driver &&other);
+        DRV8825Driver(DRV8825Driver &&other) noexcept;
         ~DRV8825Driver();
 
         DRV8825Driver &operator=(const DRV8825Driver &other) = delete;
-        DRV8825Driver &operator=(DRV8825Driver &&other);
+        DRV8825Driver &operator=(DRV8825Driver &&other) noexcept;
 
-        static std::optional<DRV8825Driver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<DRV8825Driver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<DRV8825Driver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const { return DeviceOperationResult::not_supported; }
@@ -49,7 +49,7 @@ class DRV8825Driver final {
 
         DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> stepGPIO, const RmtHandles &rmtHandle);
 
-        const DeviceConfig*mConf;
+        const DeviceConfig *mConf;
 
         std::shared_ptr<GpioResource> mStepGPIO = nullptr;
         std::atomic_uint16_t mStepsLeft = 0;

@@ -61,7 +61,7 @@ class Ads111xDriver final {
         Ads111xDriver &operator=(const Ads111xDriver &other) = delete;
         Ads111xDriver &operator=(Ads111xDriver &&other);
 
-        static std::optional<Ads111xDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<Ads111xDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<Ads111xDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);

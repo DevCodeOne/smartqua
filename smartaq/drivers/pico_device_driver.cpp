@@ -50,7 +50,7 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const DeviceConf
     return setupDevice(config, std::move(device));
 }
 
-std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     PicoDeviceAddress address = PicoDeviceAddress::INVALID;
     unsigned int scl = static_cast<uint8_t>(sclDefaultPin);
     unsigned int sda = static_cast<uint8_t>(sdaDefaultPin);
@@ -109,10 +109,10 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::strin
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(PicoDeviceDriverData));
-    device_conf_out.device_driver_name =  PicoDeviceDriver::name;
+    deviceConfOut.insertConfig(&data);
+    deviceConfOut.device_driver_name =  PicoDeviceDriver::name;
 
-    auto dev = setupDevice(&device_conf_out, std::move(device));
+    auto dev = setupDevice(&deviceConfOut, std::move(device));
 
     Logger::log(LogLevel::Info, "After SetupDevice");
 
@@ -207,6 +207,8 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
         return DeviceOperationResult::failure;
     }
 
+    using DosingPumpDriver = PicoDriver::StepperMotorTag<PicoDriver::NoDirectionPin, PicoDriver::PinUsed>;
+
     const auto &currentDevice = mAccess[index];
     Logger::log(LogLevel::Info, "Tag %.*s and Index : %u, Tag @ Index :%s", tag.len(), tag.data(), index, currentDevice.tagName());
     if (tag.getStringView() == FixedPWMType::Name) {
@@ -220,17 +222,18 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
         } else {
             Logger::log(LogLevel::Info, "Memory Representation was wrong ...");
         }
-    } else if (tag.getStringView() == PicoDriver::StepperMotorTag<PicoDriver::NoDirectionPin, PicoDriver::PinUsed>::Name) {
-        if (auto stepper = 
-            std::get_if<MemoryRepresentation<PicoDriver::StepperMotorTag<PicoDriver::NoDirectionPin, PicoDriver::PinUsed> > *>(&currentDevice); 
+    } else if (tag.getStringView() == DosingPumpDriver::Name) {
+        if (auto stepper =
+                    std::get_if<MemoryRepresentation<DosingPumpDriver> *>(&currentDevice);
             stepper) {
             Logger::log(LogLevel::Info, "Found memory representation");
             // TODO: add error handling
             (*stepper)->steps = value.generic_unsigned_integral().value_or(0);
-            const auto update = mAccess.toRawMemorySlice<PicoDriver::StepperMotorTag<PicoDriver::NoDirectionPin, PicoDriver::PinUsed>>(*stepper);
+            const auto update = mAccess.toRawMemorySlice<DosingPumpDriver>(*stepper);
             writeCompleteMemory(mDevice.get(), update.address, update.data, update.size);
             unsigned int steps = (*stepper)->steps;
-            Logger::log(LogLevel::Info, "Writing update, added %u steps %u", steps, value.generic_unsigned_integral().value_or(0));
+            Logger::log(LogLevel::Info, "Writing update, added %u steps %u", steps,
+                        value.generic_unsigned_integral().value_or(0));
         } else {
             Logger::log(LogLevel::Info, "Memory Representation was wrong ...");
         }

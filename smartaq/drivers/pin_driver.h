@@ -60,7 +60,7 @@ class PinDriver final {
         PinDriver &operator=(const PinDriver &) = delete;
         PinDriver &operator=(PinDriver &&) noexcept = default;
 
-        static std::optional<PinDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<PinDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<PinDriver> create_driver(const DeviceConfig*config);
 
 

@@ -6,12 +6,12 @@
 
 #include "build_config.h"
 #include "ctre.hpp"
+#include "frozen.h"
 
 #include "drivers/device_types.h"
 #include "actions/device_actions.h"
-#include "frozen.h"
 #include "utils/filesystem_utils.h"
-#include "utils/json_utils.h"
+#include "utils/serialization/json_utils.h"
 
 #include "utils/esp/idf_utils.h"
 #include "utils/time/schedule.h"
@@ -114,18 +114,24 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
 
 ScheduleDriver::ScheduleDriver(ScheduleDriver &&other) noexcept : mConf(other.mConf), schedule(std::move(other.schedule)),
                                                                   scheduleTracker(&schedule) {
+    if (mConf) {
+        scheduleTracker.setTrackingType(mConf->accessConfig<ScheduleDriverData>()->type);
+    }
 }
 
 ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) {
     mConf = other.mConf;
     schedule = other.schedule;
     scheduleTracker.setSchedule(&schedule);
+    if (mConf) {
+        scheduleTracker.setTrackingType(mConf->accessConfig<ScheduleDriverData>()->type);
+    }
     return *this;
 }
 
-std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_view &input, DeviceConfig &device_conf_out) {
+std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_view &input, DeviceConfig &deviceConfOut) {
     // Only use temporary variable to initialize the real storage
-    auto createdConf = device_conf_out.accessConfig<ScheduleDriverData>();
+    auto createdConf = deviceConfOut.accessConfig<ScheduleDriverData>();
     {
         ScheduleDriverData newConf{};
 
@@ -155,14 +161,14 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
             return std::nullopt;
         }
 
-        std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(ScheduleDriverData));
+        deviceConfOut.insertConfig(&newConf);
     }
     
     std::tm timeinfo{};
     std::time_t now{};
 
     Logger::log(LogLevel::Debug, "Waiting for clock sync");
-    wait_for_clock_sync(&now, &timeinfo);
+    waitForClockSync(&now, &timeinfo);
 
     // Id is based on the devices used in the channels
     auto createId = [](const auto &indicesArray) {
@@ -196,7 +202,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
     }
 
     
-    ScheduleDriver driver(&device_conf_out);
+    ScheduleDriver driver(&deviceConfOut);
     if (!driver.loadAndUpdateSchedule(input)) {
         Logger::log(LogLevel::Warning, "Couldn't load and update schedule");
         return std::nullopt;
@@ -226,7 +232,7 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const DeviceConfig *
         return std::nullopt;
     }
 
-    std::string_view bufferView(buffer->data(), std::min(safe_strlen(buffer->data(), buffer->size()), static_cast<size_t>(result)));
+    std::string_view bufferView(buffer->data(), std::min(safeStrLen(buffer->data(), buffer->size()), static_cast<size_t>(result)));
 
     Logger::log(LogLevel::Info, "Parsing schedule ...");
 

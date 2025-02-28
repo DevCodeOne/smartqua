@@ -60,11 +60,14 @@ void PinDriver::resetPinTimed(void *instance) {
 
 bool PinDriver::adjustTimedValue(const DeviceValues value, const PinConfig *pinConf) {
     // TODO: use time instead of generic_unsigned_integral, or in addition to it
+    Logger::log(LogLevel::Debug, "Inside adjust timed value");
     using namespace std::chrono;
     seconds secondsTillReset{0};
     if (value.seconds()) {
+        Logger::log(LogLevel::Debug, "Seconds has value");
         secondsTillReset = seconds(*value.seconds());
     } else if (value.generic_unsigned_integral()) {
+        Logger::log(LogLevel::Debug, "generic_unsigned_integral has value");
         secondsTillReset = seconds(*value.generic_unsigned_integral());
     } else {
         return false;
@@ -241,7 +244,7 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
     return std::make_optional(PinDriver{config, nullptr, gpio, nullptr});
 }
 
-std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     // Only prepare device_conf_out in this method and pass it along
     PinConfig newConf{};
     uint16_t frequency = newConf.timer_conf.frequency;
@@ -275,8 +278,8 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
         newConf.timer_conf.speed_mode = LEDC_LOW_SPEED_MODE;
     }
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(PinConfig));
-    return create_driver(&device_conf_out);
+    deviceConfOut.insertConfig(&newConf);
+    return create_driver(&deviceConfOut);
 }
 
 bool PinDriver::adjustPwmOutput(const DeviceValues &value, const PinConfig *pinConf) {

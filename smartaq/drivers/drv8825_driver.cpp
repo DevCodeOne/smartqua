@@ -16,7 +16,7 @@
 #include "driver/rmt_types.h"
 #include "frozen.h"
 
-std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view input, DeviceConfig &deviceConfOut) {
     DRV8825DriverConfig newConf;
 
     int stepPin = newConf.stepGPIONum;
@@ -34,9 +34,9 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const std::string_view
         Logger::log(LogLevel::Error, "Some value(s) were out of range");
     }
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(DRV8825DriverConfig));
+    deviceConfOut.insertConfig(&newConf);
 
-    return create_driver(&device_conf_out);
+    return create_driver(&deviceConfOut);
 }
 
 std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*config) {
@@ -163,16 +163,16 @@ DRV8825Driver::~DRV8825Driver() {
 DRV8825Driver::DRV8825Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> stepGPIO, const RmtHandles &rmtHandle) :
     mRmtHandles(rmtHandle),
     mConf(conf),
-    mStepGPIO(stepGPIO),
+    mStepGPIO(std::move(stepGPIO)),
     mStepsLeft(0)
 { 
     mPumpThread = std::jthread(&DRV8825Driver::updatePumpThread, this);
 }
 
 
-DRV8825Driver::DRV8825Driver(DRV8825Driver &&other) :
-    mRmtHandles(std::move(other.mRmtHandles)),
-    mConf(std::move(other.mConf)),
+DRV8825Driver::DRV8825Driver(DRV8825Driver &&other) noexcept :
+    mRmtHandles(other.mRmtHandles),
+    mConf(other.mConf),
     mStepGPIO(std::move(other.mStepGPIO)),
     mStepsLeft(0)
 {
@@ -184,8 +184,7 @@ DRV8825Driver::DRV8825Driver(DRV8825Driver &&other) :
     mPumpThread = std::jthread(&DRV8825Driver::updatePumpThread, this);
 }
 
-DRV8825Driver &DRV8825Driver::operator=(DRV8825Driver &&other)
-{
+DRV8825Driver &DRV8825Driver::operator=(DRV8825Driver &&other) noexcept {
     Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
     other.mStepsLeft = 1;
     other.mPumpThread.request_stop();

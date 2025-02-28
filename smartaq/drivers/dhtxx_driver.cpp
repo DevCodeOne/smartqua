@@ -119,7 +119,7 @@ DhtXXDriver &DhtXXDriver::operator=(DhtXXDriver &&other) noexcept {
     return *this;
 }
 
-std::optional<DhtXXDriver> DhtXXDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
+std::optional<DhtXXDriver> DhtXXDriver::create_driver(const std::string_view input, DeviceConfig &deviceConfOut) {
     int gpio_num = -1;
     DhtXXDeviceType type;
     json_scanf(input.data(), input.size(), R"({ gpio_num : %d, type : %M })",
@@ -139,8 +139,8 @@ std::optional<DhtXXDriver> DhtXXDriver::create_driver(const std::string_view inp
     }
 
     DhtXXDriverData data { .gpio = static_cast<gpio_num_t>(gpio_num), .type = DhtXXDeviceType::Dht21 };
-    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(DhtXXDriverData));
-    device_conf_out.device_driver_name =  DhtXXDriver::name;
+    deviceConfOut.insertConfig(&data);
+    deviceConfOut.device_driver_name =  DhtXXDriver::name;
 
-    return DhtXXDriver(&device_conf_out, pin);
+    return DhtXXDriver(&deviceConfOut, pin);
 }

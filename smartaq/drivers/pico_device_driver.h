@@ -70,7 +70,7 @@ class PicoDeviceDriver final {
         PicoDeviceDriver &operator=(const PicoDeviceDriver &other) = delete;
         PicoDeviceDriver &operator=(PicoDeviceDriver &&other) noexcept;
 
-        static std::optional<PicoDeviceDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<PicoDeviceDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<PicoDeviceDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);

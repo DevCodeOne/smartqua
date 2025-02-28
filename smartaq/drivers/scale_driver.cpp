@@ -79,7 +79,7 @@ DeviceOperationResult LoadCellDriver::get_info(char *output, size_t output_buffe
     return DeviceOperationResult::failure;
 }
 
-std::optional<LoadCellDriver> LoadCellDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<LoadCellDriver> LoadCellDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     LoadcellConfig newConf;
     int offset = newConf.offset;
     int scale = newConf.scale;
@@ -100,8 +100,8 @@ std::optional<LoadCellDriver> LoadCellDriver::create_driver(const std::string_vi
         return std::nullopt;
     }
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(LoadcellConfig));
-    return create_driver(&device_conf_out);
+    deviceConfOut.insertConfig(&newConf);
+    return create_driver(&deviceConfOut);
 }
 
 std::optional<LoadCellDriver> LoadCellDriver::create_driver(const DeviceConfig*config) {

@@ -36,7 +36,7 @@ class LoadCellDriver final {
         LoadCellDriver &operator=(const LoadCellDriver &other) = delete;
         LoadCellDriver &operator=(LoadCellDriver &&other) noexcept;
 
-        static std::optional<LoadCellDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<LoadCellDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<LoadCellDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;

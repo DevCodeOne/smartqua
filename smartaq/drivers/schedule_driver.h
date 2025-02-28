@@ -11,8 +11,8 @@
 #include "drivers/device_resource.h"
 #include "drivers/devices.h"
 #include "utils/stack_string.h"
-#include "utils/json_utils.h"
 #include "utils/logger.h"
+#include "utils/serialization/json_utils.h"
 #include "utils/time/schedule.h"
 #include "utils/time/schedule_tracker.h"
 
@@ -72,8 +72,8 @@ class ScheduleDriver final {
         ScheduleDriver &operator=(const ScheduleDriver &other) = delete;
         ScheduleDriver &operator=(ScheduleDriver &&other);
 
-        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig&device_conf_out);
-        static std::optional<ScheduleDriver> create_driver(const DeviceConfig*config);
+        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig&deviceConfOut);
+        static std::optional<ScheduleDriver> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
@@ -112,18 +112,20 @@ payload : {
 template<>
 struct read_from_json<ScheduleEventTransitionMode> {
     static void read(const char *str, int len, ScheduleEventTransitionMode &driverType) {
-        if (str != nullptr && len > 0) {
-            std::string_view as_view{str, static_cast<size_t>(len)};
+        if (str == nullptr || len == 0) {
+            return;
+        }
 
-            Logger::log(LogLevel::Debug, "Reading DriverType %.*s", as_view.size(), as_view.data());
+        std::string_view as_view{str, static_cast<size_t>(len)};
 
-            if (as_view == "action") {
-                driverType = ScheduleEventTransitionMode::SingleShot;
-            } else if (as_view == "action_hold") { 
-                driverType = ScheduleEventTransitionMode::Hold;
-            } else if (as_view == "interpolate") {
-                driverType = ScheduleEventTransitionMode::Interpolation;
-            }
+        Logger::log(LogLevel::Debug, "Reading DriverType %.*s", as_view.size(), as_view.data());
+
+        if (as_view == "action") {
+            driverType = ScheduleEventTransitionMode::SingleShot;
+        } else if (as_view == "action_hold") {
+            driverType = ScheduleEventTransitionMode::Hold;
+        } else if (as_view == "interpolate") {
+            driverType = ScheduleEventTransitionMode::Interpolation;
         }
     }
 };

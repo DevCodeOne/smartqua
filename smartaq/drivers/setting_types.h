@@ -7,9 +7,9 @@
 #include <cstring>
 #include <charconv>
 
-#include "utils/json_utils.h"
 #include "utils/stack_string.h"
 #include "utils/trivial_variant.h"
+#include "utils/serialization/json_utils.h"
 
 enum struct single_setting_result {
     Ok, Failure

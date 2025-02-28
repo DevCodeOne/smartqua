@@ -45,7 +45,7 @@ std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const DeviceConfig*con
 }
 
 // TODO: maybe make pins configureable
-std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     Pcf8575Address address = Pcf8575Address::Invalid;
     unsigned int scl = static_cast<uint8_t>(sclDefaultPin);
     unsigned int sda = static_cast<uint8_t>(sdaDefaultPin);
@@ -95,10 +95,10 @@ std::optional<Pcf8575Driver> Pcf8575Driver::create_driver(const std::string_view
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(Pcf8575DriverData));
-    device_conf_out.device_driver_name =  Pcf8575Driver::name;
+    deviceConfOut.insertConfig(&data);
+    deviceConfOut.device_driver_name =  Pcf8575Driver::name;
 
-    return Pcf8575Driver(&device_conf_out, std::move(device));
+    return Pcf8575Driver(&deviceConfOut, std::move(device));
 }
 
 Pcf8575Driver::Pcf8575Driver(const DeviceConfig*conf, i2c_dev_t device) 

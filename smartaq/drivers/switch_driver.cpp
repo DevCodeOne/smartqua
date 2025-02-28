@@ -14,7 +14,7 @@
 #include "utils/check_assign.h"
 
 
-std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
+std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std::string_view input, DeviceConfig &deviceConfOut) {
     SwitchConfig newConf{
         .type = SwitchType::LevelHolder,
         .defaultValue = SwitchDefaultValue::Low,
@@ -83,9 +83,9 @@ std::expected<SwitchDriver, const char *> SwitchDriver::create_driver(const std:
             targetArgument.len); 
     }
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(SwitchConfig));
+    deviceConfOut.insertConfig(&newConf);
 
-    return create_driver(&device_conf_out);
+    return create_driver(&deviceConfOut);
 }
 
 // This doesn't work for some reason

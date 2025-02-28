@@ -44,7 +44,7 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const DeviceConfig *co
     return setupDevice(config, std::move(device), std::move(sdaPin), std::move(sclPin));
 }
 
-std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view input, DeviceConfig &device_conf_out) {
+std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view input, DeviceConfig &deviceConfOut) {
     Ads111xAddress address = Ads111xAddress::INVALID;
     unsigned int scl = static_cast<uint8_t>(sclDefaultPin);
     unsigned int sda = static_cast<uint8_t>(sdaDefaultPin);
@@ -67,10 +67,10 @@ std::optional<Ads111xDriver> Ads111xDriver::create_driver(const std::string_view
         .sdaPin = static_cast<gpio_num_t>(sda),
         .sclPin = static_cast<gpio_num_t>(scl)
     };
-    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(Ads111xDriverData));
-    device_conf_out.device_driver_name = Ads111xDriver::name;
+    deviceConfOut.insertConfig(&data);
+    deviceConfOut.device_driver_name = Ads111xDriver::name;
 
-    return create_driver(&device_conf_out);
+    return create_driver(&deviceConfOut);
 }
 
 std::optional<Ads111xDriver> Ads111xDriver::setupDevice(const DeviceConfig *device_conf_out, i2c_dev_t device,

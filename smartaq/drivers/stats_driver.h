@@ -191,7 +191,7 @@ void StatsDriver<N>::stats_driver_task(void *) {
     std::tm timeinfo;
     std::time_t now;
 
-    wait_for_clock_sync(&now, &timeinfo);
+    waitForClockSync(&now, &timeinfo);
 
     using namespace std::chrono;
 

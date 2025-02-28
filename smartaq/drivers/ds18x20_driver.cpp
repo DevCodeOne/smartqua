@@ -44,7 +44,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*con
     return Ds18x20Driver(config, pin);
 }
 
-std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
+std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
     int gpio_num = -1;
     json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpio_num);
@@ -87,10 +87,10 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
 
     ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
-    std::memcpy(device_conf_out.device_config.data(), &data, sizeof(ds18x20_driver_data));
-    device_conf_out.device_driver_name =  Ds18x20Driver::name;
+    deviceConfOut.insertConfig(&data);
+    deviceConfOut.device_driver_name =  Ds18x20Driver::name;
 
-    return Ds18x20Driver(&device_conf_out, pin);
+    return Ds18x20Driver(&deviceConfOut, pin);
 }
 
 Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : m_conf(conf), m_pin(std::move(pin)) {

@@ -13,7 +13,7 @@
 
 #include "build_config.h"
 #include "utils/type/enum_type_map.h"
-#include "utils/json_utils.h"
+#include "utils/serialization/json_utils.h"
 
 enum struct DeviceOperationResult {
     ok, not_supported, failure
@@ -49,6 +49,13 @@ struct DeviceConfig {
     TargetType *accessConfig() const requires (!std::is_pointer_v<TargetType>) {
         return reinterpret_cast<TargetType *>(device_config.data());
     }
+
+    template<typename TargetType>
+    requires (sizeof(device_config_size) <= sizeof(TargetType))
+    void insertConfig(const TargetType *type) {
+        std::memcpy(device_config.data(), type, sizeof(TargetType));
+    }
+
 };
 
 using DeviceValueUnitMap = EnumTypeMap<
@@ -377,7 +384,7 @@ DeviceValues DeviceValues::create_from_unit(DeviceValueUnit unit, ValueType valu
             break;
         case DeviceValueUnit::seconds:
             createdObject.values.seconds = value;
-        break;
+            break;
         case DeviceValueUnit::percentage:
         default:
             createdObject.values.percentage = value;

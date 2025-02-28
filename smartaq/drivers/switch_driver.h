@@ -81,7 +81,7 @@ class SwitchDriver final {
         SwitchDriver &operator=(const SwitchDriver &other) = delete;
         SwitchDriver &operator=(SwitchDriver &&other) noexcept;
 
-        static std::expected<SwitchDriver, const char *> create_driver(const std::string_view input, DeviceConfig &device_conf_out);
+        static std::expected<SwitchDriver, const char *> create_driver(const std::string_view input, DeviceConfig &deviceConfOut);
         static std::expected<SwitchDriver, const char *> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;

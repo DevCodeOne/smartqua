@@ -37,7 +37,7 @@ class PhProbeDriver final {
         PhProbeDriver &operator=(const PhProbeDriver &other) = delete;
         PhProbeDriver &operator=(PhProbeDriver &&other) noexcept;
 
-        static std::optional<PhProbeDriver> create_driver(const std::string_view input, DeviceConfig&device_conf_out);
+        static std::optional<PhProbeDriver> create_driver(const std::string_view input, DeviceConfig&deviceConfOut);
         static std::optional<PhProbeDriver> create_driver(const DeviceConfig*config);
 
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;

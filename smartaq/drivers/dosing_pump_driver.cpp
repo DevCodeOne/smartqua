@@ -14,8 +14,8 @@
 
 #include "frozen.h"
 
-std::optional<DosingPumpDriver> DosingPumpDriver::create_driver(const std::string_view input, DeviceConfig&device_conf_out) {
-    StepperDosingConfig newConf {
+std::optional<DosingPumpDriver> DosingPumpDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
+    DosingPumpConfig newConf {
         .deviceId = InvalidDeviceId
     };
 
@@ -44,9 +44,9 @@ std::optional<DosingPumpDriver> DosingPumpDriver::create_driver(const std::strin
 
     newConf.writeArgument = std::string_view(writeArgument.ptr, writeArgument.len);
 
-    std::memcpy(device_conf_out.device_config.data(), &newConf, sizeof(StepperDosingConfig));
+    deviceConfOut.insertConfig(&newConf);
 
-    return create_driver(&device_conf_out);
+    return create_driver(&deviceConfOut);
 }
 
 std::optional<DosingPumpDriver> DosingPumpDriver::create_driver(const DeviceConfig *config) {
@@ -61,7 +61,7 @@ constexpr uint16_t convertMilliliterToUnsignedIntegralValue(float milliliter, in
 
 // TODO: safe value of mStepsLeft in separate remotevariable
 DeviceOperationResult DosingPumpDriver::write_value(std::string_view what, const DeviceValues &value) {
-    auto dosingConfig = mConf->accessConfig<StepperDosingConfig>();
+    auto dosingConfig = mConf->accessConfig<DosingPumpConfig>();
     if (!value.milliliter()) {
         Logger::log(LogLevel::Error, "A dosing pump only supports values in ml");
         return DeviceOperationResult::failure;
@@ -75,12 +75,15 @@ DeviceOperationResult DosingPumpDriver::write_value(std::string_view what, const
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult DosingPumpDriver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
-    auto dosingConfig = conf->accessConfig<StepperDosingConfig>();
+DeviceOperationResult DosingPumpDriver::call_device_action(DeviceConfig *conf, const std::string_view &action, const std::string_view &json) {
+    auto dosingConfig = conf->accessConfig<DosingPumpConfig>();
 
+    // TODO: Parse via DeviceValue later
     unsigned int unsignedIntegralValue = 0;
     float milliliter = 0;
     json_scanf(json.data(), json.size(), "{ general_unsigned_integral : %u, ml : %f}", &unsignedIntegralValue, &milliliter);
+
+    Logger::log(LogLevel::Debug, "DosingPumpDriver got: %u", unsignedIntegralValue);
 
     if (action == "manual") {
         if (milliliter != 0) {
