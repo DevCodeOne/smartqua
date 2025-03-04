@@ -83,7 +83,7 @@ bool PinDriver::adjustTimedValue(const DeviceValues value, const PinConfig *pinC
         .interval = secondsTillReset,
         .argument = this,
         .description = "Reset gpio to previous value",
-        .last_executed = duration_cast<seconds>(steady_clock::now().time_since_epoch())
+        .last_executed = steady_clock::now()
     });
 
     if (timedTask.id() == TaskId::invalid) {
@@ -161,10 +161,10 @@ void PinDriver::initPinDriverStatics() {
         _timedOutputThread = std::jthread([](std::stop_token token) {
             while (!token.stop_requested()) {
                 const auto beforeExec = std::chrono::steady_clock::now();
-                _timedOutputTasks.doWork();
-                if (std::chrono::steady_clock::now() - beforeExec < std::chrono::milliseconds(500)) {
-                    std::this_thread::sleep_until(beforeExec + std::chrono::milliseconds(500));
-                }
+                const auto nextExecutionAt =_timedOutputTasks.doWorkOnce();
+
+                const auto now = std::chrono::steady_clock::now();
+                std::this_thread::sleep_until(nextExecutionAt);
             }
         });
         ledc_fade_func_install(0);

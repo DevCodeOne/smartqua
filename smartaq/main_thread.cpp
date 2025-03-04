@@ -86,14 +86,14 @@ void *mainTask(void *pvParameters) {
     sntp_clock clock;
 
     auto resource = MainTaskPool::postTask(TaskDescription{
-            .single_shot = false,
-            .func_ptr = print_health,
-            .interval = std::chrono::seconds(10),
-            .argument = nullptr,
-            .description = "Heartbeat Thread"
-    });
+             .single_shot = false,
+             .func_ptr = print_health,
+             .interval = std::chrono::seconds(10),
+             .argument = nullptr,
+             .description = "Heartbeat Thread"
+         });
 
-    MainTaskPool::doWork();
+        MainTaskPool::doWork();
 
     // Shouldn't be reached
     pthread_exit(nullptr);

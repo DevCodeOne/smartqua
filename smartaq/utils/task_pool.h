@@ -13,6 +13,7 @@
 #include <type_traits>
 
 #include "utils/logger.h"
+#include "utils/container/fixed_size_optional_array.h"
 
 using TaskFuncType = void(*)(void *);
 
@@ -22,19 +23,25 @@ enum struct TaskId : uint64_t {
 
 template<typename PoolType>
 class TaskResourceTracker {
-    public:
+public:
         explicit TaskResourceTracker(void *resource = nullptr, TaskId id = TaskId::invalid) : m_resource(resource), m_id(id) { }
 
         TaskResourceTracker(const TaskResourceTracker &other) = delete;
-        TaskResourceTracker(TaskResourceTracker &&other) : m_resource(other.m_resource), m_id(other.m_id) {
+        TaskResourceTracker(TaskResourceTracker &&other) noexcept : m_resource(other.m_resource), m_id(other.m_id) {
             other.m_resource = nullptr;
             other.m_id = TaskId::invalid;
         }
 
-        ~TaskResourceTracker() { PoolType::removeTask(m_id); };
+        ~TaskResourceTracker() {
+            if (m_id == TaskId::invalid) {
+                return;
+            }
+
+            PoolType::removeTask(m_id);
+        };
 
         TaskResourceTracker &operator=(const TaskResourceTracker &other) = delete;
-        TaskResourceTracker &operator=(TaskResourceTracker &&other) {
+        TaskResourceTracker &operator=(TaskResourceTracker &&other) noexcept {
             using std::swap;
 
             swap(m_resource, other.m_resource);
@@ -43,7 +50,7 @@ class TaskResourceTracker {
             return *this;
         }
 
-        void swap(TaskResourceTracker &other) {
+        void swap(TaskResourceTracker &other) noexcept {
             using std::swap;
 
             swap(m_resource, other.m_resource);
@@ -62,13 +69,14 @@ class TaskResourceTracker {
 struct TaskDescription {
     bool single_shot = true;
     TaskFuncType func_ptr = nullptr;
-    std::chrono::seconds interval = std::chrono::seconds{5};
+    std::chrono::milliseconds interval = std::chrono::milliseconds{5};
     void *argument = nullptr;
     const char *description = "No Description";
-    std::chrono::seconds last_executed = std::chrono::seconds{0};
+    std::chrono::steady_clock::time_point last_executed;
 };
 
 // TODO: maybe use multiple threads
+// TODO: use instance, instead of static functions
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 class TaskPool {
@@ -78,68 +86,101 @@ class TaskPool {
         static TaskResourceType postTask(TaskDescription task);
         static bool removeTask(TaskId id);
         static void doWork();
+        static auto doWorkOnce();
     private:
+        static auto handleTaskExecutions();
+
         [[noreturn]] static void task_pool_thread(void *ptr);
 
-        static inline std::array<std::pair<TaskId, std::optional<TaskDescription>>, TaskPoolSize> _tasks;
+        using TaskInfo = std::pair<TaskId, TaskDescription>;
+
+        static inline FixedSizeOptionalArray<TaskInfo, TaskPoolSize> _tasks;
         static inline std::shared_mutex _instance_mutex;
         static inline std::condition_variable_any notify;
         static inline TaskId _next_id = TaskId(0);
 };
 
+template <auto TaskPoolSize> requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+auto TaskPool<TaskPoolSize>::handleTaskExecutions() {
+    std::unique_lock instance_guard{_instance_mutex};
+    using namespace std::chrono;
+
+    const auto nowSinceEpoch = steady_clock::now();
+    steady_clock::time_point nextRegularExecution{ nowSinceEpoch + milliseconds{10 } };
+
+    [[maybe_unused]] const auto hasFinishedAnyTasks = _tasks.modifyOrRemove([&nextRegularExecution, &nowSinceEpoch](TaskInfo &currentTask) {
+        auto &current_task = currentTask.second;
+        const auto currentTaskNextExecutionAt = current_task.last_executed + current_task.interval;
+
+        nextRegularExecution = std::min(currentTaskNextExecutionAt, nextRegularExecution);
+
+        if (currentTaskNextExecutionAt <= nowSinceEpoch) {
+            Logger::log(LogLevel::Info,
+                        "=====================================[ In :%s ]======================================",
+                        current_task.description);
+
+            if (current_task.func_ptr != nullptr) {
+                current_task.func_ptr(current_task.argument);
+            }
+
+            Logger::log(LogLevel::Info,
+                        "=====================================[ Out : %s ] =====================================",
+                        current_task.description);
+
+            if (current_task.single_shot) {
+                return true;
+            }
+
+            current_task.last_executed = nowSinceEpoch;
+        } else {
+            Logger::log(LogLevel::Info, "It is not the time to trigger this task %s",
+                        current_task.description);
+        }
+
+        return false;
+    });
+
+    return nextRegularExecution;
+}
+
+// TODO: Add method which executes once, instead of iterating endlessly
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
-
-    using TimeType = decltype(TaskDescription::last_executed);
-
     while (1) {
-        unsigned int workedThreads = 0;
-        for (size_t index = 0; index < TaskPoolSize; ++index) {
-            auto seconds_since_epoch =
-            std::chrono::duration_cast<TimeType>(std::chrono::steady_clock::now().time_since_epoch());
-
-            std::unique_lock instance_guard{_instance_mutex};
-            auto &[current_id, current_task] = _tasks[index];
-
-            if (current_task && std::chrono::abs(current_task->last_executed - seconds_since_epoch) > current_task->interval) {
-
-                Logger::log(LogLevel::Info, "=====================================[ In :%s ]======================================",
-                            current_task->description);
-
-                if (current_task->func_ptr != nullptr) {
-                    current_task->func_ptr(current_task->argument);
-                }
-
-                Logger::log(LogLevel::Info, "=====================================[ Out : %s ] =====================================",
-                            current_task->description);
-
-                if (current_task->single_shot) {
-                    current_task = std::nullopt;
-                }
-
-                current_task->last_executed = seconds_since_epoch;
-                ++workedThreads;
-            } else if (current_task) {
-                Logger::log(LogLevel::Info, "It is not the time to trigger this task %s", current_task->description);
-            }
+        const auto nextExecutionAt = handleTaskExecutions();
+        const auto now = std::chrono::steady_clock::now().time_since_epoch();
+        if (now >= nextExecutionAt) {
+            continue;
         }
 
         Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
 
-        if (workedThreads == 0) {
-            using namespace std::chrono_literals;
-            std::unique_lock localLock{_instance_mutex};
-            notify.wait_for(localLock, 10s);
-        }
-
+        using namespace std::chrono_literals;
+        std::unique_lock localLock{_instance_mutex};
+        notify.wait_for(localLock, nextExecutionAt - now);
     }
 }
 
 template<auto TaskPoolSize>
 requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
 void TaskPool<TaskPoolSize>::doWork() {
-    TaskPool::task_pool_thread(nullptr);
+    while (1) {
+        auto nextExecutionAt = doWorkOnce();
+        std::this_thread::sleep_until(nextExecutionAt);
+    }
+}
+
+template<auto TaskPoolSize>
+requires (std::is_unsigned_v<decltype(TaskPoolSize)>)
+auto TaskPool<TaskPoolSize>::doWorkOnce() {
+    return handleTaskExecutions();
+}
+
+template<typename IdType>
+requires (std::is_enum_v<IdType>)
+constexpr auto nextId(IdType currentId) {
+    return static_cast<IdType>(static_cast<std::underlying_type_t<IdType>>(currentId) + 1);
 }
 
 // TODO: maybe use std::optional as return type
@@ -150,26 +191,16 @@ auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType 
     {
         std::unique_lock instance_guard{_instance_mutex};
 
-        auto result = std::ranges::find_if(_tasks, [](auto &current_task_pair) {
-            return current_task_pair.second == std::nullopt;
-        });
-
-        if (result == _tasks.end()) {
+        const auto addedTask = _tasks.append(std::make_pair(_next_id, task));
+        if (!addedTask) {
             return TaskResourceType(task.argument, TaskId::invalid);
         }
 
-        using IdType = decltype(_next_id);
+        createdId = _next_id;
 
-        result->first = _next_id;
-        result->second = task;
-
-        using TaskIdIntegral = std::underlying_type_t<IdType>;
-
-        _next_id = static_cast<IdType>(TaskIdIntegral(_next_id) + 1);
+        _next_id = nextId(_next_id);
 
         Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
-
-        createdId = result->first;
     }
 
     notify.notify_all();
@@ -187,16 +218,8 @@ bool TaskPool<TaskPoolSize>::removeTask(TaskId id) {
     {
         std::unique_lock instance_guard{_instance_mutex};
 
-        auto result = std::ranges::find_if(_tasks, [id](auto &current_task_pair) {
+        return _tasks.modifyOrRemove([id](auto &current_task_pair) {
             return current_task_pair.first == id;
         });
-
-        if (result == _tasks.end()) {
-            return false;
-        }
-
-        result->second = std::nullopt;
     }
-
-    return true;
 }
