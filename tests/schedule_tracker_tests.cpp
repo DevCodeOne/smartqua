@@ -5,7 +5,7 @@
 
 class ScheduleTrackerTests : public ::testing::Test {
     protected:
-    using TestWeekScheduleType = WeekSchedule<2, float, 10>;
+    using TestWeekScheduleType = WeekSchedule<4, float, 10>;
     using TestDayScheduleType = TestWeekScheduleType::DayScheduleType;
     using ChannelData = TestDayScheduleType::ChannelData;
 
@@ -15,19 +15,19 @@ class ScheduleTrackerTests : public ::testing::Test {
     ScheduleTrackerTests() : tracker(&schedule, ScheduleEventTransitionMode::SingleShot) {
         using namespace std::chrono_literals;
         TestDayScheduleType monday;
-        monday.insertTimePoint(10h, ChannelData{1.0f});
-        monday.insertTimePoint(10h + 30min, ChannelData{2.0f});
-        monday.insertTimePoint(11h + 30min, ChannelData{3.0f});
+        monday.insertTimePoint(10h, ChannelData{1.0f, 2.0f});
+        monday.insertTimePoint(10h + 30min, ChannelData{4.0f, 5.0f});
+        monday.insertTimePoint(11h + 30min, ChannelData{8.0f, 9.0f});
 
         TestDayScheduleType tuesday;
-        tuesday.insertTimePoint(9h, ChannelData{10.0f});
-        tuesday.insertTimePoint(11h + 30min, ChannelData{20.0f});
-        tuesday.insertTimePoint(12h + 30min, ChannelData{30.0f});
+        tuesday.insertTimePoint(9h, ChannelData{13.0f, 14.0f});
+        tuesday.insertTimePoint(11h + 30min, ChannelData{20.0f, 21.0f});
+        tuesday.insertTimePoint(12h + 30min, ChannelData{30.0f, 31.0f});
 
         TestDayScheduleType repeating;
-        tuesday.insertTimePoint(12h, ChannelData{11.0f});
-        tuesday.insertTimePoint(13h + 30min, ChannelData{24.0f});
-        tuesday.insertTimePoint(15h + 30min, ChannelData{36.0f});
+        tuesday.insertTimePoint(12h, ChannelData{11.0f, 12.0f});
+        tuesday.insertTimePoint(13h + 30min, ChannelData{24.0f, 26.0f});
+        tuesday.insertTimePoint(15h + 30min, ChannelData{36.0f, 38.0f});
 
         schedule.setDaySchedule(WeekDay::monday, monday);
         schedule.setDaySchedule(WeekDay::tuesday, tuesday);
@@ -63,14 +63,16 @@ TEST_F(ScheduleTrackerTests, SingleShotBehavior) {
     ASSERT_TRUE(value.has_value());
     EXPECT_FLOAT_EQ(value.value(), 1.0f);
 
+    auto secondValue = tracker.getCurrentChannelValue(1, currentDate);
+    ASSERT_TRUE(secondValue.has_value());
+    EXPECT_FLOAT_EQ(secondValue.value(), 2.0f);
+
     // Other channels don't have a value
-    EXPECT_FALSE(tracker.getCurrentChannelValue(1, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(2, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(3, currentDate).has_value());
 
     // Other channels don't have a value -> multi value check
     auto channelValues = tracker.getCurrentChannelValues(currentDate);
-    EXPECT_FALSE(channelValues[1].has_value());
     EXPECT_FALSE(channelValues[2].has_value());
     EXPECT_FALSE(channelValues[3].has_value());
 
@@ -96,16 +98,19 @@ TEST_F(ScheduleTrackerTests, HoldBehavior) {
 
     // Expect the second event (10:30) since 10:35 > 10:30
     ASSERT_TRUE(value.has_value());
-    EXPECT_FLOAT_EQ(value.value(), 2.0f);
+    EXPECT_FLOAT_EQ(value.value(), 4.0f);
+
+    auto secondValue = tracker.getCurrentChannelValue(1, currentDate);
+    ASSERT_TRUE(secondValue.has_value());
+    EXPECT_FLOAT_EQ(secondValue.value(), 5.0f);
 
     // Other channels don't have a value
-    EXPECT_FALSE(tracker.getCurrentChannelValue(1, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(2, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(3, currentDate).has_value());
 
     // Other channels don't have a value -> multi value check
     auto channelValues = tracker.getCurrentChannelValues(currentDate);
-    EXPECT_FALSE(channelValues[1].has_value());
+    EXPECT_TRUE(channelValues[1].has_value());
     EXPECT_FALSE(channelValues[2].has_value());
     EXPECT_FALSE(channelValues[3].has_value());
 
@@ -115,7 +120,7 @@ TEST_F(ScheduleTrackerTests, HoldBehavior) {
     // Call it again to ensure Hold behavior keeps returning the value
     value = tracker.getCurrentChannelValue(0, currentDate);
     ASSERT_TRUE(value.has_value());
-    EXPECT_FLOAT_EQ(value.value(), 2.0f);
+    EXPECT_FLOAT_EQ(value.value(), 4.0f);
 }
 
 // Test for Interpolation Behavior
@@ -127,21 +132,25 @@ TEST_F(ScheduleTrackerTests, InterpolationBehavior) {
 
     // Retrieve the interpolated value
     auto value = tracker.getCurrentChannelValue(0, currentDate);
+    auto secondValue = tracker.getCurrentChannelValue(1, currentDate);
 
-    // Expect interpolation between 2.0 (10:30) and 3.0 (11:30)
+    // Expect interpolation between 4.0 (10:30) and 8.0 (11:30)
     // Interpolation factor = (15 minutes after 10:30) / 60 minutes = 0.25
     ASSERT_TRUE(value.has_value());
-    float interpolatedValue = 2.0f + 0.25f * (3.0f - 2.0f);
+    float interpolatedValue = 4.0f + 0.25f * (8.0f - 4.0f);
     EXPECT_FLOAT_EQ(value.value(), interpolatedValue);
+    // Expect interpolation between 5.0 (10:30) and 9.0 (11:30)
+    // Interpolation factor = (15 minutes after 10:30) / 60 minutes = 0.25
+    ASSERT_TRUE(secondValue.has_value());
+    float secondInterpolatedValue = 5.0f + 0.25f * (9.0f - 5.0f);
+    EXPECT_FLOAT_EQ(secondValue.value(), secondInterpolatedValue);
 
     // Other channels don't have a value
-    EXPECT_FALSE(tracker.getCurrentChannelValue(1, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(2, currentDate).has_value());
     EXPECT_FALSE(tracker.getCurrentChannelValue(3, currentDate).has_value());
 
     // Other channels don't have a value -> multi value check
     auto channelValues = tracker.getCurrentChannelValues(currentDate);
-    EXPECT_FALSE(channelValues[1].has_value());
     EXPECT_FALSE(channelValues[2].has_value());
     EXPECT_FALSE(channelValues[3].has_value());
 
