@@ -16,7 +16,7 @@ struct Sample {
 };
 
 template <typename T, typename AvgType = T, uint32_t n_samples = 10u>
-requires(n_samples >= 10)
+requires(n_samples >= 5)
 class SampleContainer final {
    public:
     SampleContainer() = default;
@@ -109,12 +109,15 @@ class SampleContainer final {
 
    private:
     static auto calculateTimeDifference(const auto &time1, const auto &time2) {
-        return std::abs(std::chrono::duration_cast<std::chrono::seconds>(time1 - time2).count());
+        using namespace std::chrono;
+        const auto timeDiffInSeconds = abs(duration_cast<seconds>(time1 - time2)).count();
+        return std::max<decltype(timeDiffInSeconds)>(std::abs(timeDiffInSeconds), 1l);
     }
 
     // TODO: maybe don't recalculate complete new average
     template<typename MutexType>
     SampleContainer &recalculateInternalValues(std::unique_lock<MutexType> &lock) {
+        using SizeType = decltype(mSamples)::SizeType;
         if (!lock.owns_lock()) {
             return *this;
         }
@@ -126,7 +129,7 @@ class SampleContainer final {
         const auto divisor = 1.0f / mSamples.size();
         float summed_up_values = 0;
 
-        for (typename decltype(mSamples)::SizeType i = 0; i < mSamples.size(); ++i) {
+        for (SizeType i = 0; i < mSamples.size(); ++i) {
             summed_up_values += mSamples[i].value * divisor;
         }
 
@@ -137,7 +140,7 @@ class SampleContainer final {
         }
 
         float ss = 0;
-        for (typename decltype(mSamples)::SizeType i = 0; i < mSamples.size(); ++i) {
+        for (SizeType i = 0; i < mSamples.size(); ++i) {
             ss += (mSamples[i].value - mAvg) * (mSamples[i].value - mAvg);
         }
 
@@ -152,12 +155,10 @@ class SampleContainer final {
 
         // Calculate average rate of change
         float totalRateOfChange = 0.0f;
-        for (typename decltype(mSamples)::SizeType i = 1; i < mSamples.size(); ++i) {
+        for (SizeType i = 1; i < mSamples.size(); ++i) {
             const auto timeDiff = calculateTimeDifference(mSamples[i].timeStamp, mSamples[i - 1].timeStamp);
-            if (timeDiff != 0) {
-                const float difference(std::abs(mSamples[i].value) - std::abs(mSamples[i - 1].value));
-                totalRateOfChange += std::abs(difference) / timeDiff;
-            }
+            const float difference(std::abs(mSamples[i].value) - std::abs(mSamples[i - 1].value));
+            totalRateOfChange += std::abs(difference) / timeDiff;
         }
         mAvgRateOfChange = totalRateOfChange / (mSamples.size() - 1);
 
@@ -166,21 +167,29 @@ class SampleContainer final {
 
     bool checkSampleViability(T value, std::chrono::time_point<std::chrono::steady_clock> timeStamp) {
         if (mSamples.size() < n_samples / 2 || mSamples.size() < 2) {
+            // Allow early samples to pass without restrictions.
             return true;
         }
-
-        // Use average and rate of change to test if the new sample is viable
-        const float minValue = mAvg - mMaxRateOfChange * mAvgRateOfChange;
-        const float maxValue = mAvg + mMaxRateOfChange * mAvgRateOfChange;
 
         const auto lastSample = mSamples.back();
-        const auto time_diff = calculateTimeDifference(timeStamp, lastSample.timeStamp);
-        const auto newRateOfChange = static_cast<float>(value - lastSample.value) / time_diff;
-        if (newRateOfChange > mMaxRateOfChange * mAvgRateOfChange) {
-            return true;
+        const auto timeDiff = calculateTimeDifference(timeStamp, lastSample.timeStamp);
+        const auto newRateOfChange = static_cast<float>(value - lastSample.value) / timeDiff;
+
+        if (std::isinf(mMaxRateOfChange)) {
+            // First failed viability check: dynamically initialize mMaxRateOfChange.
+            mMaxRateOfChange = mAvgRateOfChange * 2.0f;  // Example configurable multiplier (2.0f).
         }
 
-        return value > minValue && value < maxValue;
+        const float maxDiff = mMaxRateOfChange * timeDiff;
+        const float minExpectedValue = lastSample.value - maxDiff;
+        const float maxExpectedValue = lastSample.value + maxDiff;
+
+        // Enforce the rate-of-change and value limits.
+        if (std::fabs(newRateOfChange) > std::fabs(mMaxRateOfChange)) {
+            return false;
+        }
+
+        return value > minExpectedValue && value < maxExpectedValue;
     }
 
     void copyFrom(const SampleContainer& other) {
@@ -206,6 +215,6 @@ class SampleContainer final {
     float mVariance;
     float mStdDerivation;
     float mAvgRateOfChange;
-    float mMaxRateOfChange;
+    float mMaxRateOfChange = std::numeric_limits<float>::infinity();
     RingBuffer<Sample<T>, n_samples> mSamples;
 };
