@@ -15,14 +15,14 @@
 #include "utils/container/fixed_size_optional_array.h"
 #include "build_config.h"
 
-struct ds18x20_driver_data final {
+struct Ds18x20DriverData final {
     gpio_num_t gpio;
     ds18x20_addr_t addr;
 };
 
 class Ds18x20Driver final {
     public:
-        static inline constexpr char name[] = "ds18x20_driver";
+        static constexpr char name[] = "ds18x20_driver";
 
         Ds18x20Driver(const Ds18x20Driver &other) = delete;
         Ds18x20Driver(Ds18x20Driver &&other) noexcept;
@@ -31,7 +31,7 @@ class Ds18x20Driver final {
         Ds18x20Driver &operator=(const Ds18x20Driver &other) = delete;
         Ds18x20Driver &operator=(Ds18x20Driver &&other) noexcept;
 
-        static std::optional<Ds18x20Driver> create_driver(const std::string_view input, DeviceConfig &deviceConfOut);
+        static std::optional<Ds18x20Driver> create_driver(const std::string_view& input, DeviceConfig &deviceConfOut);
         static std::optional<Ds18x20Driver> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
@@ -44,15 +44,15 @@ class Ds18x20Driver final {
 
         static void updateTempThread(std::stop_token token, Ds18x20Driver *instance);
 
-        static bool add_address(ds18x20_addr_t address);
-        static bool remove_address(ds18x20_addr_t address);
+        static bool addAddress(ds18x20_addr_t address);
+        static bool removeAddress(ds18x20_addr_t address);
 
-        const DeviceConfig*m_conf;
+        const DeviceConfig *mConf;
 
-        std::shared_ptr<GpioResource> m_pin;
+        std::shared_ptr<GpioResource> mPin;
         std::jthread mTemperatureThread;
         SampleContainer<float> mTemperatureReadings;
 
-        static inline FixedSizeOptionalArray<ds18x20_addr_t, max_num_devices> _device_addresses;
-        static inline std::shared_mutex _instance_mutex;
+        static inline FixedSizeOptionalArray<ds18x20_addr_t, max_num_devices> _deviceAddresses;
+        static inline std::shared_mutex _instanceMutex;
 };

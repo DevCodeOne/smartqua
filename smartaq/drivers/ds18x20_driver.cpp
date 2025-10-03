@@ -11,9 +11,9 @@
 
 #include "build_config.h"
 
-std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*config) {
-    auto driver_data = config->accessConfig<ds18x20_driver_data >();
-    auto pin = DeviceResource::get_gpio_resource(driver_data->gpio, GpioPurpose::bus);
+std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig *config) {
+    auto driverData = config->accessConfig<Ds18x20DriverData >();
+    auto pin = DeviceResource::get_gpio_resource(driverData->gpio, GpioPurpose::bus);
 
     if (!pin) {
         Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
@@ -36,7 +36,7 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*con
         return std::nullopt;
     }*/
 
-    if (!add_address(driver_data->addr)) {
+    if (!addAddress(driverData->addr)) {
         Logger::log(LogLevel::Warning, "The device is already in use");
         return std::nullopt;
     }
@@ -44,18 +44,19 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const DeviceConfig*con
     return Ds18x20Driver(config, pin);
 }
 
-std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
-    std::array<ds18x20_addr_t, max_num_devices> sensor_addresses;
-    int gpio_num = -1;
-    json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpio_num);
-    Logger::log(LogLevel::Info, "gpio_num : %d", gpio_num);
+std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view& input, DeviceConfig& deviceConfOut)
+{
+    std::array<ds18x20_addr_t, max_num_devices> sensorAddresses{};
+    int gpioNum = -1;
+    json_scanf(input.data(), input.size(), R"({ gpio_num : %d})", &gpioNum);
+    Logger::log(LogLevel::Info, "gpio_num : %d", gpioNum);
 
-    if (gpio_num == -1) {
-        Logger::log(LogLevel::Warning, "Invalid gpio num : %d", gpio_num);
+    if (gpioNum == -1) {
+        Logger::log(LogLevel::Warning, "Invalid gpio num : %d", gpioNum);
         return std::nullopt;
     }
 
-    auto pin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(gpio_num), GpioPurpose::bus);
+    auto pin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(gpioNum), GpioPurpose::bus);
 
     if (!pin) {
         Logger::log(LogLevel::Warning, "GPIO pin couldn't be reserved");
@@ -63,49 +64,52 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     }
 
     size_t numDevicesFound = -1;
-    auto result = ds18x20_scan_devices(static_cast<gpio_num_t>(gpio_num), sensor_addresses.data(), max_num_devices, &numDevicesFound);
+    auto result = ds18x20_scan_devices(static_cast<gpio_num_t>(gpioNum), sensorAddresses.data(), max_num_devices,
+                                       &numDevicesFound);
 
-    if (result != ESP_OK || numDevicesFound < 1) {
-        Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d, result : %d, num_devices : %d", gpio_num, (int) result, (int) numDevicesFound);
+    if (result != ESP_OK || numDevicesFound < 1)
+    {
+        Logger::log(LogLevel::Warning, "Didn't find any devices on port : %d, result : %d, num_devices : %d", gpioNum,
+                    (int)result, (int)numDevicesFound);
         return std::nullopt;
     }
 
     // Skip already found addresses and use only the new ones
-    std::optional<unsigned int> index_to_add = std::nullopt;
+    std::optional<unsigned int> indexToAdd{};
 
     for (unsigned int i = 0; i < numDevicesFound; ++i) {
-        if (add_address(sensor_addresses[i])) {
-            index_to_add = i;
+        if (addAddress(sensorAddresses[i])) {
+            indexToAdd = i;
+            break;
         }
     }
 
-    if (!index_to_add.has_value()) {
-        Logger::log(LogLevel::Info, "Didn't find any devices attached to gpio_num : %d", gpio_num);
+    if (!indexToAdd.has_value()) {
+        Logger::log(LogLevel::Info, "Didn't find any devices attached to gpio_num : %d", gpioNum);
         return std::nullopt;
     }
 
-    Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpio_num, sensor_addresses[*index_to_add]);
+    Logger::log(LogLevel::Info, "Found devices on gpio_num : %d @ address : %llu", gpioNum, sensorAddresses[*indexToAdd]);
 
-    ds18x20_driver_data data { static_cast<gpio_num_t>(gpio_num), sensor_addresses[*index_to_add] };
+    Ds18x20DriverData data { static_cast<gpio_num_t>(gpioNum), sensorAddresses[*indexToAdd] };
     deviceConfOut.insertConfig(&data);
-    deviceConfOut.device_driver_name =  Ds18x20Driver::name;
 
     return Ds18x20Driver(&deviceConfOut, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : m_conf(conf), m_pin(std::move(pin)) {
+Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : mConf(conf), mPin(std::move(pin)) {
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 }
 
-Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) : m_conf(other.m_conf), m_pin(other.m_pin) {
+Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) noexcept : mConf(other.mConf), mPin(std::move(other.mPin)) {
 
     other.mTemperatureThread.request_stop();
     if (other.mTemperatureThread.joinable()) {
         other.mTemperatureThread.join();
     }
 
-    other.m_conf = nullptr;
-    other.m_pin = nullptr;
+    other.mConf = nullptr;
+    other.mPin = nullptr;
     
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
  }
@@ -120,8 +124,8 @@ Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) : m_conf(other.m_conf), m_pi
     }
     Logger::log(LogLevel::Info, "Done");
 
-    swap(m_conf, other.m_conf);
-    swap(m_pin, other.m_pin);
+    swap(mConf, other.mConf);
+    swap(mPin, other.mPin);
 
     mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 
@@ -129,7 +133,7 @@ Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) : m_conf(other.m_conf), m_pi
 }
 
 Ds18x20Driver::~Ds18x20Driver() { 
-    if (m_conf == nullptr) {
+    if (mConf == nullptr) {
         return;
     }
 
@@ -138,7 +142,7 @@ Ds18x20Driver::~Ds18x20Driver() {
         mTemperatureThread.request_stop();
         mTemperatureThread.join();
     }
-    remove_address(m_conf->accessConfig<ds18x20_driver_data>()->addr);
+    removeAddress(mConf->accessConfig<Ds18x20DriverData>()->addr);
 }
 
 DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const DeviceValues &value) {
@@ -146,14 +150,14 @@ DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const De
 }
 
 DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, DeviceValues &value) const {
-    value.temperature(mTemperatureReadings.average());
+    value.setToUnit(DeviceValueUnit::temperature, mTemperatureReadings.average());
     return DeviceOperationResult::ok;
 }
 
 void Ds18x20Driver::updateTempThread(std::stop_token token, Ds18x20Driver *instance) {
     using namespace std::chrono_literals;
 
-    const auto *config  = instance->m_conf->accessConfig<ds18x20_driver_data>();
+    const auto *config  = instance->mConf->accessConfig<Ds18x20DriverData>();
     while (!token.stop_requested()) {
         auto beforeReading = std::chrono::steady_clock::now();
 
@@ -190,25 +194,21 @@ DeviceOperationResult Ds18x20Driver::update_runtime_data() {
     return DeviceOperationResult::ok;
 }
 
-bool Ds18x20Driver::add_address(ds18x20_addr_t address) {
-    std::unique_lock instance_guard{_instance_mutex};
+bool Ds18x20Driver::addAddress(ds18x20_addr_t address) {
+    std::unique_lock instance_guard{_instanceMutex};
 
-    if (_device_addresses.contains(address)) {
+    if (_deviceAddresses.contains(address)) {
         Logger::log(LogLevel::Warning, "No new address, don't add this address");
         return false;
     }
 
-    if (!_device_addresses.append(address)) {
-        return false;
-    }
-
-    return true;
+    return _deviceAddresses.append(address);
 }
 
-bool Ds18x20Driver::remove_address(ds18x20_addr_t address) {
-    std::unique_lock instance_guard{_instance_mutex};
+bool Ds18x20Driver::removeAddress(ds18x20_addr_t address) {
+    std::unique_lock instance_guard{_instanceMutex};
 
-    if (!_device_addresses.removeValue(address)) {
+    if (!_deviceAddresses.removeValue(address)) {
         Logger::log(LogLevel::Warning, "Couldn't remove address, wasn't in the list");
     }
 
