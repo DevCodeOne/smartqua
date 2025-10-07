@@ -6,34 +6,7 @@
 #include <mutex>
 #include <shared_mutex>
 
-enum struct ThreadSafety {
-    Safe, Unsafe
-};
-
-template<ThreadSafety Safety>
-class ConditionalThreadSafety;
-
-struct DoNothing {};
-
-template<>
-class ConditionalThreadSafety<ThreadSafety::Unsafe> {
-public:
-    auto createSharedLock() { return DoNothing{}; }
-    auto createUniqueLock() { return DoNothing{}; }
-};
-
-template<>
-class ConditionalThreadSafety<ThreadSafety::Safe> {
-public:
-    auto createSharedLock() { return std::shared_lock{mutex}; }
-    auto createUniqueLock() { return std::unique_lock{mutex}; }
-
-    std::shared_mutex mutex;
-};
-
-
-template<ThreadSafety Safety>
-class ConditionalThreadSafety;
+#include "utils/conditional_thread_safety.h"
 
 template<typename Instance, typename IndexType, typename ValueType>
 class FlagTracker {
@@ -64,14 +37,14 @@ private:
 
 template<ThreadSafety Safety, auto ... ListOfValues>
 struct ResourceLookupTable {
-    using CommonType = decltype((ListOfValues , ...));
+    using CommonType = std::common_type_t<decltype(ListOfValues) ...>;
     using FlagTrackerType =  FlagTracker<ResourceLookupTable, CommonType, bool>;
 
     static constexpr std::array<CommonType, sizeof...(ListOfValues)> indices{ListOfValues... };
     std::array<bool, sizeof...(ListOfValues)> values{false};
 
     FlagTrackerType setIfValue(CommonType Value, bool newValue, bool oldValue) {
-        [[maybe_unused]] auto uniqueLock = mMutialExclusion.createUniqueLock();
+        [[maybe_unused]] auto uniqueLock = mMutualExclusion.createUniqueLock();
         auto index = std::ranges::find(indices, Value);
 
         if (index == indices.cend()) {
@@ -88,7 +61,7 @@ struct ResourceLookupTable {
     }
 
      FlagTrackerType setIf(CommonType Value, bool newValue) {
-        [[maybe_unused]] auto uniqueLock = mMutialExclusion.createUniqueLock();
+        [[maybe_unused]] auto uniqueLock = mMutualExclusion.createUniqueLock();
         auto index = std::ranges::find(indices, Value);
 
         if (index == indices.cend()) {
@@ -101,5 +74,5 @@ struct ResourceLookupTable {
         return FlagTrackerType{};
     }
 
-    ConditionalThreadSafety<Safety> mMutialExclusion;
+    ConditionalThreadSafety<Safety> mMutualExclusion;
 };
