@@ -3,7 +3,7 @@
 
 #include "main_thread.h"
 
-unsigned int stack_size = 8 * 4096;
+static unsigned int stack_size = 7 * 4096 + 2048;
 
 extern "C" void app_main(void) {
     pthread_attr_t attributes;
