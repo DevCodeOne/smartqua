@@ -23,10 +23,10 @@ bool PinDriver::conditionalInvert(bool currentLevel, bool invert) {
 std::optional<bool> PinDriver::computePinLevel(const DeviceValues &value, const PinConfig *pinConf) {
     bool level{false};
 
-    if (value.enable().has_value()) {
-        level = *value.enable();
-    } else if (value.percentage().has_value()) {
-        level = static_cast<bool>(*value.percentage());
+    if (const auto asEnable = value.getAsUnitAsType<DeviceValueUnit::enable>(); asEnable) {
+        level = *asEnable;
+    } else if (const auto asPercentage = value.getAsUnitAsType<DeviceValueUnit::percentage>(); asPercentage) {
+        level = static_cast<bool>(*asPercentage);
     } else {
         return {};
     }
@@ -58,17 +58,17 @@ void PinDriver::resetPinTimed(void *instance) {
     gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), oldValue);
 }
 
-bool PinDriver::adjustTimedValue(const DeviceValues value, const PinConfig *pinConf) {
+bool PinDriver::adjustTimedValue(const DeviceValues& value, const PinConfig *pinConf) {
     // TODO: use time instead of generic_unsigned_integral, or in addition to it
     Logger::log(LogLevel::Debug, "Inside adjust timed value");
     using namespace std::chrono;
     seconds secondsTillReset{0};
-    if (value.seconds()) {
+    if (const auto asSeconds = value.getAsUnitAsType<DeviceValueUnit::seconds>(); asSeconds) {
         Logger::log(LogLevel::Debug, "Seconds has value");
-        secondsTillReset = seconds(*value.seconds());
-    } else if (value.generic_unsigned_integral()) {
+        secondsTillReset = seconds(*asSeconds);
+    } else if (const auto asGenericUnsigned = value.getAsUnitAsType<DeviceValueUnit::generic_unsigned_integral>(); asGenericUnsigned) {
         Logger::log(LogLevel::Debug, "generic_unsigned_integral has value");
-        secondsTillReset = seconds(*value.generic_unsigned_integral());
+        secondsTillReset = seconds(*asGenericUnsigned);
     } else {
         return false;
     }
@@ -77,7 +77,7 @@ bool PinDriver::adjustTimedValue(const DeviceValues value, const PinConfig *pinC
         static_cast<int>(!pinConf->invert));
     gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), !pinConf->invert);
 
-    auto timedTask = _timedOutputTasks.postTask(TaskDescription{
+    auto timedTask = MainTaskPool::postTask(TaskDescription{
         .single_shot = true,
         .func_ptr = &resetPinTimed,
         .interval = secondsTillReset,
@@ -134,7 +134,7 @@ DeviceOperationResult PinDriver::read_value(std::string_view what, DeviceValues 
         return DeviceOperationResult::not_supported;
     }
 
-    values.enable(gpio_get_level(static_cast<gpio_num_t>(pinConf->gpio_num)));
+    values.setToUnit(DeviceValueUnit::enable, gpio_get_level(static_cast<gpio_num_t>(pinConf->gpio_num)));
 
     return DeviceOperationResult::ok ;
 }
@@ -158,15 +158,6 @@ void PinDriver::initPinDriverStatics() {
     static std::once_flag initPinDriverStatics{};
     std::call_once(initPinDriverStatics, [](){
         Logger::log(LogLevel::Info, "Initialized static pin settings and threads");
-        _timedOutputThread = std::jthread([](std::stop_token token) {
-            while (!token.stop_requested()) {
-                const auto beforeExec = std::chrono::steady_clock::now();
-                const auto nextExecutionAt =_timedOutputTasks.doWorkOnce();
-
-                const auto now = std::chrono::steady_clock::now();
-                std::this_thread::sleep_until(nextExecutionAt);
-            }
-        });
         ledc_fade_func_install(0);
     });
 }
@@ -283,24 +274,29 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
 }
 
 bool PinDriver::adjustPwmOutput(const DeviceValues &value, const PinConfig *pinConf) {
-    decltype(value.generic_pwm()) pwmValue = 0;
+    using PwmType = DeviceValueUnitMap::map<DeviceValueUnit::generic_pwm>;
+    PwmType pwmValue = 0;
 
-    if (value.generic_pwm().has_value()) {
-        pwmValue = *value.generic_pwm();
-    } else if (value.percentage().has_value()) {
-        static constexpr auto MaxPercentageValue = 100;
-        const auto clampedPercentage = std::clamp<decltype(value.percentage())::value_type>(*value.percentage(), 0, MaxPercentageValue);
-        pwmValue = static_cast<decltype(pwmValue)::value_type>((pinConf->max_value / MaxPercentageValue) * clampedPercentage);
+    if (const auto asPwm = value.getAsUnitAsType<DeviceValueUnit::generic_pwm>(); asPwm)
+    {
+        pwmValue = *asPwm;
     }
-
-    if (!pwmValue.has_value()) {
+    else if (const auto asPercentage = value.getAsUnitAsType<DeviceValueUnit::percentage>(); asPercentage)
+    {
+        static constexpr auto MaxPercentageValue = 100;
+        const auto clampedPercentage = std::clamp<decltype(asPercentage)::value_type>(
+            *asPercentage, 0, MaxPercentageValue);
+        pwmValue = static_cast<PwmType>((pinConf->max_value / MaxPercentageValue) * clampedPercentage);
+    }
+    else
+    {
         return false;
     }
 
     if (!pinConf->invert) {
-        m_current_value = std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
+        m_current_value = std::clamp<uint16_t>(pwmValue, 0, pinConf->max_value);
     } else {
-        m_current_value = pinConf->max_value - std::clamp<uint16_t>(*pwmValue, 0, pinConf->max_value);
+        m_current_value = pinConf->max_value - std::clamp<uint16_t>(pwmValue, 0, pinConf->max_value);
     }
 
     esp_err_t result = ESP_OK;

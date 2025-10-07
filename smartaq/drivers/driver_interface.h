@@ -49,9 +49,7 @@ private:
     std::mutex mThreadMutex;
     std::optional<Driver> mDriver;
 
-    using TaskPoolType = TaskPool<32u>;
-
-    TaskResourceTracker<TaskPoolType> mTrackedTask;
+    TaskResourceTracker<MainTaskPool> mTrackedTask;
 
     static void updateThread(void* instance);
 };
@@ -140,7 +138,7 @@ DeviceOperationResult SensorDriverInterface<Driver>::update_runtime_data()
 {
     if (!mTrackedTask.isActive())
     {
-        mTrackedTask = TaskPoolType::postTask(TaskDescription{
+        mTrackedTask = MainTaskPool::postTask(TaskDescription{
             .single_shot = false,
             .func_ptr = updateThread,
             .interval = std::chrono::seconds(5),

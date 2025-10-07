@@ -75,7 +75,7 @@ class PinDriver final {
 
         bool adjustPinLevel(const DeviceValues &value, const PinConfig *pinConf);
         bool adjustPwmOutput(const DeviceValues &value, const PinConfig *pinConf);
-        bool adjustTimedValue(const DeviceValues value, const PinConfig *pinConf);
+        bool adjustTimedValue(const DeviceValues& value, const PinConfig *pinConf);
 
         static std::optional<bool> computePinLevel(
             const DeviceValues &value, const PinConfig *pinConf);
@@ -87,15 +87,10 @@ class PinDriver final {
         static std::optional<PinDriver> createPwmConfig(const DeviceConfig *config, PinConfig *pinConf,
                                                         std::shared_ptr<GpioResource> gpio);
 
-        using TimedOutputTaskPool = TaskPool<32u>;
-
         const DeviceConfig*m_conf = nullptr;
         std::shared_ptr<TimerResource> m_timer = nullptr;
         std::shared_ptr<GpioResource> m_gpio = nullptr;
         std::shared_ptr<LedChannel> m_channel = nullptr;
         uint32_t m_current_value = 0;
-        TaskResourceTracker<TimedOutputTaskPool> trackedTasked{};
-
-        static inline TaskPool<32u> _timedOutputTasks;
-        static inline std::optional<std::jthread> _timedOutputThread;
+        TaskResourceTracker<MainTaskPool> trackedTasked{};
 };
