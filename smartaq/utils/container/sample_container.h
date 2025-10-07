@@ -9,10 +9,17 @@
 
 #include "ring_buffer.h"
 
+// TODO: Check for Stale values idea?
 template<typename T>
 struct Sample {
     T value;
     std::chrono::time_point<std::chrono::steady_clock> timeStamp;
+};
+
+template<typename T>
+struct SampleContainerSettings
+{
+    float maxRateOfChange = 0.0f;
 };
 
 template <typename T, typename AvgType = T, uint32_t n_samples = 10u>
@@ -22,6 +29,10 @@ class SampleContainer final {
     SampleContainer() = default;
     explicit SampleContainer(AvgType maxRateOfChange) : mVariance(0), mStdDerivation(0), mAvgRateOfChange(0),
                                                         mMaxRateOfChange(maxRateOfChange) {
+    }
+
+    explicit SampleContainer(SampleContainerSettings<T> settings) : SampleContainer(settings.maxRateOfChange)
+    {
     }
 
     SampleContainer(const SampleContainer &other) {

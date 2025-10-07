@@ -11,8 +11,7 @@
 #include "frozen.h"
 
 #include "utils/stack_string.h"
-
-#include <esp_log.h>
+#include "utils/container/sample_container.h"
 
 template<typename T1, typename T2>
 constexpr auto constexpr_pow(T1 n, T2 e) {
@@ -48,6 +47,14 @@ template<>
 struct read_from_json<int> { 
     static void read(const char *str, int len, int &user_data) {
         std::from_chars(str, str + len, user_data);
+    }
+};
+
+template<typename InnerType>
+struct read_from_json<SampleContainerSettings<InnerType>>
+{
+    static void read(const char *str, int len, SampleContainerSettings<InnerType> &user_data) {
+        json_scanf(str, len, "{ max_rate_of_change : %f }", &user_data.maxRateOfChange);
     }
 };
 
@@ -142,7 +149,7 @@ int json_printf_single(json_out *out, va_list *ap) {
     return print_to_json<std::remove_pointer_t<T>>::print(out, *value);
 }
 
-template<typename ArrayType, typename ValueType = typename ArrayType::value_type, auto Size = std::tuple_size<ArrayType>::value>
+template<typename ArrayType, typename ValueType = ArrayType::value_type, auto Size = std::tuple_size<ArrayType>::value>
 int json_printf_array(json_out *out, va_list *ap) {
     static std::array<const char *, 2> formats{" %M", ", %M "};
     const auto arr = reinterpret_cast<ArrayType *>(va_arg(*ap, void *));
@@ -159,3 +166,5 @@ int json_printf_array(json_out *out, va_list *ap) {
 
     return printed_bytes;
 }
+
+std::string_view tokenToStringView(json_token token, std::optional<int> maxLen = {});
