@@ -53,6 +53,7 @@ namespace String {
         [[nodiscard]] static size_t capacity();
         [[nodiscard]] size_t len() const;
         [[nodiscard]] size_t length() const;
+        [[nodiscard]] bool empty() const;
 
         [[nodiscard]] std::string_view getStringView() const;
         [[nodiscard]] explicit operator std::string_view() const;
@@ -73,7 +74,7 @@ namespace String {
         bool append(const char *str, size_t size);
         bool append(const char *str);
 
-        bool append(std::string_view &view);
+        bool append(const std::string_view& view);
         template<size_t OtherStrSize>
         requires (OtherStrSize <= Size)
         bool append(const BasicStackString<CharT, OtherStrSize> &other);
@@ -162,6 +163,10 @@ namespace String {
         return safeStrLen(this->data(), Size);
     }
 
+    template <typename CharT, size_t Size>
+    bool BasicStackString<CharT, Size>::empty() const
+    { return length() == 0; }
+
     template<typename CharT, size_t Size>
     std::string_view BasicStackString<CharT, Size>::getStringView() const {
         return std::string_view(this->data(), this->len());
@@ -179,6 +184,11 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::set(const char *value, size_t length) {
+        if (value == nullptr)
+        {
+            return false;
+        }
+
         if (!canHold(length)) {
             return false;
         }
@@ -226,6 +236,11 @@ namespace String {
 
     template<typename CharT, size_t Size>
     bool BasicStackString<CharT, Size>::append(const char *str, size_t size) {
+        if (str == nullptr)
+        {
+            return false;
+        }
+
         const auto currentSize = len();
         const auto stringLength = safeStrLen(str, Size);
         const auto newSize = currentSize + stringLength;
@@ -246,7 +261,7 @@ namespace String {
     }
 
     template<typename CharT, size_t Size>
-    bool BasicStackString<CharT, Size>::append(std::string_view &view) {
+    bool BasicStackString<CharT, Size>::append(const std::string_view& view) {
         return append(view.data());
     }
 

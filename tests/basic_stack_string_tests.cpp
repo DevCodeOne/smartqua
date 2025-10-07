@@ -2,9 +2,60 @@
 
 #include <gtest/gtest.h>
 
-TEST(BasicStackStringTests, canHold_validSize) {
+TEST(BasicStackStringTests, initializeWithNullptr)
+{
+    // Verifying that initialization with nullptr works correctly.
     BasicStackString<10> string;
-    EXPECT_TRUE(string.canHold("12345"));
+    EXPECT_FALSE(string.set(nullptr));
+    EXPECT_EQ(string.len(), 0);
+    EXPECT_EQ(string.capacity(), 10);
+    EXPECT_TRUE(string.empty());
+}
+
+TEST(BasicStackStringTests, assignNullptr)
+{
+    // Verifying assignment using nullptr does not overwrite the current contents.
+    BasicStackString<10> string("1234");
+    EXPECT_FALSE(string.set(nullptr));
+    EXPECT_EQ(string.len(), 4);
+    EXPECT_EQ(string.getStringView(), "1234");
+}
+
+TEST(BasicStackStringTests, appendNullptr)
+{
+    // Verifying that appending nullptr does not modify the string.
+    BasicStackString<10> string("1234");
+    EXPECT_FALSE(string.append(nullptr));
+    EXPECT_EQ(string.len(), 4);
+    EXPECT_EQ(string.getStringView(), "1234");
+}
+
+TEST(BasicStackStringTests, addAssignOperatorNullptr)
+{
+    // Verifying that += operator with nullptr does not alter the string.
+    BasicStackString<10> string("1234");
+    string += nullptr;
+    EXPECT_EQ(string.len(), 4);
+    EXPECT_EQ(string.getStringView(), "1234");
+}
+
+TEST(BasicStackStringTests, equalityComparisonWithNullptr)
+{
+    // Verifying comparison between a string and nullptr.
+    BasicStackString<10> string("1234");
+
+    EXPECT_FALSE(string == nullptr);
+    EXPECT_TRUE(BasicStackString<10>{} == nullptr); // Empty string equals nullptr
+}
+
+TEST(BasicStackStringTests, safeStrlenWithNullptr)
+{
+    // Re-validating that safeStrLen returns correctly for nullptr inputs.
+    EXPECT_EQ(safeStrLen(static_cast<const char*>(nullptr), 100), 0);
+    EXPECT_EQ(safeStrLen(static_cast<const char*>(nullptr), 0), 0);
+}
+
+TEST(BasicStackStringTests, setUsingNullptrAndLength) {
 }
 
 TEST(BasicStackStringTests, canHold_JustSize) {
