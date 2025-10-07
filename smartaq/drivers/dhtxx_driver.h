@@ -4,9 +4,12 @@
 #include <string_view>
 
 #include "dht.h"
+
 #include "drivers/device_types.h"
 #include "drivers/device_resource.h"
-#include "../utils/container/sample_container.h"
+#include "drivers/driver_interface.h"
+
+#include "utils/container/sample_container.h"
 
 enum struct DhtXXDeviceType : uint8_t {
     Dht21 = dht_sensor_type_t::DHT_TYPE_AM2301
@@ -30,9 +33,18 @@ struct DhtXXDriverData final {
     DhtXXDeviceType type;
 };
 
+class DhtXXDriver;
+
+template<>
+struct DriverInfo<DhtXXDriver> {
+    using DeviceConfig = DhtXXDriverData;
+
+    static constexpr char Name[] = "dhtxx_driver";
+};
+
+
 class DhtXXDriver final {
     public:
-    static constexpr char name[] = "dhtxx_driver";
 
     DhtXXDriver(const DhtXXDriver&) = delete;
     DhtXXDriver(DhtXXDriver&&) noexcept;
@@ -50,16 +62,15 @@ class DhtXXDriver final {
     DeviceOperationResult call_device_action(DeviceConfig *config, const std::string_view &action, const std::string_view &json) const;
     DeviceOperationResult update_runtime_data();
 
+    void oneIteration();
+
     private:
     DhtXXDriver(const DeviceConfig *config, std::shared_ptr<GpioResource> pin);
 
-    static void updateDataThread(std::stop_token, DhtXXDriver *data);
-
     const DeviceConfig *mConf;
     std::shared_ptr<GpioResource> mPin;
-    SampleContainer<float> mTemperatureReadings;
-    SampleContainer<float> mHumidityReadings;
-    std::jthread mReadThread;
+    SampleContainer<float> mTemperatureReadings{};
+    SampleContainer<float> mHumidityReadings{};
 
     static inline std::array<std::shared_ptr<GpioResource>, max_num_devices> _Pins;
     static inline std::shared_mutex _instance_mutex;

@@ -33,6 +33,9 @@ struct Bme280DeviceConfig {
     gpio_num_t sdaPin;
     gpio_num_t sclPin;
     Bme280Address address;
+    SampleContainerSettings<float> humidityContainerSettings;
+    SampleContainerSettings<float> temperatureContainerSettings;
+    SampleContainerSettings<float> pressureContainerSettings;
 };
 
 class Bme280Driver;
@@ -44,11 +47,11 @@ struct DriverInfo<Bme280Driver> {
     static constexpr char Name[] = "Bme280Driver";
 };
 
-class Bme280Driver : public DriverInterface<Bme280Driver> {
+class Bme280Driver {
 public:
     ~Bme280Driver();
-    Bme280Driver(Bme280Driver &&other);
-    Bme280Driver &operator=(Bme280Driver &&other);
+    Bme280Driver(Bme280Driver &&other) noexcept;
+    Bme280Driver &operator=(Bme280Driver &&other) noexcept;
 
     Bme280Driver(const Bme280Driver &other) = delete;
     Bme280Driver &operator=(const Bme280Driver &other) = delete;
@@ -59,9 +62,7 @@ public:
     DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
     DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
 
-    DeviceOperationResult update_runtime_data() { startThread(); return DeviceOperationResult::ok; }
-
-    static void oneIteration(Bme280Driver *instance);
+    void oneIteration();
 private:
     using AddressTracker = ResourceLookupTable<ThreadSafety::Safe,
                                         Bme280Address::Zero,
@@ -69,17 +70,15 @@ private:
     using SingleAddressTracker = AddressTracker::FlagTrackerType;
 
     static std::optional<Bme280Driver> setupDevice(const DeviceConfig *deviceConf, SingleAddressTracker tracker,
-                                                   std::shared_ptr<GpioResource> sdaPin, std::shared_ptr<GpioResource> sclPin);
+                                                   std::shared_ptr<I2cResource> i2cResource);
 
     Bme280Driver(const DeviceConfig *config,
                  SingleAddressTracker tracker,
-                 std::shared_ptr<GpioResource> sdaPin,
-                 std::shared_ptr<GpioResource> sclPin,
+                 std::shared_ptr<I2cResource> i2cResource,
                  bmp280_t device);
 
     SingleAddressTracker mTracker;
-    std::shared_ptr<GpioResource> mSdaPin;
-    std::shared_ptr<GpioResource> mSclPin;
+    std::shared_ptr<I2cResource> mI2cResource;
     std::optional<bmp280_t> mDevice;
 
     SampleContainer<float> mHumidity;

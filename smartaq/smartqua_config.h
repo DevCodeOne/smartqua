@@ -58,8 +58,9 @@ using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         SwitchDriver,
                                         PhProbeDriver,
                                         PicoDeviceDriver,
-                                        DhtXXDriver,
-                                        Bme280Driver>;
+                                        SensorCombiner,
+                                        SensorDriverInterface<DhtXXDriver>,
+                                        SensorDriverInterface<Bme280Driver>>;
 using StatCollectionType = StatCollection<max_stat_size>;
 
 using SettingType = Settings<max_setting_size>;

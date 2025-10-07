@@ -7,107 +7,159 @@
 template<typename Driver>
 struct DriverInfo;
 
-template<typename Driver>
-class DriverInterface {
-public:
-    using ThisDriverInfo = DriverInfo<Driver>;
-
-    using ThisDeviceConfig = typename ThisDriverInfo::DeviceConfig;
-    static constexpr auto name = ThisDriverInfo::Name;
-
-    DriverInterface(const DeviceConfig *conf);
-    DriverInterface(DriverInterface &&) noexcept;
-    DriverInterface &operator=(DriverInterface &&) noexcept;
-    ~DriverInterface();
-
-    DriverInterface(const DriverInterface &) = delete;
-    DriverInterface &operator=(const DriverInterface &) = delete;
-
-    static std::optional<Driver> create_driver(const std::string_view &data, DeviceConfig &deviceConfigOut) { return std::nullopt; }
-    static std::optional<Driver> create_driver(const DeviceConfig *deviceConfig) { return std::nullopt; }
-
-    DeviceOperationResult write_value(std::string_view what, const DeviceValues &value) { return DeviceOperationResult::not_supported; }
-    DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const { return DeviceOperationResult::not_supported; }
-    DeviceOperationResult get_info(char *output, size_t output_buffer_len) const { return DeviceOperationResult::ok; }
-    DeviceOperationResult call_device_action(DeviceConfig *config, const std::string_view &action, const std::string_view &json) const { return DeviceOperationResult::not_supported; }
-    DeviceOperationResult update_runtime_data() { return DeviceOperationResult::ok; }
-protected:
-
-    void startThread();
-
-    const DeviceConfig *mConf;
-private:
-    std::jthread mUpdateThread;
-    std::mutex mThreadMutex;
-
-    void startThreadImpl();
-    static void updateThread(std::stop_token token, std::mutex *lockedLock, DriverInterface *instance);
-
+template<typename Driver, typename ThisDriverInfo = DriverInfo<Driver>>
+concept HasDriverInfo = requires(Driver &instance)
+{
+    typename ThisDriverInfo::DeviceConfig;
+    sizeof(ThisDriverInfo);
+    std::is_same_v<decltype(ThisDriverInfo::Name), const char *>;
+    { instance.oneIteration() } -> std::same_as<void>;
 };
 
 template<typename Driver>
-DriverInterface<Driver>::DriverInterface(const DeviceConfig *conf) : mConf(conf) { }
+concept IsDriver = HasDriverInfo<Driver>;
 
-template<typename Driver>
-DriverInterface<Driver>::DriverInterface(DriverInterface &&other) noexcept : mConf(other.mConf) {
-    if (other.mUpdateThread.joinable()) {
-        other.mUpdateThread.join();
-    }
+// TODO: Add failsafe, restart and more
+template<IsDriver Driver>
+class SensorDriverInterface {
+public:
+    using ThisDriverInfo = DriverInfo<Driver>;
 
-    if (mUpdateThread.joinable()) {
-        mUpdateThread.join();
-    }
-    other.mConf = nullptr;
+    static constexpr auto name = ThisDriverInfo::Name;
+
+    explicit SensorDriverInterface(Driver driver);
+    SensorDriverInterface(SensorDriverInterface &&) noexcept;
+    SensorDriverInterface &operator=(SensorDriverInterface &&) noexcept;
+    ~SensorDriverInterface();
+
+    SensorDriverInterface(const SensorDriverInterface &) = delete;
+    SensorDriverInterface &operator=(const SensorDriverInterface &) = delete;
+
+    static std::optional<SensorDriverInterface> create_driver(const std::string_view &input, DeviceConfig &deviceConfigOut);
+    static std::optional<SensorDriverInterface> create_driver(const DeviceConfig *deviceConfig);
+
+    DeviceOperationResult write_value(std::string_view what, const DeviceValues &value) { return DeviceOperationResult::not_supported; }
+    DeviceOperationResult update_runtime_data();
+
+    DeviceOperationResult call_device_action(DeviceConfig *config, const std::string_view &action, const std::string_view &json) const { return DeviceOperationResult::not_supported; }
+    DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
+    DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
+
+private:
+    std::mutex mThreadMutex;
+    std::optional<Driver> mDriver;
+
+    using TaskPoolType = TaskPool<32u>;
+
+    TaskResourceTracker<TaskPoolType> mTrackedTask;
+
+    static void updateThread(void* instance);
+};
+
+template <IsDriver Driver>
+SensorDriverInterface<Driver>::SensorDriverInterface(Driver driver) : mDriver(std::move(driver))
+{
 }
 
-template<typename Driver>
-DriverInterface<Driver> & DriverInterface<Driver>::operator=(DriverInterface &&other) noexcept {
+template<IsDriver Driver>
+SensorDriverInterface<Driver>::SensorDriverInterface(SensorDriverInterface &&other) noexcept {
+    mTrackedTask.invalidate();
+    other.mTrackedTask.invalidate();
+
+    mDriver = std::move(other.mDriver);
+}
+
+template<IsDriver Driver>
+SensorDriverInterface<Driver>& SensorDriverInterface<Driver>::operator=(SensorDriverInterface &&other) noexcept {
     using std::swap;
 
-    if (mUpdateThread.joinable()) {
-        mUpdateThread.join();
-    }
+    mTrackedTask.invalidate();
+    other.mTrackedTask.invalidate();
 
-    if (other.mUpdateThread.joinable()) {
-        other.mUpdateThread.join();
-    }
-
-    swap(mConf, other.mConf);
+    swap(mDriver, other.mDriver);
 
     return *this;
 }
 
-template<typename Driver>
-DriverInterface<Driver>::~DriverInterface() {
-    if (mUpdateThread.joinable()) {
-        mUpdateThread.join();
+template <IsDriver Driver>
+DeviceOperationResult SensorDriverInterface<Driver>::read_value(std::string_view what, DeviceValues& value) const
+{
+    if (!mDriver)
+    {
+        return DeviceOperationResult::failure;
     }
+
+    return mDriver->read_value(what, value);
 }
 
-template<typename Driver>
-void DriverInterface<Driver>::startThread() {
-    startThreadImpl();
-}
-
-template<typename Driver>
-void DriverInterface<Driver>::startThreadImpl() {
-    if (mThreadMutex.try_lock()) {
-        mUpdateThread = std::jthread(DriverInterface<Driver>::updateThread, &mThreadMutex, this);
+template <IsDriver Driver>
+DeviceOperationResult SensorDriverInterface<Driver>::get_info(char* output, size_t output_buffer_len) const
+{
+    if (!mDriver)
+    {
+        return DeviceOperationResult::failure;
     }
+
+    return mDriver->get_info(output, output_buffer_len);
 }
 
-template<typename Driver>
-void DriverInterface<Driver>::updateThread(std::stop_token token, std::mutex *threadRunMutex, DriverInterface *instance) {
+template<IsDriver Driver>
+SensorDriverInterface<Driver>::~SensorDriverInterface() {
+}
+
+template <IsDriver Driver>
+std::optional<SensorDriverInterface<Driver>> SensorDriverInterface<Driver>::create_driver(const std::string_view& input,
+    DeviceConfig& deviceConfigOut)
+{
+    auto driver = Driver::create_driver(input, deviceConfigOut);
+
+    if (!driver)
+    {
+        return {};
+    }
+
+    return SensorDriverInterface(std::move(*driver));
+}
+
+template <IsDriver Driver>
+std::optional<SensorDriverInterface<Driver>> SensorDriverInterface<Driver>::create_driver(
+    const DeviceConfig* deviceConfig)
+{
+    auto driver = Driver::create_driver(deviceConfig);
+
+    if (!driver)
+    {
+        return std::nullopt;
+    }
+
+    return SensorDriverInterface(std::move(*driver));
+}
+
+template <IsDriver Driver>
+DeviceOperationResult SensorDriverInterface<Driver>::update_runtime_data()
+{
+    if (!mTrackedTask.isActive())
+    {
+        mTrackedTask = TaskPoolType::postTask(TaskDescription{
+            .single_shot = false,
+            .func_ptr = updateThread,
+            .interval = std::chrono::seconds(5),
+            .argument = this,
+            .description = "Reading from sensor",
+            .last_executed = std::chrono::steady_clock::now()
+        });
+    }
+    return DeviceOperationResult::ok;
+}
+
+template<IsDriver Driver>
+void SensorDriverInterface<Driver>::updateThread(void *ptr) {
     using namespace std::chrono;
-    std::lock_guard threadMutex(*threadRunMutex, std::adopt_lock);
-    while (!token.stop_requested()) {
-        const auto startTime = std::chrono::steady_clock::now();
-        Driver::oneIteration(static_cast<Driver *>(instance));
-        // TODO: check time for execution
-        const auto iterationTime = std::chrono::steady_clock::now() - startTime;
 
-        if (iterationTime < 500ms) {
-            std::this_thread::sleep_for(500ms - iterationTime);
-        }
+    auto* instance = static_cast<SensorDriverInterface*>(ptr);
+
+    if (instance->mDriver.has_value())
+    {
+        instance->mDriver->oneIteration();
     }
 }

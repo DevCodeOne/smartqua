@@ -20,11 +20,11 @@ DeviceOperationResult DhtXXDriver::write_value(std::string_view what, const Devi
 
 DeviceOperationResult DhtXXDriver::read_value(std::string_view what, DeviceValues &value) const {
     if (what == "temp" || what == "temperature") {
-        value.temperature(mTemperatureReadings.average());
+        value.setToUnit(DeviceValueUnit::temperature, mTemperatureReadings.average());
         return DeviceOperationResult::ok;
     }
     if (what == "humidity") {
-        value.humidity(mHumidityReadings.average());
+        value.setToUnit(DeviceValueUnit::humidity, mHumidityReadings.average());
         return DeviceOperationResult::ok;
     }
 
@@ -47,74 +47,51 @@ DeviceOperationResult DhtXXDriver::update_runtime_data() {
 }
 
 DhtXXDriver::DhtXXDriver(const DeviceConfig *config, std::shared_ptr<GpioResource> pin) : mConf(config), mPin(std::move(pin)) {
-    mReadThread = std::jthread(&DhtXXDriver::updateDataThread, this);
 }
 
-void DhtXXDriver::updateDataThread(std::stop_token token, DhtXXDriver *instance) {
-    using namespace std::chrono_literals;
-    const auto *config  = instance->mConf->accessConfig<DhtXXDriverData>();
+void DhtXXDriver::oneIteration()
+{
+    const auto* config = mConf->accessConfig<DhtXXDriverData>();
 
-    while(!token.stop_requested()) {
-        const auto beforeReading = std::chrono::steady_clock::now();
-        float temperature = 0;
-        float humidity = 0;
-        const auto error = dht_read_float_data(static_cast<dht_sensor_type_t>(config->type),
-                                         config->gpio,
-                                         &humidity,
-                                         &temperature);
+    float temperature = 0;
+    float humidity = 0;
+    const auto error = dht_read_float_data(static_cast<dht_sensor_type_t>(config->type),
+                                           config->gpio,
+                                           &humidity,
+                                           &temperature);
 
-        if (error != ESP_OK) {
-            Logger::log(LogLevel::Error, "Failed to read temperature and/or humidity");
-        }
+    if (error != ESP_OK)
+    {
+        Logger::log(LogLevel::Error, "Failed to read temperature and/or humidity");
+    }
 
-        if (error == ESP_OK) {
-            instance->mTemperatureReadings.putSample(temperature);
-            instance->mHumidityReadings.putSample(humidity);
-        }
-
-        const auto duration = std::chrono::steady_clock::now() - beforeReading;
-        std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);
+    if (error == ESP_OK)
+    {
+        mTemperatureReadings.putSample(temperature);
+        mHumidityReadings.putSample(humidity);
     }
 }
 
 DhtXXDriver::DhtXXDriver(DhtXXDriver &&other) noexcept : mConf(other.mConf), mPin(std::move(other.mPin)) {
-    other.mReadThread.request_stop();
-    if (other.mReadThread.joinable()) {
-        other.mReadThread.join();
-    }
-
     other.mConf = nullptr;
     other.mPin = nullptr;
-
-    mReadThread = std::jthread(&DhtXXDriver::updateDataThread, this);
 }
 
 DhtXXDriver::~DhtXXDriver() {
     if (mConf == nullptr) {
         return;
     }
-
     Logger::log(LogLevel::Info, "Deleting instance of DhtXXDriver");
-    if (mReadThread.joinable()) {
-        mReadThread.request_stop();
-        mReadThread.join();
-    }
 }
 
 DhtXXDriver &DhtXXDriver::operator=(DhtXXDriver &&other) noexcept {
     using std::swap;
 
     Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
-    other.mReadThread.request_stop();
-    if (other.mReadThread.joinable()) {
-        other.mReadThread.join();
-    }
     Logger::log(LogLevel::Info, "Done");
 
     swap(mConf, other.mConf);
     swap(mPin, other.mPin);
-
-    mReadThread = std::jthread(&DhtXXDriver::updateDataThread, this);
 
     return *this;
 }
@@ -140,7 +117,6 @@ std::optional<DhtXXDriver> DhtXXDriver::create_driver(const std::string_view inp
 
     DhtXXDriverData data { .gpio = static_cast<gpio_num_t>(gpio_num), .type = DhtXXDeviceType::Dht21 };
     deviceConfOut.insertConfig(&data);
-    deviceConfOut.device_driver_name =  DhtXXDriver::name;
 
     return DhtXXDriver(&deviceConfOut, pin);
 }

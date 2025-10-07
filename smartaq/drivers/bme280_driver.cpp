@@ -5,21 +5,33 @@
 std::optional<Bme280Driver> Bme280Driver::create_driver(const std::string_view &input, DeviceConfig &deviceConfigOut) {
     unsigned int sdaPin = static_cast<uint8_t>(sdaDefaultPin);
     unsigned int sclPin = static_cast<uint8_t>(sclDefaultPin);
-    Bme280Address address = Bme280Address::Invalid;
 
-    Logger::log(LogLevel::Info, "%.*s", input.size(), input.data());
-    json_scanf(input.data(), input.size(), "{ address : %M, sclPin : %u, sdaPin : %u }",
-               json_scanf_single<decltype(address)>, &address, &sclPin, &sdaPin);
-
-    if (address == Bme280Address::Invalid) {
-        Logger::log(LogLevel::Warning, "Invalid address for Bme280Driver : %x", static_cast<int>(address));
-    }
 
     Bme280DeviceConfig data{
         .sdaPin = static_cast<gpio_num_t>(sdaPin),
         .sclPin = static_cast<gpio_num_t>(sclPin),
-        .address = address,
+        .address = Bme280Address::Zero,
+
+        .humidityContainerSettings{30.0f},
+        .temperatureContainerSettings{1.0f},
+        .pressureContainerSettings{100.0f}
     };
+
+
+    Logger::log(LogLevel::Info, "%.*s", input.size(), input.data());
+    json_scanf(input.data(), input.size(),
+               "{ address : %M, sclPin : %u, sdaPin : %u, humidity_container : %M, temperature_container : %M, pressure_container : %M }",
+               json_scanf_single<decltype(data.address)>, &data.address, &sclPin, &sdaPin,
+               json_scanf_single<decltype(data.humidityContainerSettings)>, &data.humidityContainerSettings,
+               json_scanf_single<decltype(data.temperatureContainerSettings)>, &data.temperatureContainerSettings,
+               json_scanf_single<decltype(data.pressureContainerSettings)>, &data.pressureContainerSettings);
+
+    if (data.address == Bme280Address::Invalid) {
+        Logger::log(LogLevel::Warning, "Invalid address for Bme280Driver : %x", static_cast<int>(data.address));
+    }
+
+    data.sclPin = static_cast<gpio_num_t>(sclPin);
+    data.sdaPin = static_cast<gpio_num_t>(sdaPin);
 
     std::memcpy(deviceConfigOut.device_config.data(), &data, sizeof(Bme280DeviceConfig));
     deviceConfigOut.device_driver_name = DriverInfo<Bme280Driver>::Name;
@@ -30,13 +42,13 @@ std::optional<Bme280Driver> Bme280Driver::create_driver(const std::string_view &
 std::optional<Bme280Driver> Bme280Driver::create_driver(const DeviceConfig *conf) {
     auto driverData = conf->accessConfig<Bme280DeviceConfig>();
 
-    auto sdaPin = DeviceResource::get_gpio_resource(driverData->sdaPin, GpioPurpose::bus);
-    auto sclPin = DeviceResource::get_gpio_resource(driverData->sclPin, GpioPurpose::bus);
+    auto i2cResource = DeviceResource::get_i2c_port(i2c_port_t::I2C_NUM_0, I2C_MODE_MASTER, driverData->sdaPin, driverData->sclPin);
 
-    if (!sdaPin || !sclPin) {
+    if (i2cResource == nullptr)
+    {
         Logger::log(LogLevel::Warning,
-            "I2C Port cannot be used, since one or more pins are already reserved for a different purpose");
-        return { std::nullopt };
+                    "I2C Port couldn't be acquired");
+        return {std::nullopt};
     }
 
     auto flagTracker = addressLookupTable.setIfValue(driverData->address, true, false);
@@ -46,24 +58,22 @@ std::optional<Bme280Driver> Bme280Driver::create_driver(const DeviceConfig *conf
         return { std::nullopt };
     }
 
+    Logger::log(LogLevel::Debug, "Using address %u for bme280", static_cast<int>(driverData->address));
 
-
-    return setupDevice(conf, std::move(flagTracker), std::move(sdaPin), std::move(sclPin));
+    return setupDevice(conf, std::move(flagTracker), std::move(i2cResource));
 }
 
 std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *deviceConf,
                                                       SingleAddressTracker tracker,
-                                                      std::shared_ptr<GpioResource> sdaPin,
-                                                      std::shared_ptr<GpioResource> sclPin) {
+                                                      std::shared_ptr<I2cResource> i2cResource) {
     auto driverData = deviceConf->accessConfig<Bme280DeviceConfig>();
     bmp280_t device{};
-    std::memset(&device, 0, sizeof(bmp280_t));
-    device.i2c_dev.cfg.clk_flags = 0;
     auto result = bmp280_init_desc(&device, static_cast<uint8_t>(driverData->address),
                                    I2C_NUM_0,
-                                   sdaPin->gpio_num(), sclPin->gpio_num());
+                                   i2cResource->sda_pin(), i2cResource->scl_pin());
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't create bme280 device, removing address from use list");
+        return {};
     }
 
     bmp280_params_t params{};
@@ -71,23 +81,31 @@ std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *device
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't create bmp280 params");
-        return { std::nullopt };
+        return {};
     }
 
+    Logger::log(LogLevel::Debug, "Attempting to create bme280 device with address %u", driverData->address);
+
+    device.i2c_dev.cfg.clk_flags = 0;
+    device.i2c_dev.cfg.master.clk_speed = 100'000;
+    device.i2c_dev.cfg.scl_pullup_en = true;
+    device.i2c_dev.cfg.sda_pullup_en = true;
     result = bmp280_init(&device, &params);
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't init bmp280 device");
-        return { std::nullopt };
+        return {};
     }
 
-    return { Bme280Driver(deviceConf, std::move(tracker), std::move(sdaPin), std::move(sclPin), device) };
+    Logger::log(LogLevel::Debug, "Successfully created bme280 device with address %u", driverData->address);
+
+    return { Bme280Driver(deviceConf, std::move(tracker), std::move(i2cResource), device) };
 }
 
 DeviceOperationResult Bme280Driver::read_value(std::string_view what, DeviceValues &value) const {
     if (what == "temperature") {
-        value.temperature(mTemperature.average());
+        value.setToUnit(DeviceValueUnit::temperature, mTemperature.average());
     } else if (what == "humidity") {
-        value.humidity(mHumidity.average());
+        value.setToUnit(DeviceValueUnit::humidity, mHumidity.average());
     } else if (what == "pressure") {
         // TODO: implement
         return DeviceOperationResult::not_supported;
@@ -102,15 +120,15 @@ DeviceOperationResult Bme280Driver::get_info(char *output, size_t output_buffer_
     return DeviceOperationResult::ok;
 }
 
-void Bme280Driver::oneIteration(Bme280Driver *instance) {
-    if (!instance->mDevice.has_value()) {
+void Bme280Driver::oneIteration() {
+    if (!mDevice.has_value()) {
         return;
     }
 
     float temperature = 0;
     float pressure = 0;
     float humidity = 0;
-    auto result = bmp280_read_float(&instance->mDevice.value(), &temperature, &pressure, &humidity);
+    auto result = bmp280_read_float(&mDevice.value(), &temperature, &pressure, &humidity);
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't get measurements");
@@ -122,24 +140,32 @@ void Bme280Driver::oneIteration(Bme280Driver *instance) {
                 humidity,
                 pressure);
 
-    instance->mHumidity.putSample(humidity);
-    instance->mTemperature.putSample(temperature);
-    instance->mPressure.putSample(pressure);
+    const std::array anySampleIssue{
+        std::pair{"humidity", mHumidity.putSample(humidity)},
+        std::pair{"temperature", mTemperature.putSample(temperature)},
+        std::pair{"pressure", mPressure.putSample(pressure)}
+    };
+
+    for (const auto& [name, successful] : anySampleIssue)
+    {
+        if (!successful)
+        {
+            Logger::log(LogLevel::Warning, "There was an issue with the data provided by the sensor: %s",
+                        name);
+        }
+    }
 }
 
 Bme280Driver::Bme280Driver(const DeviceConfig *config,
                            SingleAddressTracker tracker,
-                           std::shared_ptr<GpioResource> sdaPin,
-                           std::shared_ptr<GpioResource> sclPin,
+                           std::shared_ptr<I2cResource> i2cResource,
                            bmp280_t device)
-    : DriverInterface(config)
-      , mTracker(std::move(tracker))
-      , mSdaPin(std::move(sdaPin))
-      , mSclPin(std::move(sclPin))
+    : mTracker(std::move(tracker))
+      , mI2cResource(std::move(i2cResource))
       , mDevice(device)
-      , mHumidity()
-      , mTemperature()
-      , mPressure() {
+      , mHumidity(config->accessConfig<Bme280DeviceConfig>()->humidityContainerSettings)
+      , mTemperature(config->accessConfig<Bme280DeviceConfig>()->temperatureContainerSettings)
+      , mPressure(config->accessConfig<Bme280DeviceConfig>()->pressureContainerSettings) {
 }
 
 Bme280Driver::~Bme280Driver() {
@@ -148,21 +174,24 @@ Bme280Driver::~Bme280Driver() {
     }
 }
 
-Bme280Driver::Bme280Driver(Bme280Driver &&other)
-    : DriverInterface(std::move(other))
-    , mTracker(std::move(other.mTracker))
-    , mSdaPin(std::move(other.mSdaPin))
-    , mSclPin(std::move(other.mSclPin))
-    , mDevice(other.mDevice) {
+Bme280Driver::Bme280Driver(Bme280Driver&& other) noexcept
+    : mTracker(std::move(other.mTracker))
+      , mI2cResource(std::move(other.mI2cResource))
+      ,
+      mDevice(other
+          .
+          mDevice
+      )
+{
     other.mDevice = std::nullopt;
 }
 
-Bme280Driver & Bme280Driver::operator=(Bme280Driver &&other) {
+Bme280Driver & Bme280Driver::operator=(Bme280Driver &&other) noexcept
+{
     using std::swap;
 
     swap(other.mTracker, mTracker);
-    swap(other.mSdaPin, mSdaPin);
-    swap(other.mSclPin, mSclPin);
+    swap(other.mI2cResource, mI2cResource);
 
     other.mDevice = std::nullopt;
 
