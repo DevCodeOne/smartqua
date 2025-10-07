@@ -20,9 +20,10 @@ static inline constexpr auto MaxLocalPathLength = 24;
 
 // TODO: consider own datatype for channelNames + deviceIndices
 struct ScheduleDriverData final {
-    std::array<std::optional<BasicStackString<schedule_max_channel_name_length>>, schedule_max_num_channels> channelNames;
+    std::array<BasicStackString<schedule_max_channel_name_length>, schedule_max_num_channels> channelNames;
     // TODO: change this to uint8_t later on
     std::array<std::optional<int>, schedule_max_num_channels> deviceIndices;
+    std::array<BasicStackString<schedule_max_channel_name_length>, schedule_max_num_channels> deviceArguments;
     std::array<DeviceValueUnit, schedule_max_num_channels> channelUnit{};
     BasicStackString<MaxLocalPathLength> schedulePath;
     BasicStackString<MaxLocalPathLength> scheduleStatePath;
@@ -70,9 +71,9 @@ class ScheduleDriver final {
         ~ScheduleDriver() = default;
 
         ScheduleDriver &operator=(const ScheduleDriver &other) = delete;
-        ScheduleDriver &operator=(ScheduleDriver &&other);
+        ScheduleDriver &operator=(ScheduleDriver &&other) noexcept;
 
-        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig&deviceConfOut);
+        static std::optional<ScheduleDriver> create_driver(const std::string_view &input, DeviceConfig &deviceConfOut);
         static std::optional<ScheduleDriver> create_driver(const DeviceConfig *config);
 
         DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
@@ -130,7 +131,7 @@ struct read_from_json<ScheduleEventTransitionMode> {
     }
 };
 
-// TODO: replace, this doesn't make sense, since it doesn't actually initalize the complete ScheduleDriver
+// TODO: replace, this doesn't make sense, since it doesn't actually initialize the complete ScheduleDriver
 template<>
 struct read_from_json<ScheduleDriver> {
     static void read(const char *str, int len, ScheduleDriver &userData) {

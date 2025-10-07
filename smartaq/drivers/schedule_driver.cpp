@@ -119,7 +119,8 @@ ScheduleDriver::ScheduleDriver(ScheduleDriver &&other) noexcept : mConf(other.mC
     }
 }
 
-ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) {
+ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) noexcept
+{
     mConf = other.mConf;
     schedule = other.schedule;
     scheduleTracker.setSchedule(&schedule);
@@ -137,20 +138,23 @@ std::optional<ScheduleDriver> ScheduleDriver::create_driver(const std::string_vi
 
         // TODO: Use device_names instead of the indices
         // TODO: maybe do channel_desc, instead of the individual arrays
-        json_scanf(input.data(), input.size(), "{ type : %M, channel_names : %M, devices : %M, channel_units : %M }", 
+        json_scanf(input.data(), input.size(), "{ type : %M, channel_names : %M, devices : %M, device_arguments : %M, channel_units : %M }",
         json_scanf_single<ScheduleEventTransitionMode>, &newConf.type,
         json_scanf_array<decltype(newConf.channelNames)>, &newConf.channelNames,
         json_scanf_array<decltype(newConf.deviceIndices)>, &newConf.deviceIndices,
+        json_scanf_array<decltype(newConf.deviceArguments)>, &newConf.deviceArguments,
         json_scanf_array<decltype(newConf.channelUnit)>, &newConf.channelUnit);
 
         for (const auto &channelName : newConf.channelNames) {
-            Logger::log(LogLevel::Debug, "Length of Channel name: %d %.*s", channelName->len(), channelName->len(), channelName->data());
+            Logger::log(LogLevel::Debug, "Length of Channel name: %d %.*s", channelName.len(), channelName.len(), channelName.data());
         }
 
         bool missingData = false;
         for (uint8_t i = 0; i < newConf.deviceIndices.size(); ++i) {
-            if (newConf.channelNames[i].has_value() != newConf.deviceIndices[i].has_value()) {
-                Logger::log(LogLevel::Warning, "Channel %d has no device index nor a channel name", i);
+            bool hasChannelName = !newConf.channelNames[i].empty();
+            bool hasDeviceIndex = newConf.deviceIndices[i].has_value();
+            if (hasChannelName != hasDeviceIndex) {
+                Logger::log(LogLevel::Warning, "For Channel %d only a device index or a channel name is set", i);
                 missingData = true;
                 break;
             }
@@ -293,11 +297,11 @@ std::optional<uint8_t> ScheduleDriver::channelIndex(std::string_view channelName
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
     for (uint8_t i = 0; i < scheduleDriverConf->channelNames.size(); ++i) {
-        if (!scheduleDriverConf->channelNames[i].has_value()) {
+        if (scheduleDriverConf->channelNames[i].empty()) {
             continue;
         }
 
-        if (scheduleDriverConf->channelNames[i]->getStringView() == channelName) {
+        if (scheduleDriverConf->channelNames[i].getStringView() == channelName) {
             return i;
         }
     }
@@ -344,7 +348,7 @@ DeviceOperationResult ScheduleDriver::updateValues() {
 
     for (int i = 0; i < newValues.size(); ++i) {
         if (!newValues[i].has_value()) {
-            Logger::log(LogLevel::Debug, "Nothing to set");
+            // Logger::log(LogLevel::Debug, "Nothing to set");
             continue;
         }
 
@@ -358,7 +362,23 @@ DeviceOperationResult ScheduleDriver::updateValues() {
 
         Logger::log(LogLevel::Info, "Creating with channel_unit %d", (int) scheduleDriverConf->channelUnit[i]);
         const auto newValue = DeviceValues::create_from_unit(scheduleDriverConf->channelUnit[i], currentValue);
-        auto setResult = set_device_action(currentDeviceIndex, std::string_view(), newValue, nullptr, 0);
+
+        if (newValue.getUnit() == DeviceValueUnit::none)
+        {
+            Logger::log(LogLevel::Warning, "Failed to create value for channel %s", scheduleDriverConf->channelNames[i].data());
+            continue;
+        }
+
+        const auto setResult = writeDeviceValue(currentDeviceIndex, scheduleDriverConf->deviceArguments[i].getStringView(), newValue, true);
+
+        Logger::log(LogLevel::Debug, "Writing to device %s(%d)/%s -> %f", scheduleDriverConf->channelNames[i].data(),
+                    currentDeviceIndex, scheduleDriverConf->deviceArguments[i].data(), currentValue);
+
+        if (!setResult)
+        {
+            Logger::log(LogLevel::Warning, "Failed to set value for %s", scheduleDriverConf->channelNames[i].data());
+            continue;
+        }
 
         // TODO: check setResult
 
@@ -367,7 +387,10 @@ DeviceOperationResult ScheduleDriver::updateValues() {
     }
 
     if (wasUpdated) {
-        updateChannelTimes();
+        if (!updateChannelTimes())
+        {
+            Logger::log(LogLevel::Warning, "Failed to update channel times");
+        }
     }
 
     return DeviceOperationResult::ok;
