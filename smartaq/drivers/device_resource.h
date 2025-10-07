@@ -20,10 +20,14 @@ enum struct GpioPurpose {
     bus, gpio
 };
 
-enum struct I2cPorts {
+enum struct I2cPorts : std::underlying_type_t<i2c_port_t> {
     zero = I2C_NUM_0, 
     one = I2C_NUM_1
 };
+
+bool operator==(const I2cPorts &lhs, const i2c_port_t &rhs);
+
+bool operator!=(const I2cPorts &lhs, const i2c_port_t &rhs);
 
 class GpioResource final {
     public:
@@ -141,12 +145,15 @@ class I2cResource final {
 
         void swap(I2cResource &other);
 
-        i2c_port_t channel_num() const;
-        i2c_dev_t device() const;
+        i2c_port_t channel_num() const { return m_i2c_num; }
+        gpio_num_t sda_pin() const { return m_sdaPin->gpio_num(); }
+        gpio_num_t scl_pin() const { return m_sclPin->gpio_num(); }
     private:
-        I2cResource(I2cResource channel, std::shared_ptr<GpioResource> &sdaPin, std::shared_ptr<GpioResource> &sclPin);
+        I2cResource(i2c_port_t channel, i2c_config_t config, std::shared_ptr<GpioResource> sdaPin,
+                    std::shared_ptr<GpioResource> sclPin);
 
         i2c_port_t m_i2c_num;
+        i2c_config_t m_i2c_config;
         std::shared_ptr<GpioResource> m_sdaPin;
         std::shared_ptr<GpioResource> m_sclPin;
 
@@ -167,12 +174,15 @@ class DeviceResource final {
         static std::shared_ptr<I2cResource> get_i2c_port(i2c_port_t port, i2c_mode_t mode, gpio_num_t sda, gpio_num_t scl);
 
     private:
+
+        static std::shared_ptr<I2cResource> createI2CPort(i2c_port_t port, i2c_mode_t mode, std::shared_ptr<GpioResource> sda,
+                                                            std::shared_ptr<GpioResource> scl);
         // TODO: replace with weak_ptr
         // TODO: remove non useable gpios
         static inline std::array _gpios{
             std::make_pair(gpio_num_t::GPIO_NUM_1, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_2, std::shared_ptr<GpioResource>(nullptr)),
-            // std::make_pair(gpio_num_t::GPIO_NUM_3, std::shared_ptr<GpioResource>(nullptr)),
+            std::make_pair(gpio_num_t::GPIO_NUM_3, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_4, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_5, std::shared_ptr<GpioResource>(nullptr)),
             std::make_pair(gpio_num_t::GPIO_NUM_6, std::shared_ptr<GpioResource>(nullptr)),

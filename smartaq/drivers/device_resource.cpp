@@ -7,6 +7,16 @@
 #include "hal/dac_types.h"
 #include "hal/gpio_types.h"
 
+bool operator==(const I2cPorts& lhs, const i2c_port_t& rhs)
+{
+    return std::to_underlying(lhs) == rhs;
+}
+
+bool operator!=(const I2cPorts& lhs, const i2c_port_t& rhs)
+{
+    return !(lhs == rhs);
+}
+
 GpioResource::GpioResource(gpio_num_t gpio_num, GpioPurpose purpose) : m_gpio_num(gpio_num), m_purpose(purpose) { }
 
 // TODO: reset gpio
@@ -220,6 +230,11 @@ std::shared_ptr<dac_resource> device_resource::get_dac_resource(dac_channel_t ch
 
 #endif
 
+I2cResource::I2cResource(i2c_port_t channel, i2c_config_t config, std::shared_ptr<GpioResource> sdaPin, std::shared_ptr<GpioResource> sclPin)
+    : m_i2c_num(channel), m_i2c_config(config), m_sdaPin(sdaPin), m_sclPin(sclPin)
+{
+
+}
 // TODO: fix search for free resources
 std::shared_ptr<TimerResource> DeviceResource::get_timer_resource(const TimerConfig &config) {
     std::lock_guard instance_guard{_instance_mutex};
@@ -255,4 +270,89 @@ std::shared_ptr<LedChannel> DeviceResource::get_led_channel() {
     }
 
     return found_resource->second;
+}
+
+std::shared_ptr<I2cResource> DeviceResource::createI2CPort(i2c_port_t port, i2c_mode_t mode,
+                                                             std::shared_ptr<GpioResource> sda,
+                                                             std::shared_ptr<GpioResource> scl)
+{
+    if (mode != I2C_MODE_MASTER)
+    {
+        Logger::log(LogLevel::Warning, "I2C mode %d is not supported", mode);
+        return nullptr;
+    }
+
+    if (sda == nullptr || scl == nullptr)
+    {
+        Logger::log(LogLevel::Debug, "SDA or SCL pin is not configured");
+        return nullptr;
+    }
+
+    // TODO: Add a noinit flag
+    // 1. Configure I2C with pull-ups
+    i2c_config_t conf = {};
+    /*conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = sda->gpio_num();
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_io_num = scl->gpio_num();
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.master.clk_speed = 100'000;
+
+    Logger::log(LogLevel::Debug, "Configuring I2C port %d ...", port);
+
+    esp_err_t result = i2c_param_config(port, &conf);
+
+    if (result != ESP_OK)
+    {
+        Logger::log(LogLevel::Warning, "Couldn't configure I2C port %d", port);
+        return nullptr;
+    }
+
+    Logger::log(LogLevel::Debug, "Installing I2C driver on port %d ...", port);
+    */
+    // result = i2c_driver_install(port, conf.mode,
+    //                             0,
+    //                             0, 0);
+
+    // if (result != ESP_OK)
+    // {
+    //     Logger::log(LogLevel::Warning, "Couldn't install I2C port %d", port);
+    //     return nullptr;
+    // }
+
+    Logger::log(LogLevel::Debug, "I2C port %d created ...", port);
+
+    return std::shared_ptr<I2cResource>{new I2cResource(port, conf, std::move(sda), std::move(scl))};
+}
+
+std::shared_ptr<I2cResource> DeviceResource::get_i2c_port(i2c_port_t port, i2c_mode_t mode, gpio_num_t sda,
+    gpio_num_t scl)
+{
+    auto foundResource = std::ranges::find_if(_i2c_ports, [port](auto &current_entry)
+    {
+        return current_entry.first == port;
+    });
+
+    if (foundResource == _i2c_ports.end() || foundResource == nullptr)
+    {
+        Logger::log(LogLevel::Warning, "I2C port %d not found", port);
+        return nullptr;
+    }
+
+    if (foundResource->second != nullptr)
+    {
+        Logger::log(LogLevel::Info, "Configured I2C port %d found", port);
+        return foundResource->second;
+    }
+
+    Logger::log(LogLevel::Debug, "Acquiring gpio ports for bus sda: %u scl: %u", sda, scl);
+
+    auto sdaPin = DeviceResource::get_gpio_resource(sda, GpioPurpose::bus);
+    auto sclPin = DeviceResource::get_gpio_resource(scl, GpioPurpose::bus);
+
+    Logger::log(LogLevel::Debug, "Creating I2C port %d ...", port);
+
+    auto createdPort = createI2CPort(port, mode, std::move(sdaPin), std::move(sclPin));
+    foundResource->second = std::move(createdPort);
+    return foundResource->second;
 }
