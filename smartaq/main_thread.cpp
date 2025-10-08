@@ -109,8 +109,7 @@ void *mainTask(void *) {
 
     Logger::log(LogLevel::Info, "Init global store now");
 
-    void *globalStoreMemory = heap_caps_malloc(sizeof(GlobalStoreType), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    globalStore = makePointerAt<std::unique_ptr, GlobalStoreType>(globalStoreMemory, SPIRAMDeleter<GlobalStoreType>{});
+    globalStore = makeUniquePtrLargeType<GlobalStoreType>();
     globalStore->initValues();
 
     // Unsecure server only has access to this specific folder, which hosts the webapp, for this results in issues

@@ -12,29 +12,17 @@
 
 #include "build_config.h"
 #include "utils/logger.h"
+#include "utils/buffer_types.h"
 
 #include "esp_heap_caps_init.h"
-
-struct CustomDelete {
-    void operator()(void *ptr) { 
-        free(ptr); 
-    }
-};
-
-enum struct BufferLocation {
-    stack, heap
-};
-
-enum struct BufferStatus {
-    borrowed, available
-};
+#include "memory_helper.h"
 
 template<typename PoolType>
 class LargeBufferBorrower {
     public:
 
         LargeBufferBorrower(const LargeBufferBorrower &other) = delete;
-        LargeBufferBorrower(LargeBufferBorrower &&other) : m_buffer_ptr(other.m_buffer_ptr), m_length(other.m_length) { 
+        LargeBufferBorrower(LargeBufferBorrower &&other) noexcept : m_buffer_ptr(other.m_buffer_ptr), m_length(other.m_length) {
             other.m_buffer_ptr = nullptr;
             other.m_length = 0;
         }
@@ -51,11 +39,11 @@ class LargeBufferBorrower {
             return *this;
         }
 
-        char *data() { return m_buffer_ptr; }
+         [[nodiscard]] char *data() { return m_buffer_ptr; }
 
-        const char *data() const { return m_buffer_ptr; }
+        [[nodiscard]] const char *data() const { return m_buffer_ptr; }
 
-        size_t size() const { return m_length; }
+        [[nodiscard]] size_t size() const { return m_length; }
     private:
         LargeBufferBorrower(char *buffer_ptr, size_t length) : m_buffer_ptr(buffer_ptr), m_length(length) { }
 

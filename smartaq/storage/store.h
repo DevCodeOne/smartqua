@@ -7,6 +7,7 @@
 #include "utils/constexpr_for.h"
 #include "utils/logger.h"
 #include "build_config.h"
+#include "utils/esp/idf_utils.h"
 
 using IgnoredEvent = void;
 
@@ -38,13 +39,14 @@ struct SingleTypeStore {
 // TODO: maybe add mutex for every single store, so that one store can trigger another one, but not itself
 template<typename ... StoreTypes>
 class Store {
+        using StoreCollectionType = std::tuple<StoreTypes ...>;
     public:
         template<typename EventType>
         void writeEvent(EventType &event, bool deferSaving = false) {
             Logger::log(LogLevel::Info, "Write event to store");
             initValues();
 
-            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event, &deferSaving](auto &current_store){
+            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [&event, &deferSaving](auto &current_store){
                 Detail::handleStore(current_store.sstore, current_store.ssave, event, deferSaving);
             });
         }
@@ -55,7 +57,7 @@ class Store {
             Logger::log(LogLevel::Info, "Read event from store entry");
             initValues();
 
-            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [&event](const auto &currentStore){
+            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [&event](const auto &currentStore){
                 currentStore.sstore.dispatch(event);
             });
             Logger::log(LogLevel::Info, "Read event from store exit");
@@ -71,7 +73,14 @@ class Store {
             static std::once_flag _init_flag;
             std::call_once(_init_flag, []() {
                 Logger::log(LogLevel::Info, "Init values of central store");
-                ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(_stores, [](auto &current_store){
+                _stores = makeUniquePtrLargeType<StoreCollectionType>();
+
+                if (_stores == nullptr)
+                {
+                    Logger::log(LogLevel::Error, "Couldn't allocate memory for store");
+                    return;
+                }
+                ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [](auto &current_store){
                     Logger::log(LogLevel::Info, "Initializing current type");
                     current_store.sstore = current_store.ssave.get_value();
                 });
@@ -80,7 +89,8 @@ class Store {
         }
 
     private:
-        static inline std::tuple<StoreTypes ...> _stores;
+        using UniquePtrType = decltype(makeUniquePtrLargeType<StoreCollectionType>());
+        static inline UniquePtrType _stores;
 };
 
 
