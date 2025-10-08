@@ -2,17 +2,19 @@
 
 #include <mutex>
 
+#include "utils/memory_helper.h"
+
 #include "esp_heap_caps.h"
 
 class timeval;
 
-class sntp_clock final {
+class SntpClock final {
     public:
-        sntp_clock();
-        ~sntp_clock() = default;
+        SntpClock();
+        ~SntpClock() = default;
     private:
-        static void init_sntp();
-        static void sync_callback(timeval *);
+        static void init();
+        static void syncCallback(timeval *);
 
         static inline std::once_flag _init_flag;
 };
@@ -26,7 +28,7 @@ struct SPIRAMDeleter {
     }
 };
 
-void wait_for_clock_sync(std::time_t *now = nullptr, std::tm *timeinfo = nullptr);
+void waitForClockSync(std::time_t *now = nullptr, std::tm *timeinfo = nullptr);
 
 template<typename T, typename ... Args>
 [[nodiscard]] auto makeUniquePtrLargeType(Args && ... args) {
