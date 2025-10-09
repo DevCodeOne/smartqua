@@ -130,7 +130,7 @@ void *mainTask(void *) {
     pthread_attr_init(&attributes);
     pthread_attr_setstacksize(&attributes, stack_size);
 
-    constexpr size_t additionalNumThreads = 1;
+    constexpr size_t additionalNumThreads = 2;
 
     std::array<std::optional<pthread_t>, additionalNumThreads> handles;
 
