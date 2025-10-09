@@ -117,6 +117,7 @@ ScheduleDriver::ScheduleDriver(ScheduleDriver &&other) noexcept : mConf(other.mC
     if (mConf) {
         scheduleTracker.setTrackingType(mConf->accessConfig<ScheduleDriverData>()->type);
     }
+    scheduleTracker.setChannelTimes(other.scheduleTracker.getChannelTimes());
 }
 
 ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) noexcept
@@ -124,6 +125,8 @@ ScheduleDriver & ScheduleDriver::operator=(ScheduleDriver &&other) noexcept
     mConf = other.mConf;
     schedule = other.schedule;
     scheduleTracker.setSchedule(&schedule);
+    scheduleTracker.setChannelTimes(other.scheduleTracker.getChannelTimes());
+
     if (mConf) {
         scheduleTracker.setTrackingType(mConf->accessConfig<ScheduleDriverData>()->type);
     }
