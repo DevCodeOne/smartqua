@@ -110,7 +110,8 @@ class TaskPool {
         using TaskInfo = std::pair<TaskId, TaskDescription>;
 
         static inline FixedSizeOptionalArray<TaskInfo, TaskPoolSize> _tasks;
-        static inline std::shared_timed_mutex instanceMutex;
+        static inline std::recursive_timed_mutex taskListMutex;
+        static inline std::timed_mutex notifyMutex;
         static inline std::condition_variable_any notify;
         static inline TaskId _next_id = TaskId(0);
 };
@@ -124,12 +125,11 @@ auto TaskPool<TaskPoolSize>::handleTaskExecutions() {
 
     std::optional<TaskInfo> toExecute;
     {
-        if (!instanceMutex.try_lock_for(1000ms))
+        std::unique_lock instanceGuard{notifyMutex, std::defer_lock};
+        if (!instanceGuard.try_lock_for(1000ms))
         {
             return nextRegularExecution;
         }
-
-        std::unique_lock instance_guard{instanceMutex, std::adopt_lock};
 
         const auto foundTaskToExecute [[maybe_unused]] = _tasks.modifyOrRemove(
             [&nextRegularExecution, &nowSinceEpoch, &toExecute](
@@ -187,13 +187,13 @@ auto TaskPool<TaskPoolSize>::handleTaskExecutions() {
 
     repostTask(*toExecute);
 
-    return nextRegularExecution;
+    return std::min(nextRegularExecution, currentTaskToExecute.last_executed + currentTaskToExecute.interval);
 }
 
 // TODO: Add method which executes once, instead of iterating endlessly
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
 void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
-    while (1) {
+    while (true) {
         const auto nextExecutionAt = handleTaskExecutions();
         const auto now = std::chrono::steady_clock::now();
         if (now >= nextExecutionAt) {
@@ -202,22 +202,24 @@ void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
 
         Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
 
-        using namespace std::chrono_literals;
+        const auto remainingWait = std::min(nextExecutionAt - now, std::chrono::milliseconds{1000});
 
-        if (instanceMutex.try_lock_for(std::min(nextExecutionAt, now + 1000ms)))
+        std::unique_lock waitLock{notifyMutex};
+        notify.wait_for(waitLock, remainingWait, []()
         {
-            std::unique_lock localLock{instanceMutex, std::adopt_lock};
-            notify.wait_for(localLock, nextExecutionAt - now);
-        }
+            return !_tasks.empty();
+        });
 
     }
 }
 
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
 [[noreturn]] void TaskPool<TaskPoolSize>::doWork() {
-    while (true) {
+    while (true)
+    {
         auto nextExecutionAt = doWorkOnce();
-        std::this_thread::sleep_until(nextExecutionAt);
+        auto now = std::chrono::steady_clock::now();
+        std::this_thread::sleep_until(std::min(nextExecutionAt, now + std::chrono::seconds{1 }));
     }
 }
 
@@ -237,21 +239,28 @@ template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
 auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType {
     TaskId createdId;
     {
-        std::unique_lock instance_guard{instanceMutex};
+        std::unique_lock instance_guard{taskListMutex};
 
         const auto addedTask = _tasks.append(std::make_pair(_next_id, task));
         if (!addedTask) {
             return TaskResourceType(task.argument, TaskId::invalid);
         }
 
-        createdId = _next_id;
+        // TODO: Maybe create method for that
+        if (_next_id == TaskId::invalid)
+        {
+            _next_id = TaskId(0);
+        } else
+        {
+            _next_id = nextId(_next_id);
+        }
 
-        _next_id = nextId(_next_id);
+        createdId = _next_id;
 
         Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
     }
 
-    notify.notify_all();
+    notify.notify_one();
 
     return TaskResourceType{task.argument, createdId};
 }
@@ -259,17 +268,18 @@ auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType 
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
 void TaskPool<TaskPoolSize>::repostTask(const TaskInfo& task) {
     {
-        std::unique_lock instance_guard{instanceMutex};
+        std::unique_lock instance_guard{taskListMutex};
 
         const auto addedTask = _tasks.append(task);
         if (!addedTask) {
+            Logger::log(LogLevel::Error, "Failed to repost task %s", task.second.description);
             return;
         }
 
         Logger::log(LogLevel::Info, "Adding thread %s to pool", task.second.description);
     }
 
-    notify.notify_all();
+    notify.notify_one();
 }
 
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
@@ -279,7 +289,7 @@ bool TaskPool<TaskPoolSize>::removeTask(TaskId& id) {
     }
 
     {
-        std::unique_lock instance_guard{instanceMutex};
+        std::unique_lock instance_guard{taskListMutex};
 
         const auto found = _tasks.modifyOrRemove([id](auto &current_task_pair) {
             return current_task_pair.first == id;
