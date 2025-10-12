@@ -82,15 +82,15 @@ class ScheduleDriver final {
         DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
         DeviceOperationResult update_runtime_data();
 
-        std::optional<uint8_t> channelIndex(std::string_view channelName) const;
+        [[nodiscard]] std::optional<uint8_t> channelIndex(std::string_view channelName) const;
 
     private:
-        ScheduleDriver(const DeviceConfig*conf);
+        explicit ScheduleDriver(const DeviceConfig *conf);
 
         DeviceOperationResult updateValues();
         bool loadAndUpdateSchedule(const std::string_view &input);
         bool readChannelTimes();
-        bool updateChannelTimes() const;
+        [[nodiscard]] bool synchronizeChannelTimesToFile() const;
 
         const DeviceConfig *mConf;
         ScheduleType schedule;

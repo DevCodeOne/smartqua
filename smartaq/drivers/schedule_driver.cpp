@@ -78,7 +78,7 @@ std::optional<ScheduleDriver::ScheduleType::DayScheduleType> parseDaySchedule(co
 
             if (auto channelIndex = driver.channelIndex(variableView); channelIndex.has_value()) {
                 timePointData[*channelIndex] = value;
-                Logger::log(LogLevel::Debug, "Adding timepoint @ %u:%u with value : %f to channel : %d", hoursValue, minsValue, value, *channelIndex);
+                Logger::log(LogLevel::Debug, "Adding timepoint @ %u:%u with value : %f to channel : %hhx", hoursValue, minsValue, value, *channelIndex);
             } else {
                 Logger::log(LogLevel::Warning, "Couldn't find channel %.*s", variableView.length(), variableView.data());
                 return std::nullopt;
@@ -279,7 +279,7 @@ bool ScheduleDriver::readChannelTimes() {
     return true;
 }
 
-bool ScheduleDriver::updateChannelTimes() const {
+bool ScheduleDriver::synchronizeChannelTimesToFile() const {
     auto scheduleDriverConf = mConf->accessConfig<ScheduleDriverData>();
 
     const auto &channelTimes = scheduleTracker.getChannelTimes();
@@ -345,7 +345,7 @@ DeviceOperationResult ScheduleDriver::updateValues() {
         return DeviceOperationResult::failure;
     }
 
-    Logger::log(LogLevel::Debug, "ScheduleDriver::updateValues");
+    Logger::log(LogLevel::Debug, "ScheduleDriver::updateValues @ %d:%d:%d", currentDate->tm_hour, currentDate->tm_min, currentDate->tm_sec);
 
     const auto newValues = scheduleTracker.getCurrentChannelValues(*currentDate);
 
@@ -383,14 +383,12 @@ DeviceOperationResult ScheduleDriver::updateValues() {
             continue;
         }
 
-        // TODO: check setResult
-
         scheduleTracker.updateChannelTime(i, *currentDate);
         wasUpdated = true;
     }
 
     if (wasUpdated) {
-        if (!updateChannelTimes())
+        if (!synchronizeChannelTimesToFile())
         {
             Logger::log(LogLevel::Warning, "Failed to update channel times");
         }
