@@ -50,7 +50,7 @@ namespace Detail {
             bool initServer() {
                 httpd_config_t config = HTTPD_DEFAULT_CONFIG();
                 config.uri_match_fn = httpd_uri_match_wildcard;
-                config.stack_size = 4096 * 4;
+                config.stack_size = 4096 * 8;
                 config.keep_alive_enable = false;
                 config.lru_purge_enable = true;
                 config.recv_wait_timeout = 5;
@@ -225,17 +225,6 @@ class WebServer final {
         
     }
 
-    struct HandlerThreadParam {
-        esp_err_t (*handler)(httpd_req *req);
-        httpd_req *req;
-        std::promise<esp_err_t> result;
-    };
-
-    static void threadWrapper(void *handlerParam) {
-        auto *const param = reinterpret_cast<HandlerThreadParam *>(handlerParam);
-        param->result.set_value(param->handler(param->req));
-    }
-
     static esp_err_t mainHandler(httpd_req *req) {
         std::string_view uri_view = req->uri;
         auto *thiz = reinterpret_cast<WebServer *>(req->user_ctx);
@@ -253,36 +242,7 @@ class WebServer final {
 
         Logger::log(LogLevel::Info, "Found handler with prefix : %s", (*foundHandler)->prefix.data());
 
-        HandlerThreadParam param{
-                .handler = (*foundHandler)->handler,
-                .req = req
-        };
-
-        auto resource = MainTaskPool::postTask(TaskDescription{
-            .single_shot = true,
-            .func_ptr = &threadWrapper,
-            .interval = std::chrono::seconds(0),
-            .argument = (void *) &param,
-            .description = "Response Handler",
-            .last_executed = std::chrono::seconds(0)
-        });
-
-        // TODO: Create internal server error on failure
-        if (resource.id() == TaskId::invalid) {
-            return ESP_FAIL;
-        }
-
-        auto futureResult = param.result.get_future();
-
-        if (!futureResult.valid()) {
-            return ESP_FAIL;
-        }
-
-        if (futureResult.wait_for(std::chrono::seconds(10)) != std::future_status::ready) {
-            return ESP_FAIL;
-        }
-
-        return futureResult.get();
+        return (*foundHandler)->handler(req);
     }
     
     Detail::WebServerHandle<level> m_server_handle{};
