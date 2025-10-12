@@ -81,7 +81,7 @@ namespace Detail {
                 return serverStart == ESP_OK;
             }
 
-            bool stopServer() {
+            bool stopServer() const {
                 httpd_stop(m_http_server_handle);
 
                 return true;
@@ -316,7 +316,7 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     }
 
     struct stat tmp_stat{};
-    std::array<char, 128> filepath{};
+    auto filepath = SmallerBufferPoolType::get_free_buffer();
     std::string_view selected_path;
     std::string_view request_uri{req->uri};
 
@@ -324,24 +324,24 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
     httpd_resp_set_hdr(req, "Connection", "Keep-Alive");
     httpd_resp_set_hdr(req, "Keep-Alive", "timeout=1, max=1000");
 
-    std::strncpy(filepath.data(), base_path, filepath.size() - 1);
+    std::strncpy(filepath->data(), base_path, filepath->size() - 1);
 
     // TODO: Remove trailing /
     if (request_uri == "/") {
-        strncat(filepath.data(), "/index.html", sizeof(filepath) - 1);
+        strncat(filepath->data(), "/index.html", filepath->size() - 1);
     } else {
-        strncat(filepath.data(), request_uri.data(), sizeof(filepath) - 1);
+        strncat(filepath->data(), request_uri.data(), filepath->size() - 1);
     }
 
-    if (stat(filepath.data(), &tmp_stat) < 0) {
-        Logger::log(LogLevel::Error, "Failed to open file or directory : %s", filepath.data());
+    if (stat(filepath->data(), &tmp_stat) < 0) {
+        Logger::log(LogLevel::Error, "Failed to open file or directory : %s", filepath->data());
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                             "Path doesn't exist");
         return ESP_FAIL;
     }
 
-    selected_path = filepath.data();
+    selected_path = filepath->data();
 
     auto buffer = LargeBufferPoolType::get_free_buffer();
 
@@ -410,14 +410,14 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
         });
 
         if (fd == -1) {
-            Logger::log(LogLevel::Warning, "Failed to open file : %s", filepath.data());
+            Logger::log(LogLevel::Warning, "Failed to open file : %s", filepath->data());
             /* Respond with 500 Internal Server Error */
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
                                 "Failed to read existing file");
             return ESP_FAIL;
         }
 
-        setContentTypeFromFile(req, filepath.data());
+        setContentTypeFromFile(req, filepath->data());
 
         ssize_t read_bytes;
         // TODO: make configurable
@@ -426,13 +426,13 @@ esp_err_t WebServer<level>::getFile(httpd_req_t *req) {
             /* Read file in chunks into the scratch buffer */
             read_bytes = read(fd, buffer->data(), max_chunk_size);
             if (read_bytes == -1) {
-                Logger::log(LogLevel::Warning, "Failed to read file : %s", filepath.data());
+                Logger::log(LogLevel::Warning, "Failed to read file : %s", filepath->data());
             } else if (read_bytes > 0) {
                 /* Send the buffer contents as HTTP response chunk */
                 esp_err_t last_result = httpd_resp_send_chunk(req, buffer->data(), read_bytes);
 
                 if (last_result != ESP_OK) {
-                    Logger::log(LogLevel::Warning, "File sending failed! %s", filepath.data());
+                    Logger::log(LogLevel::Warning, "File sending failed! %s", filepath->data());
                     /* Abort sending file */
                     httpd_resp_send_chunk(req, nullptr, 0);
                     /* Respond with 500 Internal Server Error */
