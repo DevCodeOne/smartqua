@@ -51,8 +51,34 @@ public:
     }
 
     // TODO: Maybe add tests, so only valid times are set?
-    void setChannelTimes(std::array<MinimalTimeUnit, NumChannels> &channelTimes) {
-        std::copy(channelTimes.begin(), channelTimes.end(), mChannelTimes.begin());
+    void setChannelTimes(const std::array<MinimalTimeUnit, NumChannels>& channelTimes)
+    {
+        for (int i = 0; i < NumChannels; ++i)
+        {
+
+            const auto extracted = extractOffsetSinceWeek(channelTimes[i]);
+
+            if (!extracted)
+            {
+                mChannelTimes[i] = MinimalTimeUnit{0};
+                continue;
+            }
+
+            Logger::log(LogLevel::Debug, "Setting channel %d to %d@%d:%d", i, extracted->dayIndex,
+                static_cast<int>(extracted->timeOfDay.hours().count()), static_cast<int>(extracted->timeOfDay.minutes().count()));
+
+            const auto event = getEvent(EventSelection::Current, i,
+                static_cast<WeekDay>(extracted->dayIndex), extracted->timeOfDay.to_duration());
+
+            if (!event)
+            {
+                mChannelTimes[i] = MinimalTimeUnit{0};
+                continue;
+            }
+
+            // Clip to last event, the schedules might have been different
+            mChannelTimes[i] = event->eventTime;
+        }
     }
 
 private:
@@ -65,7 +91,7 @@ private:
         Next, Current
     };
 
-    typename ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const WeekDay &dayInWeek, const MinimalTimeUnit &timeToday) const;
+    ScheduleType::OptionalSingleChannelStatus getEvent(EventSelection select, uint8_t channelIndex, const WeekDay &dayInWeek, const MinimalTimeUnit &timeToday) const;
     static TrackerTypeVariant createTrackingType(ScheduleEventTransitionMode trackerType);
 };
 
@@ -162,7 +188,7 @@ bool ScheduleTracker<ScheduleType, ValueType, NumChannels>::updateChannelTime(ui
 template<typename ScheduleType, typename ValueType, uint8_t NumChannels>
 auto ScheduleTracker<ScheduleType,
     ValueType, NumChannels>::getEvent(EventSelection selection, uint8_t channelIndex, const WeekDay &dayInWeek,
-                                      const MinimalTimeUnit &timeToday) const -> typename ScheduleType::OptionalSingleChannelStatus {
+                                      const MinimalTimeUnit &timeToday) const -> ScheduleType::OptionalSingleChannelStatus {
     if (mSchedule == nullptr) {
         return {};
     }

@@ -33,7 +33,7 @@ template<typename T>
 concept SecondOrLargerDuration = LargerOrEqualDuration<T, std::chrono::seconds>;
 
 template<SecondOrLargerDuration DurationType>
-DurationType getTimeOfDay(const std::tm &timeInfo) {
+[[nodiscard]] constexpr DurationType getTimeOfDay(const std::tm &timeInfo) {
     using namespace std::chrono;
     return DurationType{hours{timeInfo.tm_hour}
                         + minutes{timeInfo.tm_min}
@@ -42,13 +42,13 @@ DurationType getTimeOfDay(const std::tm &timeInfo) {
 }
 
 template<typename DurationType>
-DurationType getTimeOfDay() {
+[[nodiscard]] constexpr DurationType getTimeOfDay() {
     const auto timeInfo = currentTime();
     return getTimeOfDay<DurationType>(timeInfo);
 }
 
 template<typename DurationType>
-DurationType sinceWeekBeginning(const std::tm &timeInfo) {
+[[nodiscard]] constexpr DurationType sinceWeekBeginning(const std::tm &timeInfo) {
     using namespace std::chrono;
 
     return getTimeOfDay<DurationType>(timeInfo) + duration_cast<DurationType>(days{timeInfo.tm_wday});
@@ -71,4 +71,27 @@ DurationType diffWithDurationSinceWeekBeginning(const DurationType &end, const D
     }
 
     return diff;
+}
+
+struct ExtractedWeekOffset {
+    int dayIndex = 0;
+    std::chrono::hh_mm_ss<std::chrono::seconds> timeOfDay;
+};
+
+template<typename DurationType>
+std::optional<ExtractedWeekOffset> extractOffsetSinceWeek(const DurationType& channelTime)
+{
+    static constexpr auto OneDayInMinimalTimeUnit = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::days{1});
+    const auto dayIndex = channelTime / OneDayInMinimalTimeUnit;
+    const auto dayOffset = channelTime % OneDayInMinimalTimeUnit;
+
+    if (dayIndex < 0 || dayIndex > 6)
+    {
+        return {};
+    }
+
+    return ExtractedWeekOffset{
+        .dayIndex = static_cast<int>(dayIndex),
+        .timeOfDay = std::chrono::hh_mm_ss<std::chrono::seconds>{dayOffset}
+    };
 }
