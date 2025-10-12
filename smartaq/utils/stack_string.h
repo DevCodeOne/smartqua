@@ -34,6 +34,7 @@ namespace String {
         BasicStackString() = default;
         explicit BasicStackString(const std::string_view &other);
         explicit BasicStackString(const char *other);
+        explicit BasicStackString(const char *other, size_t len);
 
         static bool canHold(size_t length);
         static bool canHold(const char *str);
@@ -88,6 +89,12 @@ namespace String {
     template<typename CharT, size_t Size>
     BasicStackString<CharT, Size>::BasicStackString(const char *other) {
         set(other);
+    }
+
+    template <typename CharT, size_t Size>
+    BasicStackString<CharT, Size>::BasicStackString(const char* other, size_t len)
+    {
+        set(other, len);
     }
 
     template<typename CharT, size_t Size>
