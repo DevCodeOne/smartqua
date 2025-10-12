@@ -62,7 +62,8 @@ class DhtXXDriver final {
     DeviceOperationResult call_device_action(DeviceConfig *config, const std::string_view &action, const std::string_view &json) const;
     DeviceOperationResult update_runtime_data();
 
-    void oneIteration();
+    DeviceState oneIteration();
+    bool reinit();
 
     private:
     DhtXXDriver(const DeviceConfig *config, std::shared_ptr<GpioResource> pin);

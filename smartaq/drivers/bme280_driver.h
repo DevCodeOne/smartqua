@@ -62,7 +62,8 @@ public:
     DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
     DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
 
-    void oneIteration();
+    DeviceState oneIteration();
+    bool reinit();
 private:
     using AddressTracker = ResourceLookupTable<ThreadSafety::Safe,
                                         Bme280Address::Zero,
@@ -72,11 +73,14 @@ private:
     static std::optional<Bme280Driver> setupDevice(const DeviceConfig *deviceConf, SingleAddressTracker tracker,
                                                    std::shared_ptr<I2cResource> i2cResource);
 
+    static bool initDevice(bmp280_t &device, const Bme280DeviceConfig* config, const I2cResource* i2cResource);
+
     Bme280Driver(const DeviceConfig *config,
                  SingleAddressTracker tracker,
                  std::shared_ptr<I2cResource> i2cResource,
                  bmp280_t device);
 
+    const DeviceConfig *mConf;
     SingleAddressTracker mTracker;
     std::shared_ptr<I2cResource> mI2cResource;
     std::optional<bmp280_t> mDevice;

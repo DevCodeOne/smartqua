@@ -13,13 +13,24 @@ concept HasDriverInfo = requires(Driver &instance)
     typename ThisDriverInfo::DeviceConfig;
     sizeof(ThisDriverInfo);
     std::is_same_v<decltype(ThisDriverInfo::Name), const char *>;
-    { instance.oneIteration() } -> std::same_as<void>;
+};
+
+enum struct DeviceState
+{
+    Ok = 0, ReadError, SampleIssue
 };
 
 template<typename Driver>
-concept IsDriver = HasDriverInfo<Driver>;
+concept HasDriverFunctions = requires(Driver &instance)
+{
+    { instance.oneIteration() } -> std::same_as<DeviceState>;
+    { instance.reinit() } -> std::convertible_to<bool>;
+};
 
-// TODO: Add failsafe, restart and more
+template<typename Driver>
+concept IsDriver = HasDriverInfo<Driver> && HasDriverFunctions<Driver>;
+
+// TODO: Check if other methods are supported with concepts
 template<IsDriver Driver>
 class SensorDriverInterface {
 public:
@@ -48,8 +59,11 @@ public:
 private:
     std::mutex mThreadMutex;
     std::optional<Driver> mDriver;
+    unsigned int mErrorCount = 0;
 
     TaskResourceTracker<MainTaskPool> mTrackedTask;
+
+    static constexpr int MaxErrors = 3;
 
     static void updateThread(void* instance);
 };
@@ -82,7 +96,7 @@ SensorDriverInterface<Driver>& SensorDriverInterface<Driver>::operator=(SensorDr
 template <IsDriver Driver>
 DeviceOperationResult SensorDriverInterface<Driver>::read_value(std::string_view what, DeviceValues& value) const
 {
-    if (!mDriver)
+    if (!mDriver || mErrorCount == MaxErrors)
     {
         return DeviceOperationResult::failure;
     }
@@ -102,8 +116,7 @@ DeviceOperationResult SensorDriverInterface<Driver>::get_info(char* output, size
 }
 
 template<IsDriver Driver>
-SensorDriverInterface<Driver>::~SensorDriverInterface() {
-}
+SensorDriverInterface<Driver>::~SensorDriverInterface() = default;
 
 template <IsDriver Driver>
 std::optional<SensorDriverInterface<Driver>> SensorDriverInterface<Driver>::create_driver(const std::string_view& input,
@@ -150,14 +163,33 @@ DeviceOperationResult SensorDriverInterface<Driver>::update_runtime_data()
     return DeviceOperationResult::ok;
 }
 
-template<IsDriver Driver>
-void SensorDriverInterface<Driver>::updateThread(void *ptr) {
-    using namespace std::chrono;
+template <IsDriver Driver>
+void SensorDriverInterface<Driver>::updateThread(void* instance)
+{
+    auto* asInstancePtr = static_cast<SensorDriverInterface*>(instance);
 
-    auto* instance = static_cast<SensorDriverInterface*>(ptr);
-
-    if (instance->mDriver.has_value())
+    if (!asInstancePtr || !asInstancePtr->mDriver.has_value())
     {
-        instance->mDriver->oneIteration();
+        return;
+    }
+
+    if (asInstancePtr->mErrorCount >= MaxErrors)
+    {
+        if (asInstancePtr->mDriver->reinit())
+        {
+            asInstancePtr->mErrorCount = 0;
+        }
+        return;
+    }
+
+    auto deviceState = asInstancePtr->mDriver->oneIteration();
+
+    if (deviceState == DeviceState::ReadError)
+    {
+        ++asInstancePtr->mErrorCount;
+    }
+    else
+    {
+        asInstancePtr->mErrorCount = 0;
     }
 }

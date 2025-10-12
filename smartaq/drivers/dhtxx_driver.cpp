@@ -49,7 +49,12 @@ DeviceOperationResult DhtXXDriver::update_runtime_data() {
 DhtXXDriver::DhtXXDriver(const DeviceConfig *config, std::shared_ptr<GpioResource> pin) : mConf(config), mPin(std::move(pin)) {
 }
 
-void DhtXXDriver::oneIteration()
+bool DhtXXDriver::reinit() {
+    // TODO: Maybe read oneIteration and check state?
+    return true;
+}
+
+DeviceState DhtXXDriver::oneIteration()
 {
     const auto* config = mConf->accessConfig<DhtXXDriverData>();
 
@@ -63,13 +68,19 @@ void DhtXXDriver::oneIteration()
     if (error != ESP_OK)
     {
         Logger::log(LogLevel::Error, "Failed to read temperature and/or humidity");
+        return DeviceState::ReadError;
     }
 
-    if (error == ESP_OK)
+    bool noIssue = true;
+    noIssue &= mTemperatureReadings.putSample(temperature);
+    noIssue &= mHumidityReadings.putSample(humidity);
+
+    if (!noIssue)
     {
-        mTemperatureReadings.putSample(temperature);
-        mHumidityReadings.putSample(humidity);
+        return DeviceState::SampleIssue;
     }
+
+    return DeviceState::Ok;
 }
 
 DhtXXDriver::DhtXXDriver(DhtXXDriver &&other) noexcept : mConf(other.mConf), mPin(std::move(other.mPin)) {

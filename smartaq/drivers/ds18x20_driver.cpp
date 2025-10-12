@@ -97,37 +97,19 @@ std::optional<Ds18x20Driver> Ds18x20Driver::create_driver(const std::string_view
     return Ds18x20Driver(&deviceConfOut, pin);
 }
 
-Ds18x20Driver::Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin) : mConf(conf), mPin(std::move(pin)) {
-    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
+Ds18x20Driver::Ds18x20Driver(const DeviceConfig *conf, std::shared_ptr<GpioResource> pin) : mConf(conf), mPin(std::move(pin)) {
 }
 
 Ds18x20Driver::Ds18x20Driver(Ds18x20Driver &&other) noexcept : mConf(other.mConf), mPin(std::move(other.mPin)) {
-
-    other.mTemperatureThread.request_stop();
-    if (other.mTemperatureThread.joinable()) {
-        other.mTemperatureThread.join();
-    }
-
     other.mConf = nullptr;
     other.mPin = nullptr;
-    
-    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
  }
 
  Ds18x20Driver &Ds18x20Driver::operator=(Ds18x20Driver &&other) noexcept {
     using std::swap;
 
-    Logger::log(LogLevel::Info, "Waiting for other thread to join move op");
-    other.mTemperatureThread.request_stop();
-    if (other.mTemperatureThread.joinable()) {
-        other.mTemperatureThread.join();
-    }
-    Logger::log(LogLevel::Info, "Done");
-
     swap(mConf, other.mConf);
     swap(mPin, other.mPin);
-
-    mTemperatureThread = std::jthread(&Ds18x20Driver::updateTempThread, this);
 
     return *this;
 }
@@ -138,45 +120,12 @@ Ds18x20Driver::~Ds18x20Driver() {
     }
 
     Logger::log(LogLevel::Info, "Deleting instance of Ds18x20Driver");
-    if (mTemperatureThread.joinable()) {
-        mTemperatureThread.request_stop();
-        mTemperatureThread.join();
-    }
     removeAddress(mConf->accessConfig<Ds18x20DriverData>()->addr);
-}
-
-DeviceOperationResult Ds18x20Driver::write_value(std::string_view what, const DeviceValues &value) {
-    return DeviceOperationResult::not_supported;
 }
 
 DeviceOperationResult Ds18x20Driver::read_value(std::string_view what, DeviceValues &value) const {
     value.setToUnit(DeviceValueUnit::temperature, mTemperatureReadings.average());
     return DeviceOperationResult::ok;
-}
-
-void Ds18x20Driver::updateTempThread(std::stop_token token, Ds18x20Driver *instance) {
-    using namespace std::chrono_literals;
-
-    const auto *config  = instance->mConf->accessConfig<Ds18x20DriverData>();
-    while (!token.stop_requested()) {
-        auto beforeReading = std::chrono::steady_clock::now();
-
-        float temperature = 0.0f;
-        Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
-            static_cast<uint32_t>(config->addr >> 32),
-            static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
-
-        auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
-        instance->mTemperatureReadings.putSample(temperature);
-
-        if (result == ESP_OK) {
-            Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
-        }
-
-        const auto duration = std::chrono::steady_clock::now() - beforeReading;
-        std::this_thread::sleep_for(duration < 5s ? 5s - duration : 500ms);
-    }
-    Logger::log(LogLevel::Info, "Exiting temperature thread");
 }
 
 // TODO: implement both
@@ -186,12 +135,39 @@ DeviceOperationResult Ds18x20Driver::get_info(char *output_buffer, size_t output
     return DeviceOperationResult::ok;
 }
 
-DeviceOperationResult Ds18x20Driver::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
-    return DeviceOperationResult::ok;
+DeviceState Ds18x20Driver::oneIteration()
+{
+    using namespace std::chrono_literals;
+
+    const auto *config  = mConf->accessConfig<Ds18x20DriverData>();
+
+    float temperature = 0.0f;
+    Logger::log(LogLevel::Info, "Reading from gpio_num : %d @ address : %u%u", static_cast<int>(config->gpio),
+        static_cast<uint32_t>(config->addr >> 32),
+        static_cast<uint32_t>(config->addr & ((1ull << 32) - 1)));
+
+    auto result = ds18x20_measure_and_read(config->gpio, config->addr, &temperature);
+
+    if (result != ESP_OK)
+    {
+        Logger::log(LogLevel::Warning, "Couldn't read temperature");
+        return DeviceState::ReadError;
+    }
+
+    Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
+    if (!mTemperatureReadings.putSample(temperature))
+    {
+        Logger::log(LogLevel::Warning, "There was an issue with the sample");
+        return DeviceState::SampleIssue;
+    }
+
+    return DeviceState::Ok;
 }
 
-DeviceOperationResult Ds18x20Driver::update_runtime_data() {
-    return DeviceOperationResult::ok;
+bool Ds18x20Driver::reinit()
+{
+    // TODO: Maybe just read new value and see if there was an issue?
+    return true;
 }
 
 bool Ds18x20Driver::addAddress(ds18x20_addr_t address) {

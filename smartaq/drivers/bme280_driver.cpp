@@ -68,12 +68,24 @@ std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *device
                                                       std::shared_ptr<I2cResource> i2cResource) {
     auto driverData = deviceConf->accessConfig<Bme280DeviceConfig>();
     bmp280_t device{};
-    auto result = bmp280_init_desc(&device, static_cast<uint8_t>(driverData->address),
+    if (!initDevice(device, driverData, i2cResource.get()))
+    {
+        return {};
+    }
+
+    Logger::log(LogLevel::Debug, "Successfully created bme280 device with address %u", driverData->address);
+
+    return { Bme280Driver(deviceConf, std::move(tracker), std::move(i2cResource), device) };
+}
+
+bool Bme280Driver::initDevice(bmp280_t& device, const Bme280DeviceConfig* config, const I2cResource* i2cResource)
+{
+    auto result = bmp280_init_desc(&device, static_cast<uint8_t>(config->address),
                                    I2C_NUM_0,
                                    i2cResource->sda_pin(), i2cResource->scl_pin());
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't create bme280 device, removing address from use list");
-        return {};
+        return false;
     }
 
     bmp280_params_t params{};
@@ -81,10 +93,10 @@ std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *device
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't create bmp280 params");
-        return {};
+        return false;
     }
 
-    Logger::log(LogLevel::Debug, "Attempting to create bme280 device with address %u", driverData->address);
+    Logger::log(LogLevel::Debug, "Attempting to create bme280 device with address %u", config->address);
 
     device.i2c_dev.cfg.clk_flags = 0;
     device.i2c_dev.cfg.master.clk_speed = 100'000;
@@ -93,12 +105,10 @@ std::optional<Bme280Driver> Bme280Driver::setupDevice(const DeviceConfig *device
     result = bmp280_init(&device, &params);
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't init bmp280 device");
-        return {};
+        return false;
     }
 
-    Logger::log(LogLevel::Debug, "Successfully created bme280 device with address %u", driverData->address);
-
-    return { Bme280Driver(deviceConf, std::move(tracker), std::move(i2cResource), device) };
+    return true;
 }
 
 DeviceOperationResult Bme280Driver::read_value(std::string_view what, DeviceValues &value) const {
@@ -120,9 +130,9 @@ DeviceOperationResult Bme280Driver::get_info(char *output, size_t output_buffer_
     return DeviceOperationResult::ok;
 }
 
-void Bme280Driver::oneIteration() {
+DeviceState Bme280Driver::oneIteration() {
     if (!mDevice.has_value()) {
-        return;
+        return DeviceState::ReadError;
     }
 
     float temperature = 0;
@@ -132,7 +142,7 @@ void Bme280Driver::oneIteration() {
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't get measurements");
-        return;
+        return DeviceState::ReadError;
     }
 
     Logger::log(LogLevel::Info, "Got temperature : %f, humidity : %f, pressure : %f ",
@@ -146,26 +156,43 @@ void Bme280Driver::oneIteration() {
         std::pair{"pressure", mPressure.putSample(pressure)}
     };
 
+    bool thereWasAnIssue = false;
     for (const auto& [name, successful] : anySampleIssue)
     {
         if (!successful)
         {
             Logger::log(LogLevel::Warning, "There was an issue with the data provided by the sensor: %s",
                         name);
+            thereWasAnIssue = true;
         }
     }
+
+    if (thereWasAnIssue)
+    {
+        return DeviceState::SampleIssue;
+    }
+
+    return DeviceState::Ok;
+}
+
+bool Bme280Driver::reinit()
+{
+    auto driverConf = mConf->accessConfig<Bme280DeviceConfig>();
+    return initDevice(mDevice.value(), driverConf, mI2cResource.get());
 }
 
 Bme280Driver::Bme280Driver(const DeviceConfig *config,
                            SingleAddressTracker tracker,
                            std::shared_ptr<I2cResource> i2cResource,
                            bmp280_t device)
-    : mTracker(std::move(tracker))
-      , mI2cResource(std::move(i2cResource))
-      , mDevice(device)
-      , mHumidity(config->accessConfig<Bme280DeviceConfig>()->humidityContainerSettings)
-      , mTemperature(config->accessConfig<Bme280DeviceConfig>()->temperatureContainerSettings)
-      , mPressure(config->accessConfig<Bme280DeviceConfig>()->pressureContainerSettings) {
+    : mConf(config),
+    mTracker(std::move(tracker))
+    , mI2cResource(std::move(i2cResource))
+    , mDevice(device)
+    , mHumidity(config->accessConfig<Bme280DeviceConfig>()->humidityContainerSettings)
+    , mTemperature(config->accessConfig<Bme280DeviceConfig>()->temperatureContainerSettings)
+    , mPressure(config->accessConfig<Bme280DeviceConfig>()->pressureContainerSettings)
+{
 }
 
 Bme280Driver::~Bme280Driver() {

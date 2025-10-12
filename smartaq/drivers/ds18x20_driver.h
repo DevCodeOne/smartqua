@@ -10,6 +10,7 @@
 #include <shared_mutex>
 
 #include "drivers/device_types.h"
+#include "drivers/driver_interface.h"
 #include "drivers/device_resource.h"
 #include "utils/container/sample_container.h"
 #include "utils/container/fixed_size_optional_array.h"
@@ -20,10 +21,18 @@ struct Ds18x20DriverData final {
     ds18x20_addr_t addr;
 };
 
+class Ds18x20Driver;
+
+template<>
+struct DriverInfo<Ds18x20Driver> {
+    using DeviceConfig = Ds18x20DriverData;
+
+    static constexpr char Name[] = "ds18x20_driver";
+};
+
+
 class Ds18x20Driver final {
     public:
-        static constexpr char name[] = "ds18x20_driver";
-
         Ds18x20Driver(const Ds18x20Driver &other) = delete;
         Ds18x20Driver(Ds18x20Driver &&other) noexcept;
         ~Ds18x20Driver();
@@ -34,15 +43,13 @@ class Ds18x20Driver final {
         static std::optional<Ds18x20Driver> create_driver(const std::string_view& input, DeviceConfig &deviceConfOut);
         static std::optional<Ds18x20Driver> create_driver(const DeviceConfig *config);
 
-        DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
-        DeviceOperationResult call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json);
-        DeviceOperationResult update_runtime_data();
+
+        DeviceState oneIteration();
+        bool reinit();
     private:
         Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin);
-
-        static void updateTempThread(std::stop_token token, Ds18x20Driver *instance);
 
         static bool addAddress(ds18x20_addr_t address);
         static bool removeAddress(ds18x20_addr_t address);
@@ -50,7 +57,6 @@ class Ds18x20Driver final {
         const DeviceConfig *mConf;
 
         std::shared_ptr<GpioResource> mPin;
-        std::jthread mTemperatureThread;
         SampleContainer<float> mTemperatureReadings;
 
         static inline FixedSizeOptionalArray<ds18x20_addr_t, max_num_devices> _deviceAddresses;
