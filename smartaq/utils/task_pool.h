@@ -100,76 +100,87 @@ class TaskPool {
         [[nodiscard]] static TaskResourceType postTask(TaskDescription task);
         [[nodiscard]] static bool removeTask(TaskId& id);
         [[noreturn]] static void doWork();
-        static auto doWorkOnce();
+
     private:
         static auto handleTaskExecutions();
         static void repostTask(const std::pair<TaskId, TaskDescription>& task);
-
-        [[noreturn]] static void task_pool_thread(void *ptr);
 
         using TaskInfo = std::pair<TaskId, TaskDescription>;
 
         static inline FixedSizeOptionalArray<TaskInfo, TaskPoolSize> _tasks;
         static inline std::recursive_timed_mutex taskListMutex;
-        static inline std::timed_mutex notifyMutex;
         static inline std::condition_variable_any notify;
         static inline TaskId _next_id = TaskId(0);
 };
+
+inline auto calculateNextExecutionTime(const TaskDescription &info) {
+    return info.last_executed + info.interval;
+}
 
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
 auto TaskPool<TaskPoolSize>::handleTaskExecutions() {
     using namespace std::chrono;
 
     const auto nowSinceEpoch = steady_clock::now();
-    steady_clock::time_point nextRegularExecution{ nowSinceEpoch + milliseconds{10 } };
+    // TODO: Add second thread to next regular execution?
+    steady_clock::time_point nextRegularExecution{ nowSinceEpoch + milliseconds{2000 } };
 
-    std::optional<TaskInfo> toExecute;
+    std::optional<TaskInfo> nextTask;
     {
-        std::unique_lock instanceGuard{notifyMutex, std::defer_lock};
+        std::unique_lock instanceGuard{taskListMutex, std::defer_lock};
         if (!instanceGuard.try_lock_for(1000ms))
         {
             return nextRegularExecution;
         }
 
-        const auto foundTaskToExecute [[maybe_unused]] = _tasks.modifyOrRemove(
-            [&nextRegularExecution, &nowSinceEpoch, &toExecute](
-            TaskInfo& currentTask)
+        decltype(_tasks.begin()) toExecute = _tasks.end();;
+
+        for (auto currentTask = _tasks.begin(); currentTask != _tasks.end(); ++currentTask)
+        {
+            if (currentTask->first == TaskId::invalid)
             {
-                if (toExecute)
-                {
-                    return false;
-                }
+                continue;
+            }
 
-                auto& currentTaskInfo = currentTask.second;
-                const auto currentTaskNextExecutionAt = currentTaskInfo.last_executed +
-                    currentTaskInfo.interval;
+            // Logger::log(LogLevel::Debug, "Checking task %s", currentTask->second.description);
 
-                nextRegularExecution = std::min(
-                    currentTaskNextExecutionAt, nextRegularExecution);
+            if (toExecute == _tasks.end())
+            {
+                toExecute = currentTask;
+                continue;
+            }
 
-                if (currentTaskNextExecutionAt <= nowSinceEpoch)
-                {
-                    toExecute = currentTask;
-                    return true;
-                }
+            if (calculateNextExecutionTime(currentTask->second) < calculateNextExecutionTime(toExecute->second))
+            {
+                toExecute = currentTask;
+            }
+        }
 
-                return false;
-            });
+        if (toExecute == _tasks.end())
+        {
+            return nextRegularExecution;
+        }
+
+        const auto thisWantsToExecuteAt = calculateNextExecutionTime(toExecute->second);
+        if (thisWantsToExecuteAt > nowSinceEpoch)
+        {
+            return thisWantsToExecuteAt;
+        }
+
+        nextTask = *toExecute;
+        (void) removeTask(toExecute->first);
     }
 
-    if (!toExecute)
+    if (!nextTask.has_value())
     {
         return nextRegularExecution;
     }
 
-    Logger::log(LogLevel::Info, "Found task to execute %s", toExecute->second.description);
-
-    auto &currentTaskToExecute = toExecute.value().second;
+    auto &currentTaskToExecute = nextTask.value().second;
 
     Logger::log(LogLevel::Info,
                             "=====================================[ In :%s ]======================================",
                             currentTaskToExecute.description);
-
 
     if (currentTaskToExecute.func_ptr != nullptr) {
         currentTaskToExecute.func_ptr(currentTaskToExecute.argument);
@@ -183,49 +194,39 @@ auto TaskPool<TaskPoolSize>::handleTaskExecutions() {
         return nextRegularExecution;
     }
 
-    currentTaskToExecute.last_executed = nowSinceEpoch;
+    currentTaskToExecute.last_executed = steady_clock::now();
 
-    repostTask(*toExecute);
+    repostTask(*nextTask);
 
-    return std::min(nextRegularExecution, currentTaskToExecute.last_executed + currentTaskToExecute.interval);
+    return std::min(nextRegularExecution, calculateNextExecutionTime(currentTaskToExecute));
 }
 
-// TODO: Add method which executes once, instead of iterating endlessly
 template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
-void TaskPool<TaskPoolSize>::task_pool_thread(void *) {
-    while (true) {
+[[noreturn]] void TaskPool<TaskPoolSize>::doWork()
+{
+    using namespace std::chrono;
+    while (true)
+    {
         const auto nextExecutionAt = handleTaskExecutions();
-        const auto now = std::chrono::steady_clock::now();
-        if (now >= nextExecutionAt) {
+        const auto now = steady_clock::now();
+        if (now >= nextExecutionAt)
+        {
             continue;
         }
 
-        Logger::log(LogLevel::Info, "Iterated all threads starting at the front");
+        const auto remainingWait = std::min(duration_cast<milliseconds>(nextExecutionAt - now), 5000ms);
 
-        const auto remainingWait = std::min(nextExecutionAt - now, std::chrono::milliseconds{1000});
-
-        std::unique_lock waitLock{notifyMutex};
+        std::unique_lock waitLock{taskListMutex};
         notify.wait_for(waitLock, remainingWait, []()
         {
-            return !_tasks.empty();
+            return !_tasks.empty() && std::any_of(_tasks.begin(), _tasks.end(), [](const auto& currentTaskPair)
+            {
+                const auto now = steady_clock::now();
+                return currentTaskPair.first != TaskId::invalid
+                    && calculateNextExecutionTime(currentTaskPair.second) < now;
+            });
         });
-
     }
-}
-
-template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
-[[noreturn]] void TaskPool<TaskPoolSize>::doWork() {
-    while (true)
-    {
-        auto nextExecutionAt = doWorkOnce();
-        auto now = std::chrono::steady_clock::now();
-        std::this_thread::sleep_until(std::min(nextExecutionAt, now + std::chrono::seconds{1 }));
-    }
-}
-
-template <auto TaskPoolSize> requires (ValidTaskPoolArgs<TaskPoolSize>)
-auto TaskPool<TaskPoolSize>::doWorkOnce() {
-    return handleTaskExecutions();
 }
 
 template<typename IdType>
@@ -247,15 +248,8 @@ auto TaskPool<TaskPoolSize>::postTask(TaskDescription task) -> TaskResourceType 
         }
 
         // TODO: Maybe create method for that
-        if (_next_id == TaskId::invalid)
-        {
-            _next_id = TaskId(0);
-        } else
-        {
-            _next_id = nextId(_next_id);
-        }
-
         createdId = _next_id;
+        _next_id = nextId(_next_id);
 
         Logger::log(LogLevel::Info, "Adding thread %s to pool", task.description);
     }
@@ -276,7 +270,7 @@ void TaskPool<TaskPoolSize>::repostTask(const TaskInfo& task) {
             return;
         }
 
-        Logger::log(LogLevel::Info, "Adding thread %s to pool", task.second.description);
+        Logger::log(LogLevel::Info, "Reposted task %s to pool", task.second.description);
     }
 
     notify.notify_one();
@@ -291,8 +285,9 @@ bool TaskPool<TaskPoolSize>::removeTask(TaskId& id) {
     {
         std::unique_lock instance_guard{taskListMutex};
 
-        const auto found = _tasks.modifyOrRemove([id](auto &current_task_pair) {
-            return current_task_pair.first == id;
+        const auto found = _tasks.modifyOrRemove([id](const auto &currentTaskPair) {
+            Logger::log(LogLevel::Info, "Removed task %s from pool", currentTaskPair.second.description);
+            return currentTaskPair.first == id;
         });
 
         if (found)
