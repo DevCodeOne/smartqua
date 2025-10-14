@@ -14,16 +14,20 @@
 #include "build_config.h"
 #include "utils/utils.h"
 #include "utils/stack_string.h"
+#include "utils/variant_utils.h"
 #include "storage/store.h"
 
 namespace SmartAq::Utils {
+
+    using IndexOrName = std::variant<unsigned int, std::string_view>;
+    using IndexOrNameOrEmpty = std::variant<std::monostate, unsigned int, std::string_view>;
 
     template<typename T>
     concept ValidBaseType = requires(T a) {
         { T::StorageName } -> std::convertible_to<const char *>;
     } && std::is_trivial_v<T>;
 
-    // TODO: seperate name_length
+    // TODO: separate name_length
     template<ValidBaseType BaseType, size_t Size>
         struct TrivialRepresentation {
             static const constexpr char *const name{ BaseType::StorageName };
@@ -34,14 +38,14 @@ namespace SmartAq::Utils {
     };
 
     namespace ArrayActions {
-        // Initialise and Update Value
+        // Initialize and Update Value
         // index is optional, the next free position in the array will be used
         // if the index is specified, the settingName can be used to update the name
         // if the index is not specified, the settingName can be used to access the specified value
         // settingNames have to unique
         template<typename BaseType, size_t UID>
         struct SetValue {
-            std::optional<unsigned int> index = std::nullopt;
+            IndexOrNameOrEmpty index;
             std::optional<std::string_view> settingName = "";
             std::string_view jsonSettingValue = "";
 
@@ -53,8 +57,7 @@ namespace SmartAq::Utils {
 
         template<typename BaseType, size_t UID>
         struct RemoveValue {
-            std::optional<unsigned int> index = std::nullopt;
-            std::optional<std::string_view> settingName = std::nullopt;
+            IndexOrName index;
 
             struct {
                 CollectionOperationResult collection_result = CollectionOperationResult::failed;
@@ -63,7 +66,7 @@ namespace SmartAq::Utils {
 
         template<typename BaseType, size_t UID>
         struct GetValue {
-            std::optional<unsigned int> index = std::nullopt;
+            std::optional<IndexOrName> index = std::nullopt;
             std::optional<std::string_view> settingName = std::nullopt;
 
             struct {
@@ -98,8 +101,8 @@ namespace SmartAq::Utils {
             ArrayActions::GetValueOverview<ElementType, UID>>, 
             const TrivialRepresentationType &, IgnoredEvent>;
 
-        static inline constexpr size_t NumElements = Size;
-        static inline constexpr size_t UniqueIdentifier = UID;
+        static constexpr size_t NumElements = Size;
+        static constexpr size_t UniqueIdentifier = UID;
 
         EventAccessArray() = default;
         ~EventAccessArray() = default;
@@ -125,9 +128,9 @@ namespace SmartAq::Utils {
         const TrivialRepresentationType &getTrivialRepresentation() const;
 
         template<typename Callable>
-        void invokeOnRuntimeData(int index, Callable callable);
+        void invokeOnRuntimeData(IndexOrName index, Callable callable);
         template<typename Callable>
-        void invokeOnRuntimeData(int index, Callable callable) const;
+        void invokeOnRuntimeData(IndexOrName index, Callable callable) const;
 
         template<typename Callable>
         void invokeOnAllRuntimeData(Callable callable);
@@ -135,7 +138,8 @@ namespace SmartAq::Utils {
         bool hasValidRuntimeData(int index) const;
 
         private:
-            std::optional<unsigned int> findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise = false) const;
+            template <typename VariantType>
+            std::optional<unsigned int> findIndex(const VariantType& indexOrName, bool findFreeSlotOtherwise = false) const;
 
             TrivialRepresentationType data;
             std::array<std::optional<RuntimeType>, NumElements> runtimeData;
@@ -145,34 +149,37 @@ namespace SmartAq::Utils {
 
     // TODO: add return value to indicate if it is a newly created value
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
-    std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(std::optional<unsigned int> index, std::optional<std::string_view> name, bool findFreeSlotOtherwise) const {
-        if (!index.has_value() && !name.has_value() && !findFreeSlotOtherwise) {
-            return std::nullopt;
-        }
+    template<typename VariantType>
+    std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(const VariantType &indexOrName, bool findFreeSlotOtherwise) const {
+        const auto index = getOpt<unsigned int>(indexOrName);
+        const auto name = getOpt<std::string_view>(indexOrName);
+
         if (index.has_value() && *index >= NumElements) {
             return std::nullopt;
         }
 
         std::optional<unsigned int> foundIndex = index;
 
-        if (!foundIndex.has_value() && name.has_value()) {
+        if (foundIndex.has_value()) {
+            return *foundIndex;
+        }
+
+        if (name.has_value()) {
             for (unsigned int i = 0; i < NumElements; ++i) {
                 if (*name == data.names[i].data()) {
-                    foundIndex = i;
-                    break;
+                    return i;
                 }
             }
         }
 
-        if (!foundIndex.has_value() && findFreeSlotOtherwise) {
+        if (findFreeSlotOtherwise) {
             for (unsigned int i = 0; i < NumElements; ++i) {
                 if (!data.initialized[i]) {
-                    foundIndex = i;
-                    break;
+                    return i;
                 }
             }
         }
-        
+
         return foundIndex;
     }
 
@@ -207,7 +214,7 @@ namespace SmartAq::Utils {
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
         std::unique_lock instanceGuard{instanceMutex};
 
-        std::optional<unsigned int> foundIndex = findIndex(event.index, event.settingName, true);
+        std::optional<unsigned int> foundIndex = findIndex(event.index, true);
 
         if (!foundIndex.has_value()) {
             event.result.collection_result = CollectionOperationResult::collection_full;
@@ -235,14 +242,14 @@ namespace SmartAq::Utils {
     auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::RemoveValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::RemoveValue<BaseType, UID>> {
         std::unique_lock instanceGuard{instanceMutex};
 
-        std::optional<unsigned int> indexToDelete = findIndex(event.index, event.settingName);
+        std::optional<unsigned int> indexToDelete = findIndex(event.index);
 
         if (!indexToDelete.has_value()) {
             event.result.collection_result = CollectionOperationResult::index_invalid;
             return data;
         }
 
-        event.index = indexToDelete;
+        event.index = *indexToDelete;
         event.result.collection_result = CollectionOperationResult::ok;
         // First delete class, so the class can use the information in the trivial representation if needed
         runtimeData[*indexToDelete] = std::nullopt;
@@ -258,7 +265,7 @@ namespace SmartAq::Utils {
         Logger::log(LogLevel::Info, "Try locking to read");
         std::unique_lock instanceGuard{instanceMutex};
 
-        auto foundIndex = findIndex(event.index, event.settingName);
+        auto foundIndex = findIndex(event.index);
 
         if (!foundIndex.has_value()) {
             event.result.collection_result = CollectionOperationResult::index_invalid;
@@ -329,21 +336,35 @@ namespace SmartAq::Utils {
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
-    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) {
+    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(IndexOrName index, Callable callable) {
         std::unique_lock instanceGuard{instanceMutex};
 
-        if (hasValidRuntimeData(index)) {
-            callable(*runtimeData[index]);
+        auto findIndexResult = findIndex(index, false);
+
+        if (!findIndexResult)
+        {
+            return;
+        }
+
+        if (hasValidRuntimeData(*findIndexResult)) {
+            callable(*runtimeData[*findIndexResult]);
         }
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename Callable>
-    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(int index, Callable callable) const {
+    void EventAccessArray<BaseType, RuntimeType, Size, UID>::invokeOnRuntimeData(IndexOrName index, Callable callable) const {
         std::unique_lock instanceGuard{instanceMutex};
 
-        if (hasValidRuntimeData(index)) {
-            callable(*runtimeData[index]);
+        auto findIndexResult = findIndex(index, false);
+
+        if (!findIndexResult)
+        {
+            return;
+        }
+
+        if (hasValidRuntimeData(*findIndexResult)) {
+            callable(*runtimeData[*findIndexResult]);
         }
     }
 
