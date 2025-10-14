@@ -43,9 +43,10 @@ int json_printf_single(json_out *out, va_list *ap);
 template<typename T>
 struct read_from_json;
 
-template<>
-struct read_from_json<int> { 
-    static void read(const char *str, int len, int &user_data) {
+template<typename IntegralType>
+requires (std::is_integral_v<IntegralType> && !std::is_same_v<IntegralType, bool>)
+struct read_from_json<IntegralType> {
+    static void read(const char *str, int len, IntegralType &user_data) {
         std::from_chars(str, str + len, user_data);
     }
 };
