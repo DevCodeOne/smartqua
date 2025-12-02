@@ -11,43 +11,22 @@
 
 #include "build_config.h"
 #include "drivers/device_types.h"
+#include "utils/serialization/number_conversion.h"
 
 std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const DeviceConfig*config) {
     auto driver_data = config->accessConfig<PicoDeviceDriverData>();
-    auto sdaPin = DeviceResource::get_gpio_resource(driver_data->sdaPin, GpioPurpose::bus);
-    auto sclPin = DeviceResource::get_gpio_resource(driver_data->sclPin, GpioPurpose::bus);
 
-    if (!sdaPin || !sclPin) {
-        Logger::log(LogLevel::Warning, "I2C Port cannot be used, since one or more pins are already reserved for a different purpose");
-        return std::nullopt;
+    auto i2cResource = DeviceResource::get_i2c_port(i2c_port_t::I2C_NUM_0, I2C_MODE_MASTER,
+                                                    driver_data->sdaPin, driver_data->sclPin);
+
+    if (i2cResource == nullptr)
+    {
+        Logger::log(LogLevel::Error, "Couldn't acquire i2c bus");
+        return {};
     }
 
-    if (!addAddress(driver_data->address)) {
-        Logger::log(LogLevel::Warning, "The device is already in use");
-        return std::nullopt;
-    }
 
-    I2CDeviceType device{new i2c_dev_t};
-    device->addr = static_cast<uint8_t>(driver_data->address);
-    device->port = I2C_NUM_0;
-    device->cfg.mode = I2C_MODE_MASTER;
-    device->cfg.sda_io_num = static_cast<gpio_num_t>(driver_data->sdaPin);
-    device->cfg.scl_io_num = static_cast<gpio_num_t>(driver_data->sclPin);
-    device->cfg.master.clk_speed = 400'000;
-    device->cfg.clk_flags = 0;
-    device->timeout_ticks = 17;
-    device->cfg.sda_pullup_en = GPIO_PULLUP_DISABLE;
-    device->cfg.scl_pullup_en = GPIO_PULLUP_DISABLE;
-
-    auto result = i2c_dev_create_mutex(device.get());
-
-    if (result != ESP_OK) {
-        Logger::log(LogLevel::Warning, "Couldn't find any devices on port %d with address %d", 
-            0, static_cast<int>(driver_data->address));
-        removeAddress(driver_data->address);
-    }
-    
-    return setupDevice(config, std::move(device));
+    return setupDevice(config, i2cResource);
 }
 
 std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
@@ -63,46 +42,19 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::strin
 
     if (address == PicoDeviceAddress::INVALID) {
         Logger::log(LogLevel::Warning, "Invalid address for pico_device_driver : %d", (int) address);
-        return std::nullopt;
+        return {};
     }
 
     Logger::log(LogLevel::Info, "Address for pico_device_driver : %x", (int) address);
 
-    auto sclPin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(scl), GpioPurpose::bus);
-    auto sdaPin = DeviceResource::get_gpio_resource(static_cast<gpio_num_t>(sda), GpioPurpose::bus);
+    auto i2cResource = DeviceResource::get_i2c_port(i2c_port_t::I2C_NUM_0, I2C_MODE_MASTER,
+                                                    static_cast<gpio_num_t>(sda), static_cast<gpio_num_t>(scl));
 
-    if (!sclPin || !sdaPin) {
-        Logger::log(LogLevel::Warning, "GPIO pins couldn't be reserved");
-        return std::nullopt;
+    if (i2cResource == nullptr)
+    {
+        Logger::log(LogLevel::Error, "Couldn't acquire i2c bus");
+        return {};
     }
-
-    if (!addAddress(address)) {
-        Logger::log(LogLevel::Warning, "Duplicate address, or address list is full");
-        return std::nullopt;
-    }
-
-    I2CDeviceType device{new i2c_dev_t};
-    device->addr = static_cast<uint8_t>(address);
-    device->port = I2C_NUM_0;
-    device->cfg.mode = I2C_MODE_MASTER;
-    device->cfg.sda_io_num = static_cast<gpio_num_t>(sda);
-    device->cfg.scl_io_num = static_cast<gpio_num_t>(scl);
-    device->cfg.master.clk_speed = 400'000;
-    device->cfg.clk_flags = 0;
-    device->timeout_ticks = 17;
-    device->cfg.sda_pullup_en = GPIO_PULLUP_DISABLE;
-    device->cfg.scl_pullup_en = GPIO_PULLUP_DISABLE;
-
-    auto result = i2c_dev_create_mutex(device.get());
-
-    if (result != ESP_OK) {
-        Logger::log(LogLevel::Warning, "Couldn't find any pico_devices on port %d with address %d", 
-            0, static_cast<int>(address));
-        removeAddress(address);
-        return std::nullopt;
-    }
-    
-    Logger::log(LogLevel::Info, "Initialized pico_device_driver @ %x", (int) address);
 
     PicoDeviceDriverData data { 
         .address = address, 
@@ -112,20 +64,46 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::create_driver(const std::strin
     deviceConfOut.insertConfig(&data);
     deviceConfOut.device_driver_name =  PicoDeviceDriver::name;
 
-    auto dev = setupDevice(&deviceConfOut, std::move(device));
-
-    Logger::log(LogLevel::Info, "After SetupDevice");
-
-    return dev;
+    return setupDevice(&deviceConfOut, i2cResource);
 }
 
 // TODO: Maybe add some kind of check, if devices are expected
-std::optional<PicoDeviceDriver> PicoDeviceDriver::setupDevice(const DeviceConfig *device_conf_out, I2CDeviceType device) {
+std::optional<PicoDeviceDriver> PicoDeviceDriver::setupDevice(const DeviceConfig *config, std::shared_ptr<I2cResource> i2cResource) {
+    auto driver_data = config->accessConfig<PicoDeviceDriverData>();
+
+    if (!addAddress(driver_data->address)) {
+        Logger::log(LogLevel::Warning, "The device is already in use");
+        return {};
+    }
+
+    I2CDeviceType device{new i2c_dev_t};
+    device->addr = static_cast<uint8_t>(driver_data->address);
+    device->port = i2cResource->channel_num();
+    device->cfg.mode = I2C_MODE_MASTER;
+    device->cfg.sda_io_num = driver_data->sdaPin;
+    device->cfg.scl_io_num = driver_data->sclPin;
+    device->cfg.master.clk_speed = 100'000;
+    device->cfg.clk_flags = 0;
+    device->timeout_ticks = 17;
+    device->cfg.sda_pullup_en = GPIO_PULLUP_DISABLE;
+    device->cfg.scl_pullup_en = GPIO_PULLUP_DISABLE;
+
+    auto i2cDevCreateSuccess = i2c_dev_create_mutex(device.get());
+
+    if (i2cDevCreateSuccess != ESP_OK) {
+        Logger::log(LogLevel::Warning, "Couldn't find any pico_devices on port %d with address %d",
+            0, static_cast<int>(driver_data->address));
+        removeAddress(driver_data->address);
+        return std::nullopt;
+    }
+
+    Logger::log(LogLevel::Info, "Initialized pico_device_driver @ %x", static_cast<int>(driver_data->address));
+
     // TODO: Currently max memory size is 255 bytes, because of the address size of 1 byte, might change
-    std::array<uint8_t, 255> deviceMemory;
+    std::array<uint8_t, 255> deviceMemory{};
     Logger::log(LogLevel::Info, "Trying to read from device memory ...");
 
-    auto result = PicoDeviceDriver::readCompleteMemory(device.get(), 0u, deviceMemory.data(), deviceMemory.size());
+    const auto result = PicoDeviceDriver::readCompleteMemory(device.get(), 0u, deviceMemory.data(), deviceMemory.size());
 
     if (!result) {
         Logger::log(LogLevel::Info, "Device @ %x was not responding", static_cast<int>(device->addr));
@@ -144,11 +122,13 @@ std::optional<PicoDeviceDriver> PicoDeviceDriver::setupDevice(const DeviceConfig
 
     Logger::log(LogLevel::Info, "Successfully created device");
 
-    return PicoDeviceDriver(device_conf_out, *access, std::move(device));
+    return PicoDeviceDriver(config, *access, std::move(device), std::move(i2cResource));
 }
 
-PicoDeviceDriver::PicoDeviceDriver(const DeviceConfig *conf, RuntimeAccessType access, I2CDeviceType device) 
-    : mConf(conf), mDevice(std::move(device)), mAccess(std::move(access)) { 
+PicoDeviceDriver::PicoDeviceDriver(const DeviceConfig* conf, RuntimeAccessType access, I2CDeviceType device,
+                                   std::shared_ptr<I2cResource> resource)
+    : mConf(conf), mResource(std::move(resource)), mDevice(std::move(device)), mAccess(std::move(access))
+{
     device = nullptr;
 }
 
@@ -175,18 +155,8 @@ PicoDeviceDriver::~PicoDeviceDriver() {
     removeAddress(mConf->accessConfig<PicoDeviceDriverData>()->address);
 }
 
-// TODO: only update specific devices instead of writing and reading the complete memory of the target device
-// Here a mapping from name to type is needed
-DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const DeviceValues &value) {
-    using namespace PicoDriver;
-    
-    if (what.size() == 0) {
-        Logger::log(LogLevel::Info, "What was empty");
-        return DeviceOperationResult::failure;
-    }
-
-    BasicStackString<16> tag{};
-    unsigned int index = 0;
+bool PicoDeviceDriver::readTagFromString(const std::string_view &what, unsigned int &index, BasicStackString<16> &tag)
+{
     // Format is 12FPWM
     // index -> 12
     // tag -> FPWM
@@ -194,84 +164,71 @@ DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const
 
     if (what.size() >= copyString->size()) {
         // Shouldn't really happen
-        return DeviceOperationResult::failure;
+        return false;
     }
 
     std::strncpy(copyString->data(), what.data(), std::min(copyString->size(), what.size()));
     copyString->data()[what.size()] = '\0';
-    sscanf(copyString->data(), "%u%15s", &index, tag.data());
+    const auto readValues = sscanf(copyString->data(), "%u%15s", &index, tag.data());
 
+    if (readValues != 2)
+    {
+        Logger::log(LogLevel::Info, "Couldn't read values from string %.*s", what.size(), what.data());
+        return false;
+    }
 
-    if (index > PicoDriver::RuntimeAccess::MaxDevices) {
-        Logger::log(LogLevel::Info, "Index %u greater than MaxDevices, Tag was %s", index, tag);
+    return true;
+}
+
+// TODO: only update specific devices instead of writing and reading the complete memory of the target device
+// Here a mapping from name to type is needed
+DeviceOperationResult PicoDeviceDriver::write_value(std::string_view what, const DeviceValues &value) {
+    using namespace PicoDriver;
+
+    if (what.empty()) {
+        Logger::log(LogLevel::Info, "The param for write_value was empty");
         return DeviceOperationResult::failure;
     }
 
-    using DosingPumpDriver = PicoDriver::StepperMotorTag<PicoDriver::NoDirectionPin, PicoDriver::PinUsed>;
-
-    const auto &currentDevice = mAccess[index];
-    Logger::log(LogLevel::Info, "Tag %.*s and Index : %u, Tag @ Index :%s", tag.len(), tag.data(), index, currentDevice.tagName());
-    if (tag.getStringView() == FixedPWMType::Name) {
-        if (auto pwm = std::get_if<MemoryRepresentation<FixedPWMType> *>(&currentDevice); pwm) {
-            Logger::log(LogLevel::Info, "Found memory representation");
-            // TODO: add error handling
-            (*pwm)->pwmValue = value.generic_pwm().value_or(0x1227);
-            const auto update = mAccess.toRawMemorySlice<FixedPWMType>(*pwm);
-            writeCompleteMemory(mDevice.get(), update.address, update.data, update.size);
-            Logger::log(LogLevel::Info, "Writing update");
-        } else {
-            Logger::log(LogLevel::Info, "Memory Representation was wrong ...");
-        }
-    } else if (tag.getStringView() == DosingPumpDriver::Name) {
-        if (auto stepper =
-                    std::get_if<MemoryRepresentation<DosingPumpDriver> *>(&currentDevice);
-            stepper) {
-            Logger::log(LogLevel::Info, "Found memory representation");
-            // TODO: add error handling
-            (*stepper)->steps = value.generic_unsigned_integral().value_or(0);
-            const auto update = mAccess.toRawMemorySlice<DosingPumpDriver>(*stepper);
-            writeCompleteMemory(mDevice.get(), update.address, update.data, update.size);
-            unsigned int steps = (*stepper)->steps;
-            Logger::log(LogLevel::Info, "Writing update, added %u steps %u", steps,
-                        value.generic_unsigned_integral().value_or(0));
-        } else {
-            Logger::log(LogLevel::Info, "Memory Representation was wrong ...");
-        }
-    }
-    else {
+    const auto index = convertFromCharRange<unsigned int>(what);
+    if (!index)
+    {
+        return DeviceOperationResult::failure;
     }
 
-    return DeviceOperationResult::ok;
+    if (*index > RuntimeAccess::MaxDevices) {
+        Logger::log(LogLevel::Info, "Index %u greater than MaxDevices", index);
+        return DeviceOperationResult::failure;
+    }
+
+    auto &currentDevice = mAccess[*index];
+    Logger::log(LogLevel::Info, "Index : %u, Tag @ Index : %s", *index, currentDevice.tagName());
+
+    return std::visit([&value, this]<typename MemoryRepresentation>(MemoryRepresentation &memoryRepresentation)
+    {
+        if constexpr (!std::is_same_v<MemoryRepresentation, std::monostate>)
+        {
+            return writeDeviceValueToPico(memoryRepresentation, value);
+        } else
+        {
+            return DeviceOperationResult::not_supported;
+        }
+    }, currentDevice);
 }
 
 // Only read specific entry ?
 DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, DeviceValues &value) const {
     Logger::log(LogLevel::Info, "ReadValue PicoDeviceDriver");
     using namespace PicoDriver;
-    if (what.size() == 0) {
+    if (what.empty()) {
         Logger::log(LogLevel::Info, "What was empty");
         return DeviceOperationResult::failure;
     }
 
     BasicStackString<16> tag{};
     unsigned int index = 0;
-    // Format is 12FPWM
-    // index -> 12
-    // tag -> FPWM
-    auto copyString = SmallerBufferPoolType::get_free_buffer();
-
-    if (what.size() >= copyString->size()) {
-        // Shouldn't really happen
-        return DeviceOperationResult::failure;
-    }
-
-    std::strncpy(copyString->data(), what.data(), std::min(copyString->size(), what.size()));
-    copyString->data()[what.size()] = '\0';
-    sscanf(copyString->data(), "%u%15s", &index, tag.data());
-
-
-    if (index > PicoDriver::RuntimeAccess::MaxDevices) {
-        Logger::log(LogLevel::Info, "Index %u greater than MaxDevices, Tag was %s", index, tag);
+    if (!readTagFromString(what.data(), index, tag))
+    {
         return DeviceOperationResult::failure;
     }
 
@@ -290,7 +247,7 @@ DeviceOperationResult PicoDeviceDriver::read_value(std::string_view what, Device
             // TODO: add a way to add both
             // value.setToUnit<DeviceValueUnit::voltage>(rawValue * MemoryRepresentation<ADCType>::ConversionFactor);
             value.setToUnit<DeviceValueUnit::generic_analog>(rawValue);
-            Logger::log(LogLevel::Info, "Setting to value %u, %f", rawValue, *value.getAsUnit<DeviceValueUnit::voltage>());
+            Logger::log(LogLevel::Info, "Setting to value %u, %f", rawValue, *value.getAsUnitAsType<DeviceValueUnit::voltage>());
         }
     } else {
         Logger::log(LogLevel::Warning, "Couldn't find tag with name : %.*s", tagView.size(), tagView.data());
@@ -372,7 +329,7 @@ bool PicoDeviceDriver::removeAddress(PicoDeviceAddress address) {
 bool PicoDeviceDriver::readCompleteMemory(i2c_dev_t *device, uint8_t address, uint8_t *target, size_t targetSize) {
     auto doWork = [](i2c_dev_t *device, uint8_t address, uint8_t *target, size_t targetSize) -> esp_err_t {
 
-        DoFinally giveMutex { 
+        DoFinally giveMutex {
             [device]() {
                 I2C_DEV_GIVE_MUTEX(device);
 
@@ -391,31 +348,6 @@ bool PicoDeviceDriver::readCompleteMemory(i2c_dev_t *device, uint8_t address, ui
 
         return ESP_OK;
     };
-
     return doWork(device, address, target, targetSize) == ESP_OK;
 }
 
-// TODO: check if address + size < 255
-bool PicoDeviceDriver::writeCompleteMemory(i2c_dev_t *device, uint8_t address, const uint8_t *target, size_t targetSize) {
-    auto doWork = [](i2c_dev_t *device, uint8_t address, const uint8_t *target, size_t targetSize) -> esp_err_t {
-        I2C_DEV_TAKE_MUTEX(device);
-
-        DoFinally giveMutex { 
-            [device]() {
-                I2C_DEV_GIVE_MUTEX(device);
-
-                return ESP_OK;
-            }
-        };
-
-        const auto result = i2c_dev_write(device, &address, sizeof(address), target, targetSize);
-
-        if (result != ESP_OK) {
-            return ESP_FAIL;
-        }
-
-        return ESP_FAIL;
-    };
-
-    return doWork(device, address, target, targetSize) == ESP_OK;
-}

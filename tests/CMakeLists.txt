@@ -18,7 +18,16 @@ add_executable(smartaq_tests
         schedule_tests.cpp
         schedule_tracker_tests.cpp
         fixed_size_optional_array_tests.cpp
-        time_utils_tests.cpp)
+        time_utils_tests.cpp
+        bit_utils_tests.cpp
+        schedule_tracker_uneven_events_tests.cpp
+        device_values_tests.cpp
+        device_values_serialization_tests.cpp
+        enum_type_map_tests.cpp
+        schedule_tracker_two_entries_tests.cpp
+        schedule_tracker_set_channel_times.cpp
+        driver_interface_tests.cpp
+)
 target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)
 target_compile_options(smartaq_tests PRIVATE -coverage)

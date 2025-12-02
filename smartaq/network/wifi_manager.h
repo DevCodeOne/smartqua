@@ -16,11 +16,8 @@
 #include "storage/nvs_flash_utils.h"
 #include "network/network_info.h"
 
-static constexpr uint8_t WIFI_CONNECTED_BIT = BIT0;
-static constexpr uint8_t WIFI_FAIL_BIT = BIT1;
-
-template <wifi_mode_t Mode>
-class WifiManager;
+template<wifi_mode_t Mode>
+    class WifiManager;
 
 struct WifiCredentials {
     std::array<char, 32> ssid;
@@ -33,20 +30,23 @@ enum struct WifiReconnectPolicy : uint32_t {
     infinite = std::numeric_limits<uint32_t>::max()
 };
 
-template <wifi_mode_t Mode>
-struct wifi_config;
+static constexpr uint8_t WIFI_CONNECTED_BIT = BIT0;
+static constexpr uint8_t WIFI_FAIL_BIT = BIT1;
 
-template <>
-struct wifi_config<wifi_mode_t::WIFI_MODE_STA> {
+template<wifi_mode_t Mode>
+struct WifiConfig;
+
+template<>
+struct WifiConfig<wifi_mode_t::WIFI_MODE_STA> {
     WifiCredentials creds;
     WifiReconnectPolicy reconnect_tries{WifiReconnectPolicy::infinite};
     std::chrono::milliseconds retry_time{1000};
 };
 
-template <>
+template<>
 class WifiManager<wifi_mode_t::WIFI_MODE_STA> {
-   public:
-    explicit WifiManager(const wifi_config<wifi_mode_t::WIFI_MODE_STA> &config)
+public:
+    explicit WifiManager(const WifiConfig<wifi_mode_t::WIFI_MODE_STA> &config)
         : m_config(config), m_wifi_event_group(xEventGroupCreate()) {
         esp_netif_init();
 
@@ -85,10 +85,10 @@ class WifiManager<wifi_mode_t::WIFI_MODE_STA> {
         vEventGroupDelete(m_wifi_event_group);
     }
 
-    bool awaitConnection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) {
+    bool awaitConnection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) const {
         EventBits_t bits = xEventGroupWaitBits(
-                m_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
-                pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
+            m_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
+            pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
 
         return (bits & WIFI_CONNECTED_BIT) && !(bits & WIFI_FAIL_BIT);
     }
@@ -96,7 +96,7 @@ class WifiManager<wifi_mode_t::WIFI_MODE_STA> {
     // TODO: add delay to reconnect
     static void eventHandler(void *arg, esp_event_base_t event_base,
                              int32_t event_id, void *event_data) {
-        auto thiz = reinterpret_cast<WifiManager *>(arg);
+        const auto thiz = static_cast<WifiManager *>(arg);
         if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
             esp_wifi_connect();
         } else if (event_base == WIFI_EVENT &&
@@ -111,17 +111,17 @@ class WifiManager<wifi_mode_t::WIFI_MODE_STA> {
             }
             NetworkInfo::disallowNetwork();
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-            ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
+            ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
             Logger::log(LogLevel::Info, "got ip:" IPSTR,
-                     IP2STR(&event->ip_info.ip));
+                        IP2STR(&event->ip_info.ip));
             thiz->retry_num = 0;
             xEventGroupSetBits(thiz->m_wifi_event_group, WIFI_CONNECTED_BIT);
             NetworkInfo::allowNetwork();
         }
     }
 
-   private:
-    wifi_config<wifi_mode_t::WIFI_MODE_STA> m_config;
+private:
+    WifiConfig<wifi_mode_t::WIFI_MODE_STA> m_config;
     wifi_config_t m_wifi_conf{};
     EventGroupHandle_t m_wifi_event_group;
     nvs_flash m_nvs;

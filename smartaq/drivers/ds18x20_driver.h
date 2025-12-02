@@ -10,7 +10,7 @@
 #include <shared_mutex>
 
 #include "drivers/device_types.h"
-#include "drivers/driver_interface.h"
+#include "drivers/sensor_driver_interface.h"
 #include "drivers/device_resource.h"
 #include "utils/container/sample_container.h"
 #include "utils/container/fixed_size_optional_array.h"

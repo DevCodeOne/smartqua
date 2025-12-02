@@ -78,7 +78,6 @@ struct SwitchConfig {
     unsigned int readingDeviceId;
     unsigned int stayInState;
     bool onlyTriggerOnChange;
-    DeviceValueUnit deviceUnit;
     DeviceValues targetValue;
     DeviceValues lowValueArgument;
     DeviceValues neutralValueArgument;
@@ -119,12 +118,42 @@ class SwitchDriver final {
         bool writeValueToDevice(const DeviceValues& value);
         DeviceOperationResult watchValuesAndReact();
 
+        static bool validateSwitchValues(const SwitchConfig& newConf);
+
         using TimePoint = ClockType::time_point;
 
         TimePoint mSwitchedStatesAt;
         const DeviceConfig *mConf;
         std::expected<DeviceValues, BoundCalculationError> mPreviousValue;
 };
+
+template <typename C>
+bool SwitchDriver<C>::validateSwitchValues(const SwitchConfig& newConf)
+{
+    const std::array values{newConf.highValueArgument, newConf.neutralValueArgument, newConf.lowValueArgument};
+    const auto firstValid = std::ranges::find_if(values, [](const DeviceValues& value)
+    {
+        return value.getUnit() != DeviceValueUnit::none;
+    });
+
+    if (firstValid == values.end())
+    {
+        Logger::log(LogLevel::Error, "No valid value found for switch");
+        return false;
+    }
+
+    const auto anyDifferentUnit = std::ranges::any_of(values, [&firstValid](const DeviceValues& value)
+    {
+        return value.getUnit() != firstValid->getUnit() && value.getUnit() != DeviceValueUnit::none;
+    });
+
+    if (anyDifferentUnit)
+    {
+        Logger::log(LogLevel::Error, "Different units for target value");
+        return false;
+    }
+    return true;
+}
 
 template<typename C>
 std::expected<SwitchDriver<C>, const char *> SwitchDriver<C>::create_driver(const std::string_view& input, DeviceConfig &deviceConfOut) {
@@ -135,7 +164,6 @@ std::expected<SwitchDriver<C>, const char *> SwitchDriver<C>::create_driver(cons
         .readingDeviceId = InvalidDeviceId,
         .stayInState = 10,
         .onlyTriggerOnChange = false,
-        .deviceUnit = DeviceValueUnit::generic_unsigned_integral,
         .targetValue = {},
         .lowValueArgument = DeviceValues::create_empty(),
         .neutralValueArgument = DeviceValues::create_empty(),
@@ -169,8 +197,7 @@ std::expected<SwitchDriver<C>, const char *> SwitchDriver<C>::create_driver(cons
                json_scanf_single<DeviceValues>, &newConf.lowValueArgument,
                json_scanf_single<DeviceValues>, &newConf.neutralValueArgument,
                json_scanf_single<DeviceValues>, &newConf.highValueArgument,
-               json_scanf_single<DeviceValues>, &newConf.maxAllowedDifference,
-               json_scanf_single<DeviceValueUnit>, &newConf.deviceUnit);
+               json_scanf_single<DeviceValues>, &newConf.maxAllowedDifference);
 
     bool check = checkAssign(newConf.readingDeviceId, readingDeviceId);
     check &= checkAssign(newConf.targetDeviceId, targetDeviceId);
@@ -206,6 +233,11 @@ std::expected<SwitchDriver<C>, const char *> SwitchDriver<C>::create_driver(cons
 
     newConf.targetArgument.set(targetArgument.ptr, targetArgument.len);
 
+    if (!validateSwitchValues(newConf))
+    {
+        return std::unexpected{"Switch values are invalid"};
+    }
+
     deviceConfOut.insertConfig(&newConf);
 
     return create_driver(&deviceConfOut);
@@ -222,6 +254,14 @@ template <typename C>
     const DeviceValues& result)
 {
     using DifferenceType = float;
+
+    const auto targetValue = switchConfig->targetValue.getAsUnit<DifferenceType>();
+
+    if (!targetValue)
+    {
+        Logger::log(LogLevel::Error, "Couldn't represent target value as float");
+        return std::unexpected(BoundCalculationError::ReadError);
+    }
 
     const auto difference = switchConfig->targetValue.difference(result);
     if (!difference.has_value())
@@ -248,19 +288,19 @@ template <typename C>
 
     if (std::fabs(*maxAllowedDifference) > std::fabs(*differenceAsFloat))
     {
-        Logger::log(LogLevel::Debug, "Difference is small enough switch to do the neutral action [%f, %f] < %f",
-                    -*maxAllowedDifference, *maxAllowedDifference, *differenceAsFloat);
+        Logger::log(LogLevel::Debug, "Difference is small enough switch to do the neutral action [%f, %f] < %f, target %f",
+                    -*maxAllowedDifference, *maxAllowedDifference, *differenceAsFloat, *targetValue);
         return { switchConfig->neutralValueArgument };
     }
 
-    Logger::log(LogLevel::Debug, "Difference is large enough for this switch to do a low or high action %f < %f",
-                *maxAllowedDifference, *differenceAsFloat);
+    Logger::log(LogLevel::Debug, "Difference is large enough for this switch to do a low or high action %f < %f, target %f",
+                *maxAllowedDifference, *differenceAsFloat, *targetValue);
     // targetValue > currentValue => lowValue
     if (differenceAsFloat < 0) {
-        return { switchConfig->lowValueArgument };
+        return { switchConfig->highValueArgument };
     }
 
-    return { switchConfig->highValueArgument };
+    return { switchConfig->lowValueArgument };
     // If the values couldn't be compared, there should be some kind of error handling, best at the creation of the object
 }
 
@@ -291,13 +331,15 @@ DeviceOperationResult SwitchDriver<C>::watchValuesAndReact() {
         return DeviceOperationResult::ok;
     }
 
-    if (mSwitchedStatesAt + std::chrono::seconds(switchConfig->stayInState) > ClockType::now())
+    const bool valueChanged = valueToSet != mPreviousValue;
+
+    if (mSwitchedStatesAt + std::chrono::seconds(switchConfig->stayInState) > ClockType::now()
+        && valueChanged)
     {
         Logger::log(LogLevel::Info, "Switch should still remain in state, still to early to switch, skipping ...");
         return DeviceOperationResult::ok;
     }
 
-    const bool valueChanged = valueToSet != mPreviousValue;
     const bool shouldSetValue = valueChanged || switchConfig->onlyTriggerOnChange == false;
 
     if (!shouldSetValue)
@@ -367,14 +409,17 @@ DeviceOperationResult SwitchDriver<C>::write_value(std::string_view what, const 
 {
     auto switchConfig = mConf->accessConfig<SwitchConfig>();
 
-    if (value.getUnit() != switchConfig->deviceUnit)
+    if (value.getUnit() != switchConfig->targetValue.getUnit())
     {
         Logger::log(LogLevel::Error, "Unit of value is not the same as the unit of the switch");
         return DeviceOperationResult::failure;
     }
 
     switchConfig->targetValue = value;
-    Logger::log(LogLevel::Info, "Got new target value for switch");
+
+    auto asFloat = value.getAsUnit<float>();
+
+    Logger::log(LogLevel::Info, "Got new target value for switch %f", asFloat.value_or(0.0f));
     return DeviceOperationResult::ok;
 }
 

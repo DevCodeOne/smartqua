@@ -124,7 +124,7 @@ void *mainTask(void *) {
 
     SntpClock clock;
 
-    static unsigned int stack_size = 7 * 4096 + 2048;
+    static unsigned int stack_size = 8 * 4096;
 
     pthread_attr_t attributes;
     pthread_attr_init(&attributes);

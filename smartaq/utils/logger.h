@@ -50,27 +50,21 @@ class ApplicationLogger final {
         static inline std::once_flag _initializedSinks;
         static inline std::mutex _sinkMutex;
         static inline LogLevel _ignoreLogsBelow;
-        static inline DoFinally unistallHook{
-            []() {
-                std::apply([](auto &&... currentSink) {
-                    (currentSink.uninstall(), ...);
-                }, _sinks);
-
-                Backend::uninstall();
+        static inline DoFinally uninstallHook{
+            [] {
+                (void) (std::get<Sinks>(_sinks).uninstall() && ...);
+                (void) Backend::uninstall();
             }
         };
 };
 
-template<typename Backend, typename ... Sinks>
-void ApplicationLogger<Backend, Sinks ...>::initSinksAndInstall() {
+template<typename Backend, typename... Sinks>
+void ApplicationLogger<Backend, Sinks...>::initSinksAndInstall() {
     std::unique_lock sinkGuard{_sinkMutex};
-    std::call_once(_initializedSinks, []() {
-        std::apply([](auto && ...currentSink) {
-            (currentSink.install(), ...);
-        }, _sinks);
-
+    std::call_once(_initializedSinks, [](auto &tuple) {
+        (std::get<Sinks>(tuple).install(), ...);
         Backend::install();
-    });
+    }, _sinks);
 }
 
 template<typename Backend, typename ... Sinks>
@@ -91,19 +85,8 @@ template<typename ... Arguments>
 bool ApplicationLogger<Backend, Sinks ...>::log(LogLevel level, const char *fmt, Arguments &&... args) {
     std::unique_lock sinkGuard{_sinkMutex};
 
-    const auto loggedSuccessfully = std::apply([&](auto && ... currentSink) {
-        std::array results{(currentSink.log(level, fmt, args ...), ...)};
-
-        Backend::log(level, fmt, std::forward<Arguments>(args) ...);
-
-        for (const auto currentResult : results) {
-            if (!currentResult) {
-                return false;
-            }
-        }
-
-        return true;
-    }, _sinks);
+    const bool loggedSuccessfully = (std::get<Sinks>(_sinks).log(level, fmt, args ...) && ...);
+    Backend::log(level, fmt, std::forward<Arguments>(args) ...);
 
     return loggedSuccessfully;
 }

@@ -17,17 +17,19 @@
 #include "drivers/ads111x_driver.h"
 #include "drivers/pin_driver.h"
 #include "drivers/ph_probe_driver.h"
-#include "drivers/pcf8575_driver.h"
+#include "drivers/pcf857x_driver.h"
 #include "drivers/scale_driver.h"
 #include "drivers/dac_driver.h"
 #include "drivers/schedule_driver.h"
 #include "drivers/pico_device_driver.h"
 #include "drivers/drv8825_driver.h"
-#include "drivers/stepper_dosing_pump_driver.h"
+#include "drivers/dosing_pump_driver.h"
 #include "drivers/switch_driver.h"
+#include "drivers/sensor_combiner.h"
 #include "drivers/setting_types.h"
 #include "drivers/dhtxx_driver.h"
 #include "drivers/bme280_driver.h"
+#include "drivers/infrared_driver.h"
 
 #include "storage/flash_storage.h"
 #include "storage/dummy_storage.h"
@@ -44,32 +46,33 @@ template<typename SettingType>
 using RemoteSaveType = RestRemoteSetting<SettingType>;
 
 using DeviceSettingsType = DeviceSettings<max_num_devices, 
-                                        Ds18x20Driver, 
                                         Ads111xDriver,
                                         Pcf8575Driver,
-                                        PinDriver, 
+                                        Pcf8574Driver,
+                                        PinDriver,
                                         LoadCellDriver,
                                         #ifdef ENABLE_DAC_DRIVER
                                         DacDriver,
                                         #endif
+                                        InfraredDriver,
                                         ScheduleDriver, 
                                         DRV8825Driver,
-                                        StepperDosingPumpDriver,
-                                        SwitchDriver,
+                                        DosingPumpDriver,
+                                        SwitchDriver<std::chrono::steady_clock>,
                                         PhProbeDriver,
                                         PicoDeviceDriver,
                                         SensorCombiner,
+                                        SensorDriverInterface<Ds18x20Driver>,
                                         SensorDriverInterface<DhtXXDriver>,
                                         SensorDriverInterface<Bme280Driver>>;
 using StatCollectionType = StatCollection<max_stat_size>;
 
 using SettingType = Settings<max_setting_size>;
 
-// TODO: add settings
 using GlobalStoreType = Store<
     SingleTypeStore<DeviceSettingsType,
-    LocalSaveType<DeviceSettingsType::TrivialRepresentationType,
-    ConstexprPath("devices.bin")>>
-    // , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings.bin")>>
-    >;
-extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> global_store;
+                    LocalSaveType<DeviceSettingsType::TrivialRepresentationType,
+                                  ConstexprPath("devices.bin")>>
+    , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings.bin")>>
+>;
+extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> globalStore;

@@ -22,7 +22,7 @@ static inline constexpr auto MaxLocalPathLength = 24;
 struct ScheduleDriverData final {
     std::array<BasicStackString<schedule_max_channel_name_length>, schedule_max_num_channels> channelNames;
     // TODO: change this to uint8_t later on
-    std::array<std::optional<int>, schedule_max_num_channels> deviceIndices;
+    std::array<std::optional<unsigned int>, schedule_max_num_channels> deviceIndices;
     std::array<BasicStackString<schedule_max_channel_name_length>, schedule_max_num_channels> deviceArguments;
     std::array<DeviceValueUnit, schedule_max_num_channels> channelUnit{};
     BasicStackString<MaxLocalPathLength> schedulePath;

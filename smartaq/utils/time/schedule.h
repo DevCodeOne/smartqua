@@ -156,10 +156,10 @@ TimePointData, TimePointsPerDay>::findEventStatus(EventSelection selection, cons
         }
 
         if (result.has_value()) {
-            Logger::log(LogLevel::Debug, "Found event for channel %d", currentChannel);
+            // Logger::log(LogLevel::Debug, "Found event for channel %d", currentChannel);
             status[currentChannel] = createSingleChannelStatus(dayIndex, *result);
         } else {
-            Logger::log(LogLevel::Debug, "No event found for channel %d", currentChannel);
+            // Logger::log(LogLevel::Debug, "No event found for channel %d", currentChannel);
         }
     }
 

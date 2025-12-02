@@ -15,24 +15,27 @@
 #include "utils/task_pool.h"
 #include "storage/store.h"
 
-bool writeDeviceValue(unsigned int index, std::string_view input, const DeviceValues &value, bool deferSaving = false);
-std::optional<DeviceValues> readDeviceValue(unsigned int index, std::string_view input);
+using IndexOrName = SmartAq::Utils::IndexOrName;
+using IndexOrNameOrEmpty = SmartAq::Utils::IndexOrNameOrEmpty;
+
+bool writeDeviceValue(IndexOrName index, std::string_view input, const DeviceValues &value, bool deferSaving = false);
+std::optional<DeviceValues> readDeviceValue(IndexOrName index, std::string_view input);
 
 JsonActionResult get_devices_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-JsonActionResult get_device_info(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult get_device_info(IndexOrName index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 JsonActionResult add_device_action(std::optional<unsigned int> index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-JsonActionResult remove_device_action(unsigned int index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
-JsonActionResult set_device_action(unsigned int index, std::string_view input, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len);
-JsonActionResult set_device_action(unsigned int index, std::string_view input, const DeviceValues &value, char *output_buffer, size_t output_buffer_len);
+JsonActionResult remove_device_action(IndexOrName index, const char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult set_device_action(IndexOrName index, std::string_view what, char *deviceValueInput, size_t deviceValueLen, char *output_buffer, size_t output_buffer_len);
+JsonActionResult set_device_action(IndexOrName index, std::string_view what, const DeviceValues &value, char *output_buffer, size_t output_buffer_len);
 
-JsonActionResult write_device_options_action(unsigned int index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
+JsonActionResult write_device_options_action(IndexOrName index, const char *action, char *input, size_t input_len, char *output_buffer, size_t output_buffer_len);
 
 using DeviceCollectionOperation = CollectionOperationResult;
 
 // TODO: Fix this
 static inline constexpr size_t device_uid = 30;
 
-struct add_device : public SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> { 
+struct AddDevice : SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> {
     std::string_view driver_name;
 };
 
@@ -41,7 +44,7 @@ using RemoveSingleDevice = SmartAq::Utils::ArrayActions::RemoveValue<DeviceConfi
 using RetrieveDeviceOverview = SmartAq::Utils::ArrayActions::GetValueOverview<DeviceConfig, device_uid>;
 
 struct ReadFromDevice {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
+    IndexOrName index = std::numeric_limits<unsigned int>::max();
     std::string_view what = "";
     DeviceValues read_value;
     
@@ -52,7 +55,7 @@ struct ReadFromDevice {
  };
 
 struct WriteToDevice {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
+    IndexOrName index = std::numeric_limits<unsigned int>::max();
     std::string_view what = "";
     DeviceValues write_value;
     
@@ -63,7 +66,7 @@ struct WriteToDevice {
 };
 
 struct RetrieveDeviceInfo {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
+    IndexOrName index = std::numeric_limits<unsigned int>::max();
     char *output_dst = nullptr;
     size_t output_len = 0;
     
@@ -74,7 +77,7 @@ struct RetrieveDeviceInfo {
 };
 
 struct WriteDeviceOptions {
-    unsigned int index = std::numeric_limits<unsigned int>::max();
+    IndexOrName index = std::numeric_limits<unsigned int>::max();
     std::string_view action;
     std::string_view input;
     char *output_dst = nullptr;
@@ -90,7 +93,7 @@ struct WriteDeviceOptions {
 template<size_t N, typename ... DeviceDrivers>
 class DeviceSettings final {
 public:
-    static inline constexpr size_t num_devices = N;
+    static constexpr size_t num_devices = N;
 
     // TODO: handle registering and unregistering maybe with special resource class
     DeviceSettings() = default;
@@ -102,7 +105,7 @@ public:
     template<typename T>
     using FilterReturnType = std::conditional_t<!
         AllUniqueV<T,
-            add_device,
+            AddDevice,
             RemoveSingleDevice,
             WriteToDevice,
             WriteDeviceOptions>, const TrivialRepresentationType &, IgnoredEvent>;
@@ -116,7 +119,7 @@ public:
     template<typename T>
     void dispatch(T &event) const {}
 
-    FilterReturnType<add_device> dispatch(add_device &event);
+    FilterReturnType<AddDevice> dispatch(AddDevice &event);
 
     FilterReturnType<RemoveSingleDevice> dispatch(RemoveSingleDevice &event);
 
@@ -182,7 +185,7 @@ void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto DeviceSettings<N, DeviceDrivers ...>::dispatch(add_device &event) -> FilterReturnType<add_device> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(AddDevice &event) -> FilterReturnType<AddDevice> {
     using ArrayEventType = SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid>;
     return m_data.dispatch(static_cast<ArrayEventType &>(event), 
         [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
@@ -217,8 +220,10 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteDeviceOptions &event) -
     event.output_dst = nullptr;
     event.output_len = 0;
 
+    IndexOrNameOrEmpty setIndexVariant;
+    convertToVariant(event.index, setIndexVariant);
     SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid> setEvent{
-        .index = event.index,
+        .index = setIndexVariant,
     };
 
     return m_data.dispatch(setEvent, 

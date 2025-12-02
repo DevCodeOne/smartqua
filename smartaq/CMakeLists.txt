@@ -4,8 +4,12 @@ set(SMARTAQ_SOURCES
             "actions/device_actions.h" "actions/device_actions.cpp"
             "actions/stats_actions.h" "actions/stats_actions.cpp"
             "rest/devices_rest.h" "rest/devices_rest.cpp"
+            "rest/settings_rest.h" "rest/settings_rest.cpp"
             "rest/stats_rest.h" "rest/stats_rest.cpp"
-            "drivers/driver_interface.h"
+
+            "drivers/hal/esp/esp_remote_driver.h"
+
+            "drivers/infrared_driver.h" "drivers/infrared_driver.cpp"
             "drivers/bme280_driver.h"
             "drivers/device_resource.h" "drivers/device_resource.cpp"
             "drivers/devices.h" "drivers/devices.cpp"
@@ -14,13 +18,14 @@ set(SMARTAQ_SOURCES
             "drivers/dhtxx_driver.h" "drivers/dhtxx_driver.cpp"
             "drivers/ds18x20_driver.h" "drivers/ds18x20_driver.cpp"
             "drivers/ads111x_driver.h" "drivers/ads111x_driver.cpp"
-            "drivers/pcf8575_driver.h" "drivers/pcf8575_driver.cpp"
+            "drivers/pcf857x_driver.h" "drivers/pcf857x_driver.cpp"
             "drivers/scale_driver.h" "drivers/scale_driver.cpp"
             "drivers/schedule_driver.h" "drivers/schedule_driver.cpp"
-            "drivers/stepper_dosing_pump_driver.h" "drivers/stepper_dosing_pump_driver.cpp"
+            "drivers/dosing_pump_driver.h" "drivers/dosing_pump_driver.cpp"
             "drivers/drv8825_driver.h" "drivers/drv8825_driver.cpp"
             "drivers/ph_probe_driver.h" "drivers/ph_probe_driver.cpp"
-            "drivers/switch_driver.h" "drivers/switch_driver.cpp"
+            "drivers/switch_driver.h"
+            "drivers/sensor_combiner.h" "drivers/sensor_combiner.cpp"
             "drivers/rmt_stepper_driver.h" "drivers/rmt_stepper_driver.cpp"
             "drivers/pico_device_driver.h" "drivers/pico_device_driver.cpp"
             "drivers/bme280_driver.h" "drivers/bme280_driver.cpp"
@@ -33,15 +38,34 @@ set(SMARTAQ_SOURCES
             "../external_libs/frozen/frozen.c")
 
 set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
+    drivers/hal/remote_driver.h
+    drivers/hal/device_config.h
+    drivers/i2c_address_value.h
+    drivers/device_types.h
+        drivers/sensor_driver_interface.h
+
     utils/container/event_access_array.h
     utils/container/lookup_table.h
     utils/container/ring_buffer.h
     utils/container/sample_container.h
     utils/container/bitset.h
+
     utils/time/schedule.h
     utils/time/schedule_tracker.h
     utils/time/time_utils.h utils/time/time_utils.cpp
+
     utils/filesystem_utils.h utils/filesystem_utils.cpp
+    utils/memory_helper.h
+    utils/bit_utils.h
+    utils/buffer_types.h
+
+    utils/serialization/number_conversion.h
+    utils/serialization/json_utils.h utils/serialization/json_utils.cpp
+    utils/serialization/device_values_serialization.h
+    utils/type/type_helper.h
+    utils/device_values.h utils/device_values.cpp
+    utils/conditional_thread_safety.h
+    utils/variant_utils.h
 )
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
@@ -49,8 +73,6 @@ if (NOT "$ENV{IDF_PATH}" STREQUAL "")
             SRCS ${SMARTAQ_SOURCES}
             INCLUDE_DIRS
                 "."
-                "../external_libs/frozen"
-                "../header_only/frozen/include"
                 "../header_only/ctre/single-header"
             REQUIRES
                 esp_driver_ledc
@@ -73,6 +95,7 @@ if (NOT "$ENV{IDF_PATH}" STREQUAL "")
                 bmp280
                 i2cdev
                 pcf8575
+                pcf8574
     )
 
     target_link_libraries(${COMPONENT_LIB} PRIVATE pico_driver_i2c)
@@ -85,6 +108,10 @@ add_library(smartaq_lib STATIC
     ${SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES})
 target_include_directories(smartaq_lib PUBLIC .)
 target_include_directories(smartaq_lib PUBLIC "../header_only/ctre/single-header")
+target_include_directories(smartaq_lib PUBLIC "../header_only/frozen/include")
+target_include_directories(smartaq_lib PUBLIC "../external_libs/frozen")
+target_compile_options(smartaq_lib PUBLIC "-fconstexpr-ops-limit=83554432")
+target_sources(smartaq_lib PUBLIC "../external_libs/frozen/frozen.c")
 
 if (TARGET ${COMPONENT_LIB})
     target_link_libraries(${COMPONENT_LIB} PRIVATE smartaq_lib)

@@ -6,10 +6,11 @@
 #include <algorithm>
 #include <thread>
 
-#include "actions/action_types.h"
-#include "smartqua_config.h"
-#include "actions/device_actions.h"
 #include "esp_http_server.h"
+
+#include "smartqua_config.h"
+#include "actions/action_types.h"
+#include "actions/device_actions.h"
 #include "utils/esp/esp_filesystem_utils.h"
 #include "utils/logger.h"
 #include "utils/esp/web_utils.h"
@@ -23,7 +24,7 @@ enum struct ContentType {
     Default, Binary
 };
 
-static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[0-9]+)(?:\/(?<what>[\w\-]+)|\/)?)"};
+static constexpr ctll::fixed_string pattern{R"(\/api\/v1\/devices\/(?<index>[\w\-]+)(?:\/(?<what>[\w\-]+)|\/)?)"};
 
 // TODO: backup functionality has be in a different api slot
 // TODO: Run actions in main thread, so no stack overflows happen
@@ -38,7 +39,7 @@ esp_err_t do_devices(httpd_req *req) {
     }
 
     JsonActionResult result{};
-    auto [complete_match, index, what] = ctre::match<pattern>(req->uri);
+    auto [complete_match, indexOrDevice, what] = ctre::match<pattern>(req->uri);
 
     Logger::log(LogLevel::Debug, "Receiving input for device");
     if (req->content_len < buffer->size()) {
@@ -77,35 +78,43 @@ esp_err_t do_devices(httpd_req *req) {
     getHeaderValue<unsigned int>(req, "Content-Length", contentLength);
     Logger::log(LogLevel::Info, "Content-Length : %u", contentLength);
 
-    if (index) {
+    if (indexOrDevice) {
         Logger::log(LogLevel::Debug, "Executing action for device");
-        auto index_value = std::atoi(index.to_view().data());
+        const auto asIndex = convertFromCharRange<unsigned int>(indexOrDevice.to_view());
+
+        if (!asIndex)
+        {
+            httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Invalid index, has to be a number right now ...");
+            return ESP_OK;
+        }
+
+        auto indexValue = *asIndex;
 
         if (req->method == HTTP_GET) {
                 // TODO: check what what really is
             const std::string_view whatView = what.to_view();
             if (whatView.starts_with("/info")) {
-                result = get_device_info(index_value, whatView.data(), whatView.size(),
+                result = get_device_info(indexValue, whatView.data(), whatView.size(),
                                          buffer->data(), buffer->size());
             } else {
-                result = get_devices_action(index_value, whatView.data(), whatView.size(),
+                result = get_devices_action(indexValue, whatView.data(), whatView.size(),
                 buffer->data(), buffer->size());
             }
         } else if (req->method == HTTP_PUT && !what) {
-            result = add_device_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
+            result = add_device_action(indexValue, buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_PUT && what) {
-            result = write_device_options_action(index_value, what.to_view().data(), buffer->data(), req->content_len, buffer->data(), buffer->size());
+            result = write_device_options_action(indexValue, what.to_view().data(), buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_DELETE) {
-            result = remove_device_action(index_value, buffer->data(), req->content_len, buffer->data(), buffer->size());
+            result = remove_device_action(indexValue, buffer->data(), req->content_len, buffer->data(), buffer->size());
         } else if (req->method == HTTP_PATCH) {
             if (what) {
-                result = set_device_action(index_value, what.to_view().data(), buffer->data(), req->content_len, buffer->data(), buffer->size());
+                result = set_device_action(indexValue, what.to_view().data(), buffer->data(), req->content_len, buffer->data(), buffer->size());
             } else {
-                result = set_device_action(index_value, std::string_view("", 0), buffer->data(), req->content_len, buffer->data(), buffer->size());
+                result = set_device_action(indexValue, std::string_view{}, buffer->data(), req->content_len, buffer->data(), buffer->size());
             }
         }
 
-    } else if (!index && (req->method == HTTP_POST || req->method == HTTP_GET)) {
+    } else if (!indexOrDevice && (req->method == HTTP_POST || req->method == HTTP_GET)) {
         if (req->method == HTTP_GET) {
             if (acceptType == ContentType::Binary) {
                 auto mappedPartition = mapPartition<DeviceKind::ESPDevice>("values");

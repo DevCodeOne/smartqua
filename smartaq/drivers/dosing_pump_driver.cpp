@@ -62,13 +62,14 @@ constexpr uint16_t convertMilliliterToUnsignedIntegralValue(float milliliter, in
 // TODO: safe value of mStepsLeft in separate remotevariable
 DeviceOperationResult DosingPumpDriver::write_value(std::string_view what, const DeviceValues &value) {
     auto dosingConfig = mConf->accessConfig<DosingPumpConfig>();
-    if (!value.milliliter()) {
+    const auto asMilliliter = value.getAsUnitAsType<DeviceValueUnit::milliliter>();
+    if (!asMilliliter) {
         Logger::log(LogLevel::Error, "A dosing pump only supports values in ml");
         return DeviceOperationResult::failure;
     }
 
-    Logger::log(LogLevel::Info, "Dosing %d ml", (int) *value.milliliter());
-    const auto unsignedIntegralValue = convertMilliliterToUnsignedIntegralValue(*value.milliliter(), dosingConfig->unitTimesTenPerMl);
+    Logger::log(LogLevel::Info, "Dosing %d ml", (int) *asMilliliter);
+    const auto unsignedIntegralValue = convertMilliliterToUnsignedIntegralValue(*asMilliliter, dosingConfig->unitTimesTenPerMl);
     const auto valueToSet = DeviceValues::create_from_unit(DeviceValueUnit::generic_unsigned_integral, unsignedIntegralValue);
     writeDeviceValue(dosingConfig->deviceId, static_cast<std::string_view>(dosingConfig->writeArgument), valueToSet, true);
 

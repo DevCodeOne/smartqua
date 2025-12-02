@@ -161,7 +161,7 @@ DeviceOperationResult Ads111xDriver::read_value(std::string_view what, DeviceVal
         analog = mAnalogReadings[3].average();
     }
 
-    value.generic_analog(analog);
+    value.setToUnit(DeviceValueUnit::generic_analog, analog);
 
     return DeviceOperationResult::ok;
 }

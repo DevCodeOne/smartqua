@@ -41,7 +41,7 @@ int32_t LoadCellDriver::convertToRealValue(int32_t rawValue, int32_t offset, int
 DeviceOperationResult LoadCellDriver::read_value(std::string_view what, DeviceValues &out) const {
     const auto config = mConf->accessConfig<LoadcellConfig>();
     // TODO: prevent scale from being zero
-    out.milligrams(convertToRealValue(m_values.average(), config->offset, config->scale));
+    out.setToUnit(DeviceValueUnit::milligrams, convertToRealValue(m_values.average(), config->offset, config->scale));
     return DeviceOperationResult::ok;
 }
 

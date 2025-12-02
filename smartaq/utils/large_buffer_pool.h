@@ -10,7 +10,6 @@
 #include <utility>
 #include <limits>
 
-#include "build_config.h"
 #include "utils/logger.h"
 #include "utils/buffer_types.h"
 
@@ -30,7 +29,8 @@ class LargeBufferBorrower {
         ~LargeBufferBorrower() { PoolType::return_buffer(m_buffer_ptr); }
 
         LargeBufferBorrower &operator=(const LargeBufferBorrower &other) = delete;
-        LargeBufferBorrower &operator=(LargeBufferBorrower &&other) {
+        LargeBufferBorrower &operator=(LargeBufferBorrower &&other) noexcept
+        {
             using std::swap;
 
             swap(m_buffer_ptr, other.m_buffer_ptr);
@@ -174,12 +174,17 @@ auto LargeBufferPool<NumBuffers, BufferSize, location>::get_free_buffer() -> std
     std::unique_lock instance_guard{_instance_mutex};
     std::optional<LargeBufferBorrowerType> foundBuffer = std::nullopt;
 
-    std::any_of(_buffers.begin(), _buffers.end(), [&foundBuffer](auto &current_buffer) {
-        foundBuffer = current_buffer.borrowBuffer([](char *buffer, size_t size) {
+    for (auto &currentBuffer : _buffers)
+    {
+        foundBuffer = currentBuffer.borrowBuffer([](char *buffer, size_t size) {
             return LargeBufferBorrowerType(buffer, size);
         });
-        return foundBuffer.has_value();
-    });
+
+        if (foundBuffer.has_value())
+        {
+            break;
+        }
+    }
 
     if (!foundBuffer.has_value()) {
         Logger::log(LogLevel::Warning, "Couldn't find free buffer");

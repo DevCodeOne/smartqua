@@ -5,22 +5,12 @@
 #include <optional>
 #include <type_traits>
 
-#include "driver/spi_common.h"
-#include "driver/spi_master.h"
-#include "esp_flash.h"
-#include "esp_partition.h"
-#include "esp_vfs_fat.h"
-#include "hal/spi_flash_types.h"
-#include "hal/spi_types.h"
-#include "spi_flash_mmap.h"
-#include "esp_flash_spi_init.h"
 #include "esp_partition.h"
 #include "esp_vfs_fat.h"
 
 #include "build_config.h"
 #include "utils/filesystem_utils.h"
 #include "utils/logger.h"
-#include "utils/utils.h"
 #include "wear_levelling.h"
 
 template<ConstexprPath Path>
@@ -130,19 +120,20 @@ class LocalFlashStorage {
         wl_handle_t handleOut;
         esp_vfs_fat_mount_config_t fatMountConfig{
             .format_if_mount_failed = true,
-            .max_files = 12,
-            .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
-            .use_one_fat = false,
+            .max_files = 8,
+            // .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
+            .disk_status_check_enable = true,
+            // .use_one_fat = false,
         };
 
-        auto result = esp_vfs_fat_spiflash_mount_rw_wl(Path.value, Path.value + 1, &fatMountConfig, &handleOut);
+        auto result = esp_vfs_fat_spiflash_mount_rw_wl(Path.value, partition->label, &fatMountConfig, &handleOut);
 
         if (result != ESP_OK) {
             Logger::log(LogLevel::Error, "Couldn't mount fat filesystem : %s", esp_err_to_name(result));
             return std::nullopt;
         }
 
-        const auto filesystemCheck = writeTestFile("test.tmp", "test");
+        const auto filesystemCheck = writeTestFile("/values/test.tmp", "test");
         switch (filesystemCheck) {
             case FileSystemStatus::NoOpen:
             Logger::log(LogLevel::Error, "Couldn't open test file, partition probably doesn't work");

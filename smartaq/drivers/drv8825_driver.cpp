@@ -87,13 +87,14 @@ std::optional<DRV8825Driver> DRV8825Driver::create_driver(const DeviceConfig*con
 
 // TODO: safe value of mStepsLeft in seperate remotevariable
 DeviceOperationResult DRV8825Driver::write_value(std::string_view what, const DeviceValues &value) {
-    if (!value.generic_unsigned_integral()) {
+    const auto asGenericUnsigned = value.getAsUnitAsType<DeviceValueUnit::generic_unsigned_integral>();
+    if (!asGenericUnsigned) {
         Logger::log(LogLevel::Error, "A dosing pump only supports steps");
         return DeviceOperationResult::failure;
     }
 
-    Logger::log(LogLevel::Info, "Doing %u steps", (unsigned int) *value.generic_unsigned_integral());
-    mStepsLeft.fetch_add(*value.generic_unsigned_integral());
+    Logger::log(LogLevel::Info, "Doing %u steps", (unsigned int) *asGenericUnsigned);
+    mStepsLeft.fetch_add(*asGenericUnsigned);
 
     return DeviceOperationResult::ok;
 }

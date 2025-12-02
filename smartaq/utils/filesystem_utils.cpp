@@ -91,6 +91,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, std::
     return safeWriteToFile(path, tmpExtension, input.data(), input.length() + 1);
 }
 
+// TODO: Add method which writes file with known content to check each mount for validity
 FileSystemStatus writeTestFile(const char *path, std::string_view content) {
     FILE *testFile = fopen(path, "w+");
     if (testFile == nullptr) {

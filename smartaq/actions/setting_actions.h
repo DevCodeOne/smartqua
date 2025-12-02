@@ -23,7 +23,6 @@ public:
 };
 
 struct SetSetting {
-    unsigned int index;
     std::string_view setting_name;
     std::string_view json_setting_value;
 
@@ -75,15 +74,16 @@ struct AddSettingNotifier {
 template<size_t N>
 class Settings {
     public:
-        static inline constexpr size_t NumSettings = N;
-        using EventAccessArrayType = SmartAq::Utils::EventAccessArray<SingleSetting, RuntimeSingleSetting, NumSettings, 19>;
+        static constexpr size_t NumSettings = N;
+        using EventAccessArrayType = SmartAq::Utils::EventAccessArray<SingleSetting, RuntimeSingleSetting,
+            NumSettings, 19>;
         using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
         Settings() = default;
         ~Settings() = default;
 
         template<typename T>
-        using filter_return_type = std::conditional_t<!
+        using FilterReturnType = std::conditional_t<!
         AllUniqueV<T,
                     SetSetting,
                     RemoveSetting,
@@ -94,8 +94,11 @@ class Settings {
         Settings &operator=(const TrivialRepresentationType &new_value);
 
         template<typename T>
-        filter_return_type<T> dispatch(T &event) const {}
-    private:
+        static FilterReturnType<T> dispatch(T &event) { return IgnoredEvent{}; }
+
+        template<typename T>
+        auto dispatch(SetSetting &event) const;
+private:
         EventAccessArrayType mData;
         std::array<std::pair<const char **, SettingChangedNotifier>, N> notifier;
 };
@@ -107,4 +110,19 @@ auto Settings<N>::operator=(const TrivialRepresentationType &new_value) -> Setti
         return currentRuntimeData.has_value();
     });
     return *this;
+}
+
+template<size_t N>
+template<typename T>
+auto Settings<N>::dispatch(SetSetting &event) const {
+    auto index = mData.findIndex(std::nullopt);
+
+    if (index == std::nullopt) {
+        return mData.getTrivialRepresentation();
+    }
+
+    // TODO: parse value
+    mData[*index].value = event.json_setting_value;
+
+    return mData.getTrivialRepresentation();
 }

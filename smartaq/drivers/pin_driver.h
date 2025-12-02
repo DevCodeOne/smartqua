@@ -92,5 +92,5 @@ class PinDriver final {
         std::shared_ptr<GpioResource> m_gpio = nullptr;
         std::shared_ptr<LedChannel> m_channel = nullptr;
         uint32_t m_current_value = 0;
-        TaskResourceTracker<MainTaskPool> trackedTasked{};
+        TaskResourceTracker<MainTaskPool> mTrackedTask{};
 };

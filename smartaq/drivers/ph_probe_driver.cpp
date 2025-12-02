@@ -90,7 +90,15 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, DeviceVal
     // TODO: read actual ph and temperature correction
     const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
 
-    if (!result || !result->generic_analog()) {
+    if (!result)
+    {
+        Logger::log(LogLevel::Info, "Got wrong type");
+        return DeviceOperationResult::failure;
+    }
+
+    const auto asGenericAnalogValue = result->getAsUnitAsType<DeviceValueUnit::generic_analog>();
+
+    if (!asGenericAnalogValue) {
         Logger::log(LogLevel::Info, "Got wrong type");
         return DeviceOperationResult::failure;
     }
@@ -106,14 +114,15 @@ DeviceOperationResult PhProbeDriver::read_value(std::string_view what, DeviceVal
     }
 
     Logger::log(LogLevel::Info, "current_reading : %u, lowerPhPair a : %u ph : %f, higherPhPair a : %u, ph : %f",
-        *result->generic_analog(),
+        *asGenericAnalogValue,
         phConfig->lowerPhPair.analogReading, phConfig->lowerPhPair.ph,
         phConfig->higherPhPair.analogReading, phConfig->higherPhPair.ph);
 
     const float slope = dy / static_cast<float>(dx);
 
     Logger::log(LogLevel::Info, "slope: %f + offset: %f", slope, phConfig->lowerPhPair.ph);
-    value.ph(phConfig->lowerPhPair.ph + (*result->generic_analog() - phConfig->lowerPhPair.analogReading) * slope);
+    value.setToUnit(DeviceValueUnit::ph,
+                    phConfig->lowerPhPair.ph + (*asGenericAnalogValue - phConfig->lowerPhPair.analogReading) * slope);
 
     return DeviceOperationResult::ok;
 }
@@ -130,14 +139,22 @@ DeviceOperationResult PhProbeDriver::call_device_action(DeviceConfig*conf, const
         }
 
         const auto result = readDeviceValue(phConfig->analogDeviceId, phConfig->analogReadingArgument.getStringView());
+
         // TODO: support both voltage and generic_analog
-        if (!result || !result->generic_analog()) {
+        if (!result) {
+            Logger::log(LogLevel::Error, "Device returned wrong type of measuremt or nothing at all");
+            return DeviceOperationResult::failure;
+        }
+
+        const auto asGenericAnalogValue = result->getAsUnitAsType<DeviceValueUnit::generic_analog>();
+
+        if (!asGenericAnalogValue) {
             Logger::log(LogLevel::Error, "Device returned wrong type of measuremt or nothing at all");
             return DeviceOperationResult::failure;
         }
 
         const PhValuePair callibrationPoint{
-            .analogReading = *result->generic_analog(),
+            .analogReading = *asGenericAnalogValue,
             .ph = ph
         };
 

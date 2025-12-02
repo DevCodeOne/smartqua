@@ -40,7 +40,7 @@ class ScheduleTrackerTests : public ::testing::Test {
 };
 
 // Helper function to create a std::tm object
-std::tm makeTime(int weekday, int hour, int minute, int second = 0) {
+static std::tm makeTime(int weekday, int hour, int minute, int second = 0) {
     std::tm date{};
     date.tm_wday = weekday;  // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     date.tm_hour = hour;

@@ -232,11 +232,11 @@ class FilesystemSetting final {
             });
 
             if (!opened_file) {
-                Logger::log(LogLevel::Warning, "There is no file to read from ... trying to read temporary file");
+                Logger::log(LogLevel::Warning, "File doesn't exist, trying to open tmp file: %s", filename->data());
                 opened_file = openTmpFile(false);
 
                 if (opened_file == nullptr) {
-                    Logger::log(LogLevel::Warning, "Couldn't open tmp file");
+                    Logger::log(LogLevel::Warning, "Couldn't open tmp file for: %s", filename->data());
                     return ESP_FAIL;
                 }
             }

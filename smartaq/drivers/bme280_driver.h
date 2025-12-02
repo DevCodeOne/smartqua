@@ -2,7 +2,7 @@
 
 #include "bmp280.h"
 
-#include "drivers/driver_interface.h"
+#include "drivers/sensor_driver_interface.h"
 #include "drivers/device_resource.h"
 #include "utils/container/lookup_table.h"
 #include "utils/container/sample_container.h"

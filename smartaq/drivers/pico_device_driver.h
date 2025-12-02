@@ -61,7 +61,7 @@ class PicoDeviceDriver final {
         >>;
         using I2CDeviceType = std::unique_ptr<i2c_dev_t, FreeI2CDevice>;
 
-        static inline constexpr char name[] = "pico_dev_driver";
+        static constexpr char name[] = "pico_dev_driver";
 
         PicoDeviceDriver(const PicoDeviceDriver &other) = delete;
         PicoDeviceDriver(PicoDeviceDriver &&other) noexcept;
@@ -80,16 +80,23 @@ class PicoDeviceDriver final {
         DeviceOperationResult update_runtime_data() { return DeviceOperationResult::ok; }
 
     private:
-        PicoDeviceDriver(const DeviceConfig *conf, RuntimeAccessType access, I2CDeviceType device);
-        static std::optional<PicoDeviceDriver> setupDevice(const DeviceConfig *config, I2CDeviceType device);
+        PicoDeviceDriver(const DeviceConfig *conf, RuntimeAccessType access, I2CDeviceType device, std::shared_ptr<I2cResource> resource);
+        static std::optional<PicoDeviceDriver> setupDevice(const DeviceConfig *config, std::shared_ptr<I2cResource> i2cResource);
+
+        template <typename TagType>
+        DeviceOperationResult writeDeviceValueToPico(PicoDriver::MemoryRepresentation<TagType>* memoryRep,
+                                                  const DeviceValues& value);
 
         static bool readCompleteMemory(i2c_dev_t *device, uint8_t address, uint8_t *target, size_t targetSize);
-        static bool writeCompleteMemory(i2c_dev_t *device, uint8_t address, const uint8_t *target, size_t targetSize);
+        template<typename TagType>
+        bool writeCompleteMemory(i2c_dev_t *device, PicoDriver::MemoryRepresentation<TagType> *memorySlice);
+        static bool readTagFromString(const std::string_view &what, unsigned int &index, BasicStackString<16> &tag);
 
         static bool addAddress(PicoDeviceAddress address);
         static bool removeAddress(PicoDeviceAddress address);
 
         const DeviceConfig *mConf = nullptr;
+        std::shared_ptr<I2cResource> mResource = nullptr;
 
         mutable I2CDeviceType mDevice;
         mutable RuntimeAccessType mAccess;
@@ -98,3 +105,68 @@ class PicoDeviceDriver final {
         static inline std::array<std::optional<PicoDeviceAddress>, 4> _deviceAddresses;
         static inline std::shared_mutex _instanceMutex;
 };
+
+template <typename TagType>
+DeviceOperationResult PicoDeviceDriver::writeDeviceValueToPico(PicoDriver::MemoryRepresentation<TagType>* memoryRep,
+                                                            const DeviceValues& value)
+{
+    using namespace PicoDriver;
+
+    using DosingPumpDriver = StepperMotorTag<NoDirectionPin, PinUsed>;
+
+    auto doWrite = [this](auto memoryRep)
+    {
+        if (writeCompleteMemory(mDevice.get(), memoryRep) != ESP_OK)
+        {
+            Logger::log(LogLevel::Warning, "Couldn't write to device");
+            return DeviceOperationResult::failure;
+        }
+        return DeviceOperationResult::ok;
+    };
+
+
+
+    if constexpr (std::is_same_v<FixedPWMType, TagType>)
+    {
+        // TODO: add error handling
+        memoryRep->pwmValue = value.getAsUnitAsType<DeviceValueUnit::generic_pwm>().value_or(0x1227);
+        Logger::log(LogLevel::Info, "Found memory representation %s, writing %u", FixedPWMType::Name, static_cast<uint16_t>(memoryRep->pwmValue));
+        return doWrite(memoryRep);
+    }
+
+    if constexpr (std::is_same_v<DosingPumpDriver, TagType>)
+    {
+        // TODO: add error handling
+        memoryRep->steps = value.getAsUnitAsType<DeviceValueUnit::generic_unsigned_integral>().value_or(0);
+        Logger::log(LogLevel::Info, "Found memory representation %s, writing %u", DosingPumpDriver::Name, static_cast<uint16_t>(memoryRep->steps));
+        return doWrite(memoryRep);
+    }
+
+    if constexpr (std::is_same_v<OutputType, TagType>)
+    {
+        memoryRep->value = value.getAsUnitAsType<DeviceValueUnit::enable>().value_or(false);
+        Logger::log(LogLevel::Info, "Found memory representation %s, writing %d", OutputType::Name, memoryRep->value);
+        return doWrite(memoryRep);
+    }
+
+    Logger::log(LogLevel::Warning, "No write implementation for tag %s", TagType::Name);
+    return DeviceOperationResult::not_supported;
+}
+
+// TODO: check if address + size < 255
+template<typename TagType>
+bool PicoDeviceDriver::writeCompleteMemory(i2c_dev_t *device, PicoDriver::MemoryRepresentation<TagType> *memorySlice) {
+    auto slice = mAccess.toRawMemorySlice<TagType>(memorySlice);
+    I2C_DEV_TAKE_MUTEX(device);
+
+    DoFinally giveMutex{
+        [device]()
+        {
+            I2C_DEV_GIVE_MUTEX(device);
+
+            return ESP_OK;
+        }
+    };
+
+    return i2c_dev_write(device, &slice.address, sizeof(slice.address), slice.data, slice.size);
+}

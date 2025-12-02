@@ -18,7 +18,7 @@ namespace Detail {
 
         if constexpr (not std::is_same_v<ReturnType, IgnoredEvent>) {
             if (!deferSaving) {
-                Logger::log(LogLevel::Info, "Store to sd ...");
+                // Logger::log(LogLevel::Info, "Store to sd ...");
                 // current_store is thread-safe, as well as save_type.set_value
                 save_type.set_value(current_store.dispatch(event));
             } else {
@@ -69,7 +69,7 @@ class Store {
         }
 
         void initValues() {
-            Logger::log(LogLevel::Info, "Entry initValues");
+            // Logger::log(LogLevel::Debug, "Entry initValues");
             static std::once_flag _init_flag;
             std::call_once(_init_flag, []() {
                 Logger::log(LogLevel::Info, "Init values of central store");
@@ -85,7 +85,7 @@ class Store {
                     current_store.sstore = current_store.ssave.get_value();
                 });
             });
-            Logger::log(LogLevel::Info, "Exit initValues");
+            // Logger::log(LogLevel::Debug, "Exit initValues");
         }
 
     private:

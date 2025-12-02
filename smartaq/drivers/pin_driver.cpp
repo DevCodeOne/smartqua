@@ -73,11 +73,11 @@ bool PinDriver::adjustTimedValue(const DeviceValues& value, const PinConfig *pin
         return false;
     }
 
-    Logger::log(LogLevel::Debug, "Setting pin %d to value : %d", pinConf->gpio_num,
-        static_cast<int>(!pinConf->invert));
+    Logger::log(LogLevel::Debug, "Setting pin %d to value : %d, resetting it after %d seconds", pinConf->gpio_num,
+        static_cast<int>(!pinConf->invert), static_cast<int>(secondsTillReset.count()));
     gpio_set_level(static_cast<gpio_num_t>(pinConf->gpio_num), !pinConf->invert);
 
-    auto timedTask = MainTaskPool::postTask(TaskDescription{
+    mTrackedTask = MainTaskPool::postTask(TaskDescription{
         .single_shot = true,
         .func_ptr = &resetPinTimed,
         .interval = secondsTillReset,
@@ -86,12 +86,10 @@ bool PinDriver::adjustTimedValue(const DeviceValues& value, const PinConfig *pin
         .last_executed = steady_clock::now()
     });
 
-    if (timedTask.id() == TaskId::invalid) {
+    if (mTrackedTask.id() == TaskId::invalid) {
         resetPinTimed(this);
         return false;
     }
-
-    trackedTasked = std::move(timedTask);
     return true;
 }
 

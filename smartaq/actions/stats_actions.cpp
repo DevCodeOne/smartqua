@@ -12,7 +12,7 @@ JsonActionResult get_stats_action(std::optional<unsigned int> index, const char 
             .output_len = overview_buffer.size()
         };
 
-        global_store->readEvent(overview);
+        globalStore->readEvent(overview);
 
         if (overview.result.collection_result != stat_collection_operation::failed) {
             if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -22,10 +22,10 @@ JsonActionResult get_stats_action(std::optional<unsigned int> index, const char 
         }
     } else {
         retrieve_stat_info stat_info {
-            .index = static_cast<int>(*index)
+            .index = *index
         };
 
-        global_store->readEvent(stat_info);
+        globalStore->readEvent(stat_info);
 
         if (stat_info.result.collection_result == stat_collection_operation::ok && stat_info.result.value.has_value()) {
             auto info = stat_info.result.value.value();
@@ -62,12 +62,12 @@ JsonActionResult add_stat_action(std::optional<unsigned int> index, const char *
     }
 
     set_stat to_add { 
-        .index = index, 
+        .index = std::string_view(name_token.ptr, name_token.len),
         .settingName = std::string_view(name_token.ptr, std::min<int>(name_length, name_token.len)),
         .jsonSettingValue = std::string_view(token.ptr, token.len),
     };
 
-    global_store->writeEvent(to_add);
+    globalStore->writeEvent(to_add);
 
     if (to_add.result.collection_result == stat_collection_operation::ok && to_add.result.index.has_value()) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -89,7 +89,7 @@ JsonActionResult remove_stat_action(unsigned int index, const char *input, size_
     JsonActionResult result { .answer_len = 0, .result = JsonActionResultStatus::failed };
     remove_stat del_stat{ .index = static_cast<size_t>(index) };
 
-    global_store->writeEvent(del_stat);
+    globalStore->writeEvent(del_stat);
 
     if (del_stat.result.collection_result == stat_collection_operation::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {
@@ -120,7 +120,7 @@ JsonActionResult set_stat_action(unsigned int index, const char *input, size_t i
     }
 
     to_update.jsonSettingValue = std::string_view(update_description.ptr, update_description.len);
-    global_store->writeEvent(to_update);
+    globalStore->writeEvent(to_update);
 
     if (to_update.result.collection_result == stat_collection_operation::ok) {
         if (output_buffer != nullptr && output_buffer_len != 0) {

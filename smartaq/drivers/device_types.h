@@ -1,14 +1,11 @@
 #pragma once
 
 #include <array>
-#include <optional>
-#include <string_view>
-#include <cmath>
-#include <compare>
-#include <type_traits>
-#include <variant>
+#include <cstring>
 
-#include "build_config.h"
+#include "drivers/hal/device_config.h"
+
+#include "utils/stack_string.h"
 
 enum struct DeviceOperationResult {
     ok, not_supported, failure

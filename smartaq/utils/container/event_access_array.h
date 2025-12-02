@@ -152,24 +152,37 @@ namespace SmartAq::Utils {
     template<typename VariantType>
     std::optional<unsigned int> EventAccessArray<BaseType, RuntimeType, Size, UID>::findIndex(const VariantType &indexOrName, bool findFreeSlotOtherwise) const {
         const auto index = getOpt<unsigned int>(indexOrName);
-        const auto name = getOpt<std::string_view>(indexOrName);
 
         if (index.has_value() && *index >= NumElements) {
             return std::nullopt;
         }
 
         std::optional<unsigned int> foundIndex = index;
+        std::optional<unsigned int> foundName;
 
-        if (foundIndex.has_value()) {
-            return *foundIndex;
-        }
-
-        if (name.has_value()) {
-            for (unsigned int i = 0; i < NumElements; ++i) {
-                if (*name == data.names[i].data()) {
-                    return i;
+        if (const auto name = getOpt<std::string_view>(indexOrName); name)
+        {
+            for (unsigned int i = 0; i < NumElements; ++i)
+            {
+                if (*name == data.names[i].data())
+                {
+                    foundName = i;
+                    break;
                 }
             }
+        }
+
+        const bool nameIndexConflict = foundIndex.has_value() && foundName.has_value()
+            && foundIndex.value() != foundName.value();
+
+        if (nameIndexConflict)
+        {
+            return {};
+        }
+
+        if (foundIndex.has_value())
+        {
+            return { *foundIndex };
         }
 
         if (findFreeSlotOtherwise) {
