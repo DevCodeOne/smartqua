@@ -1,17 +1,15 @@
 #pragma once
 
-#include <cstdint>
-#include <mutex>
 #include <optional>
 #include <type_traits>
 
 #include "esp_partition.h"
 #include "esp_vfs_fat.h"
+#include "wear_levelling.h"
 
 #include "build_config.h"
 #include "utils/filesystem_utils.h"
 #include "utils/logger.h"
-#include "wear_levelling.h"
 
 template<ConstexprPath Path>
 class LocalFlashStorage {
@@ -31,63 +29,12 @@ class LocalFlashStorage {
         // }
     }
 
+    static void logPartitionInfo(const auto* partition, size_t written);
+
+    static std::optional<size_t> writeDataToPartition(auto& dataSource, const auto* partition);
+
     template<typename DataSourceLambda>
-    static bool unMountWriteBackupAndMount(DataSourceLambda &dataSource) {
-        if (m_flashWearLevelHandle) {
-            esp_vfs_fat_spiflash_unmount_rw_wl(Path.value, *m_flashWearLevelHandle);
-        }
-
-        const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, Path.value + 1);
-
-        if (partition == nullptr) {
-            return false;
-        }
-
-        auto eraseResult = esp_partition_erase_range(partition, 0, partition->size);
-
-        if (eraseResult != ESP_OK) {
-            return false;
-        }
-
-        auto buffer = SmallerBufferPoolType::get_free_buffer();
-        using LambdaReturnType = decltype(dataSource(buffer));
-        static_assert(std::is_integral_v<LambdaReturnType>, "DataSource Return type has to be integral");
-        LambdaReturnType toWrite = 0;
-        size_t written = 0;
-        while ((toWrite = dataSource(buffer)) > 0) {
-            auto writeResult = esp_partition_write_raw(partition, written, buffer->data(), toWrite);
-
-            if (writeResult != ESP_OK) {
-                return false;
-            }
-
-            written += toWrite;
-        }
-
-        uint8_t id[32];
-        esp_partition_get_sha256(partition, id);
-
-        char output[128];
-        int offset = 0;
-        for (int i = 0; i < 32; ++i) {
-            offset += snprintf(output + offset, (output + sizeof(output)) - (output + offset), "%02x", id[i]);
-        }
-        ESP_LOGI("written partition", "%.*s", 128, output);
-
-
-        Logger::log(LogLevel::Info, "PartitionSize : %u ", partition->size);
-        Logger::log(LogLevel::Info, "Written : %u ", written);
-
-        auto handleOut = mountPartition(partition);
-
-        if (!handleOut) {
-            return false;
-        }
-
-        initializeValues(partition, *handleOut);
-
-        return true;
-    }
+    static bool unMountWriteBackupAndMount(DataSourceLambda &dataSource);
 
     static std::optional<LocalFlashStorage> create() {
         if (m_flashWearLevelHandle) {
@@ -116,6 +63,8 @@ class LocalFlashStorage {
     private:
     LocalFlashStorage() { }
 
+    static FileSystemStatus validateFilesystem();
+
     static std::optional<wl_handle_t> mountPartition(const esp_partition_t *partition) {
         wl_handle_t handleOut;
         esp_vfs_fat_mount_config_t fatMountConfig{
@@ -133,28 +82,9 @@ class LocalFlashStorage {
             return std::nullopt;
         }
 
-        const auto filesystemCheck = writeTestFile("/values/test.tmp", "test");
-        switch (filesystemCheck) {
-            case FileSystemStatus::NoOpen:
-            Logger::log(LogLevel::Error, "Couldn't open test file, partition probably doesn't work");
-            break;
-            case FileSystemStatus::NoWrite:
-            Logger::log(LogLevel::Error, "Couldn't write to test file, partition probably doesn't work");
-            break;
-            case FileSystemStatus::NoValidate:
-            Logger::log(LogLevel::Error, "Couldn't validate test file, partition probably doesn't work");
-            break;
-            case FileSystemStatus::NoRemove:
-            Logger::log(LogLevel::Error, "Couldn't remove test file, partition probably doesn't work");
-            break;
-            case FileSystemStatus::Ok:
-            Logger::log(LogLevel::Debug, "Mounted partition with label %.*s at %.*s", Path.length - 1, Path.value + 1, Path.length, Path.value);
-        }
-
-        if (filesystemCheck != FileSystemStatus::Ok) {
+        if (validateFilesystem() != FileSystemStatus::Ok) {
             return std::nullopt;
         }
-
 
         return std::make_optional(handleOut);
     }
@@ -176,3 +106,98 @@ class LocalFlashStorage {
         }
     };
 };
+
+template <ConstexprPath Path>
+void LocalFlashStorage<Path>::logPartitionInfo(const auto* partition, size_t written)
+{
+    uint8_t id[32];
+    esp_partition_get_sha256(partition, id);
+
+    char output[128];
+    int offset = 0;
+    for (const auto i : id) {
+        offset += snprintf(output + offset, (output + sizeof(output)) - (output + offset), "%02x", i);
+    }
+    ESP_LOGI("written partition", "%.*s", 128, output);
+
+    Logger::log(LogLevel::Info, "PartitionSize : %u ", partition->size);
+    Logger::log(LogLevel::Info, "Written : %u ", written);
+}
+
+template <ConstexprPath Path>
+std::optional<size_t> LocalFlashStorage<Path>::writeDataToPartition(auto& dataSource, const auto* partition)
+{
+    auto buffer = SmallerBufferPoolType::get_free_buffer();
+    using LambdaReturnType = decltype(dataSource(buffer));
+    static_assert(std::is_integral_v<LambdaReturnType>, "DataSource Return type has to be integral");
+    LambdaReturnType toWrite = 0;
+    size_t written = 0;
+    while ((toWrite = dataSource(buffer)) > 0) {
+        const auto writeResult = esp_partition_write_raw(partition, written, buffer->data(), toWrite);
+        if (writeResult != ESP_OK) {
+            return {};
+        }
+
+        written += toWrite;
+    }
+    return written;
+}
+
+template <ConstexprPath Path>
+template <typename DataSourceLambda>
+bool LocalFlashStorage<Path>::unMountWriteBackupAndMount(DataSourceLambda& dataSource)
+{
+    if (m_flashWearLevelHandle) {
+        esp_vfs_fat_spiflash_unmount_rw_wl(Path.value, *m_flashWearLevelHandle);
+    }
+
+    const auto *partition = esp_partition_find_first(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, Path.value + 1);
+    if (partition == nullptr) {
+        return false;
+    }
+
+    const auto eraseResult = esp_partition_erase_range(partition, 0, partition->size);
+    if (eraseResult != ESP_OK) {
+        return false;
+    }
+
+    const auto written = writeDataToPartition(dataSource, partition);
+    if (not written)
+    {
+        return false;
+    }
+
+    logPartitionInfo(partition, *written);
+
+    auto handleOut = mountPartition(partition);
+    if (!handleOut) {
+        return false;
+    }
+
+    initializeValues(partition, *handleOut);
+
+    return true;
+}
+
+template <ConstexprPath Path>
+FileSystemStatus LocalFlashStorage<Path>::validateFilesystem()
+{
+    const auto filesystemCheck = writeTestFile("/values/test.tmp", "test");
+    switch (filesystemCheck) {
+    case FileSystemStatus::NoOpen:
+        Logger::log(LogLevel::Error, "Couldn't open test file, partition probably doesn't work");
+        break;
+    case FileSystemStatus::NoWrite:
+        Logger::log(LogLevel::Error, "Couldn't write to test file, partition probably doesn't work");
+        break;
+    case FileSystemStatus::NoValidate:
+        Logger::log(LogLevel::Error, "Couldn't validate test file, partition probably doesn't work");
+        break;
+    case FileSystemStatus::NoRemove:
+        Logger::log(LogLevel::Error, "Couldn't remove test file, partition probably doesn't work");
+        break;
+    case FileSystemStatus::Ok:
+        Logger::log(LogLevel::Debug, "Mounted partition with label %.*s at %.*s", Path.length - 1, Path.value + 1, Path.length, Path.value);
+    }
+    return filesystemCheck;
+}
