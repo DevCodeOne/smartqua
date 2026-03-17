@@ -74,6 +74,7 @@ public:
         esp_wifi_set_mode(WIFI_MODE_STA);
         esp_wifi_set_config(wifi_interface_t::WIFI_IF_STA, &m_wifi_conf);
         esp_wifi_start();
+        esp_wifi_set_max_tx_power(20);
         esp_wifi_set_ps(wifi_ps_type_t::WIFI_PS_NONE);
     }
 
@@ -85,7 +86,7 @@ public:
         vEventGroupDelete(m_wifi_event_group);
     }
 
-    bool awaitConnection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) const {
+    [[nodiscard]] bool awaitConnection(std::chrono::milliseconds waitFor = std::chrono::seconds(5)) const {
         EventBits_t bits = xEventGroupWaitBits(
             m_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE,
             pdFALSE, waitFor.count() / portTICK_PERIOD_MS);
@@ -111,7 +112,7 @@ public:
             }
             NetworkInfo::disallowNetwork();
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-            ip_event_got_ip_t *event = (ip_event_got_ip_t *) event_data;
+            const auto *event = static_cast<ip_event_got_ip_t*>(event_data);
             Logger::log(LogLevel::Info, "got ip:" IPSTR,
                         IP2STR(&event->ip_info.ip));
             thiz->retry_num = 0;
