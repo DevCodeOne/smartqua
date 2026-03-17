@@ -42,15 +42,15 @@ public:
 
         auto currentEntry = keys.begin();
 
-        ConstexprFor<Size - 1>::doCall(ListOfEntries{},
-                                       [&]<auto V, typename InnerType>(const EnumTypePair<V, InnerType>&)
-                                       {
-                                           if (std::is_same_v<InnerType, T>)
-                                           {
-                                               *currentEntry = V;
-                                               ++currentEntry;
-                                           }
-                                       });
+        constexprFor(ListOfEntries{},
+               [&]<auto V, typename InnerType>(const EnumTypePair<V, InnerType>&)
+               {
+                   if (std::is_same_v<InnerType, T>)
+                   {
+                       *currentEntry = V;
+                       ++currentEntry;
+                   }
+               });
 
         return keys;
     }

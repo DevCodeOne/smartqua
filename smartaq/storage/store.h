@@ -46,7 +46,7 @@ class Store {
             Logger::log(LogLevel::Info, "Write event to store");
             initValues();
 
-            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [&event, &deferSaving](auto &current_store){
+            constexprFor(*_stores, [&event, &deferSaving](auto &current_store){
                 Detail::handleStore(current_store.sstore, current_store.ssave, event, deferSaving);
             });
         }
@@ -57,7 +57,7 @@ class Store {
             Logger::log(LogLevel::Info, "Read event from store entry");
             initValues();
 
-            ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [&event](const auto &currentStore){
+            constexprFor(*_stores, [&event](const auto &currentStore){
                 currentStore.sstore.dispatch(event);
             });
             Logger::log(LogLevel::Info, "Read event from store exit");
@@ -80,7 +80,7 @@ class Store {
                     Logger::log(LogLevel::Error, "Couldn't allocate memory for store");
                     return;
                 }
-                ConstexprFor<(sizeof...(StoreTypes)) - 1>::doCall(*_stores, [](auto &current_store){
+                constexprFor(*_stores, [](auto &current_store){
                     Logger::log(LogLevel::Info, "Initializing current type");
                     current_store.sstore = current_store.ssave.get_value();
                 });

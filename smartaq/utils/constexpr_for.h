@@ -9,45 +9,27 @@ namespace Detail
     concept ReturnsValue = !ReturnsNoValue<Callable>;
 }
 
-template<size_t Index>
-struct ConstexprFor final
+template <typename TupleType, typename Callable>
+constexpr static void constexprFor(TupleType&& tuple, Callable&& call)
 {
-    template <typename TupleType, typename Callable>
-    constexpr static void doCall(TupleType& tuple, Callable&& call)
+    std::apply([&call]<typename... T>(T&&... args)
     {
-        call(std::get<Index>(tuple));
-        if constexpr (Index > 0)
-        {
-            ConstexprFor<Index - 1>::doCall(tuple, call);
-        }
-    }
+        (call(std::forward<T>(args)), ...);
+    }, tuple);
+}
 
-    template <typename TupleType, typename Callable>
-    constexpr static void doCall(const TupleType& tuple, Callable&& call)
-    {
-        call(std::get<Index>(tuple));
-        if constexpr (Index > 0)
-        {
-            ConstexprFor<Index - 1>::doCall(tuple, call);
-        }
-    }
-
-    template <Detail::ReturnsNoValue Callable>
-    constexpr static void doCall(Callable&& call)
-    {
-        call(std::integral_constant<size_t, Index>{});
-        if constexpr (Index > 0)
-        {
-            ConstexprFor<Index - 1>::doCall(call);
-        }
-    }
-
-};
+template <size_t Index, Detail::ReturnsNoValue Callable>
+constexpr static void constexprFor(Callable&& call)
+{
+    [&]<typename T, T ...Indices>(std::integer_sequence<T, Indices...>) {
+        (..., call(std::integral_constant<size_t, Indices>{}));
+    }(std::make_index_sequence<Index>{});
+}
 
 template <size_t MaxIndex, Detail::ReturnsNoValue Callable>
 constexpr void callWithIndex(size_t Index, Callable&& callable)
 {
-    ConstexprFor<MaxIndex>::doCall(
+    constexprFor<MaxIndex>(
         [callable, Index]<typename T, auto CurrentIndex>(const std::integral_constant<T, CurrentIndex>& index)
         {
             if (CurrentIndex == Index)

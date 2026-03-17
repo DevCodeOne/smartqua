@@ -47,7 +47,7 @@ struct read_from_json<DeviceValues>
 
         std::optional<DeviceValues> createdValue{};
 
-        ConstexprFor<DeviceValueUnitList::Size - 1>::doCall([&]<size_t Index>(std::integral_constant<size_t, Index>)
+        constexprFor<DeviceValueUnitList::Size>([&]<size_t Index>(std::integral_constant<size_t, Index>)
         {
             if (not createdValue)
             {
@@ -73,8 +73,8 @@ struct print_to_json<DeviceValues> {
         int written = 0;
         bool has_prev = false;
 
-        auto write_value = [&written, &values, &has_prev](auto UnitConstant, json_out *out) {
-            constexpr DeviceValueUnit Unit = UnitConstant.value;
+        auto write_value = [&written, &values, &has_prev, &out]<auto Index>(std::integral_constant<size_t, Index> IndexConstant) {
+            constexpr DeviceValueUnit Unit = DeviceValueUnitList::TypeAt<Index>::value;
 
             // Skip if the unit does not match
             if (values.getUnit() != Unit) {
@@ -122,12 +122,7 @@ struct print_to_json<DeviceValues> {
             has_prev = true;
         };
 
-        ConstexprFor<DeviceValueUnitList::Size - 1>::doCall(
-            [&write_value, &out](auto IndexConstant) {
-                constexpr DeviceValueUnit Unit = DeviceValueUnitList::TypeAt<IndexConstant>::value;
-                write_value(std::integral_constant<DeviceValueUnit, Unit>{}, out);
-            }
-        );
+        constexprFor<DeviceValueUnitList::Size>(write_value);
 
         return written;
     }

@@ -185,7 +185,7 @@ class DeviceValues {
             }
         };
 
-        ConstexprFor<DeviceValueUnion::Types::Size - 1>::doCall(DeviceValueUnion::Types::AsTuple{}, [&](auto CurrentUnit)
+        constexprFor(DeviceValueUnion::Types::AsTuple{}, [&](auto CurrentUnit)
         {
             isThisType(CurrentUnit);
         });
@@ -232,7 +232,7 @@ class DeviceValues {
         };
 
         bool didSet = false;
-        ConstexprFor<DeviceValueUnion::Types::Size - 1>::doCall(DeviceValueUnion::Types::AsTuple{}, [&](auto CurrentUnit)
+        constexprFor(DeviceValueUnion::Types::AsTuple{}, [&](auto CurrentUnit)
         {
             didSet |= isThisType(CurrentUnit);
         });
@@ -255,7 +255,7 @@ class DeviceValues {
 
         bool compareValues = false;
 
-        callWithIndex<DeviceValueUnitMap::Size - 1>(std::to_underlying(index),
+        callWithIndex<DeviceValueUnitMap::Size>(std::to_underlying(index),
                                                     [&]<typename T, auto Index>(
                                                     const std::integral_constant<T, Index>&)
                                                     {
@@ -293,7 +293,7 @@ std::optional<DeviceValues> DeviceValues::operation(const DeviceValues& other, C
     }
 
     std::optional<DeviceValues> result{};
-    ConstexprFor<DeviceValueUnitList::Size - 1>::doCall([&]<size_t Index>(std::integral_constant<size_t, Index>)
+    constexprFor<DeviceValueUnitList::Size>([&]<size_t Index>(std::integral_constant<size_t, Index>)
     {
         constexpr auto CurrentUnit = DeviceValueUnitList::TypeAt<Index>::value;
         if (index == CurrentUnit)
