@@ -42,10 +42,7 @@ using DefaultStorage = LocalFlashStorage<ConstexprPath("/values")>;
 template<typename SettingType, ConstexprPath path>
 using LocalSaveType = FilesystemSetting<SettingType, path, DefaultStorage>;
 
-template<typename SettingType>
-using RemoteSaveType = RestRemoteSetting<SettingType>;
-
-using DeviceSettingsType = DeviceSettings<max_num_devices, 
+using DeviceSettingsType = DeviceSettings<max_num_devices,
                                         Ads111xDriver,
                                         Pcf8575Driver,
                                         Pcf8574Driver,
