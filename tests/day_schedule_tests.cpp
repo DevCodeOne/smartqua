@@ -34,62 +34,62 @@ TEST_F(DayScheduleTest, RemoveTimePoint) {
 TEST_F(DayScheduleTest, GetFirstTimePointOfDay) {
     auto first = schedule.getFirstTimePointOfDay(0);
     EXPECT_NE(first, std::nullopt);
-    EXPECT_EQ(first->first, 3600s); // 01:00:00
-    EXPECT_EQ(first->second, 1);
+    EXPECT_EQ(first->time, 3600s); // 01:00:00
+    EXPECT_EQ(first->datapoint, 1);
 }
 
 TEST_F(DayScheduleTest, GetFirstTimePointOfDayChannel1) {
     auto first = schedule.getFirstTimePointOfDay(1);
     EXPECT_NE(first, std::nullopt);
-    EXPECT_EQ(first->first, 3600s + 30min); // 01:30:00
-    EXPECT_EQ(first->second, 1);
+    EXPECT_EQ(first->time, 3600s + 30min); // 01:30:00
+    EXPECT_EQ(first->datapoint, 1);
 }
 
 TEST_F(DayScheduleTest, GetLastTimePointOfDay) {
     auto last = schedule.getLastTimePointOfDay(0);
     EXPECT_NE(last, std::nullopt);
-    EXPECT_EQ(last->first, 10800s); // 03:00:00
-    EXPECT_EQ(last->second, 3);
+    EXPECT_EQ(last->time, 10800s); // 03:00:00
+    EXPECT_EQ(last->datapoint, 3);
 }
 
 TEST_F(DayScheduleTest, GetLastTimePointOfDayChannel1) {
     auto last = schedule.getLastTimePointOfDay(1);
     EXPECT_NE(last, std::nullopt);
-    EXPECT_EQ(last->first, 7200s + 30min); // 02:30:00
-    EXPECT_EQ(last->second, 2);
+    EXPECT_EQ(last->time, 7200s + 30min); // 02:30:00
+    EXPECT_EQ(last->datapoint, 2);
 }
 
 TEST_F(DayScheduleTest, GetCurrentTimePointOfDay) {
     auto current = schedule.getCurrentTimePointOfDay(0, 5000s); // 01:23:20
     EXPECT_NE(current, std::nullopt);
-    EXPECT_EQ(current->first, 3600s); // 01:00:00
-    EXPECT_EQ(current->second, 1);
+    EXPECT_EQ(current->time, 3600s); // 01:00:00
+    EXPECT_EQ(current->datapoint, 1);
 
     // Returns last possible timepoint
     current = schedule.getCurrentTimePointOfDay(0, 20000s); // Non-existent time
     EXPECT_NE(current, std::nullopt);
-    EXPECT_EQ(current->first, 10800s); // 03:00:00
-    EXPECT_EQ(current->second, 3);
+    EXPECT_EQ(current->time, 10800s); // 03:00:00
+    EXPECT_EQ(current->datapoint, 3);
 }
 
 TEST_F(DayScheduleTest, GetCurrentTimePointOfDayChannel1) {
     auto current = schedule.getCurrentTimePointOfDay(1, 3600s + 50min); // 01:50:20
     EXPECT_NE(current, std::nullopt);
-    EXPECT_EQ(current->first, 3600s + 30min); // 01:30:00
-    EXPECT_EQ(current->second, 1);
+    EXPECT_EQ(current->time, 3600s + 30min); // 01:30:00
+    EXPECT_EQ(current->datapoint, 1);
 
     // Returns last possible timepoint
     current = schedule.getCurrentTimePointOfDay(1, 20000s); // Non-existent time
     EXPECT_NE(current, std::nullopt);
-    EXPECT_EQ(current->first, 7200s + 30min); // 03:00:00
-    EXPECT_EQ(current->second, 2);
+    EXPECT_EQ(current->time, 7200s + 30min); // 03:00:00
+    EXPECT_EQ(current->datapoint, 2);
 }
 
 TEST_F(DayScheduleTest, GetNextTimePointOfDay) {
     auto next = schedule.getNextTimePointOfDay(0, 5000s); // 01:23:20
     EXPECT_NE(next, std::nullopt);
-    EXPECT_EQ(next->first, 3600s + 30min); // 01:30:00
-    EXPECT_EQ(next->second, 0);
+    EXPECT_EQ(next->time, 3600s + 30min); // 01:30:00
+    EXPECT_EQ(next->datapoint, 0);
 
     // There is no next timepoint that day
     next = schedule.getNextTimePointOfDay(0, 20000s); // Non-existent time
