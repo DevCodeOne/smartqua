@@ -15,27 +15,13 @@
 #include "utils/utils.h"
 #include "utils/stack_string.h"
 #include "utils/variant_utils.h"
+#include "storage/serialized_representation.h"
 #include "storage/store.h"
 
 namespace SmartAq::Utils {
 
     using IndexOrName = std::variant<unsigned int, std::string_view>;
     using IndexOrNameOrEmpty = std::variant<std::monostate, unsigned int, std::string_view>;
-
-    template<typename T>
-    concept ValidBaseType = requires(T a) {
-        { T::StorageName } -> std::convertible_to<const char *>;
-    } && std::is_trivial_v<T>;
-
-    // TODO: separate name_length
-    template<ValidBaseType BaseType, size_t Size>
-        struct TrivialRepresentation {
-            static const constexpr char *const name{ BaseType::StorageName };
-
-            std::array<BaseType, Size> values;
-            std::array<bool, Size> initialized;
-            std::array<BasicStackString<name_length>, Size> names;
-    };
 
     namespace ArrayActions {
         // Initialize and Update Value
@@ -91,15 +77,7 @@ namespace SmartAq::Utils {
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID = 0>
     struct EventAccessArray final {
         using ElementType = BaseType;
-        using TrivialRepresentationType = TrivialRepresentation<BaseType, Size>;
-        template<typename T>
-        using FilterReturnType = std::conditional_t<!
-        AllUniqueV<T,
-            ArrayActions::SetValue<ElementType, UID>,
-            ArrayActions::RemoveValue<ElementType, UID>,
-            ArrayActions::GetValue<ElementType, UID>,
-            ArrayActions::GetValueOverview<ElementType, UID>>, 
-            const TrivialRepresentationType &, IgnoredEvent>;
+        using TrivialRepresentationType = SerializedRepresentationCollection<BaseType, Size>;
 
         static constexpr size_t NumElements = Size;
         static constexpr size_t UniqueIdentifier = UID;
@@ -108,22 +86,16 @@ namespace SmartAq::Utils {
         ~EventAccessArray() = default;
 
         template<typename CreationHook>
-        EventAccessArray &initialize(const TrivialRepresentationType &newValue, const CreationHook &hook);
+        EventAccessArray &initialize(const TrivialRepresentationType &newValue, const CreationHook &createRuntime);
 
-        template<typename T>
-        FilterReturnType<T> dispatch(T &) {};
-
-        FilterReturnType<ArrayActions::SetValue<ElementType, UID>> dispatch(ArrayActions::SetValue<ElementType, UID> &);
+        const TrivialRepresentationType &dispatch(ArrayActions::SetValue<ElementType, UID> &);
         template<typename UpdateHook>
-        FilterReturnType<ArrayActions::SetValue<ElementType, UID>> dispatch(ArrayActions::SetValue<ElementType, UID> &, const UpdateHook &hook);
-        FilterReturnType<ArrayActions::RemoveValue<ElementType, UID>> dispatch(ArrayActions::RemoveValue<ElementType, UID> &);
-        FilterReturnType<ArrayActions::GetValue<ElementType, UID>> dispatch(ArrayActions::GetValue<ElementType, UID> &) const;
-        FilterReturnType<ArrayActions::GetValueOverview<ElementType, UID>> dispatch(ArrayActions::GetValueOverview<ElementType, UID> &) const;
+        const TrivialRepresentationType &dispatch(ArrayActions::SetValue<ElementType, UID> &, const UpdateHook &update);
+        const TrivialRepresentationType &dispatch(ArrayActions::RemoveValue<ElementType, UID> &);
+        const TrivialRepresentationType &dispatch(ArrayActions::GetValue<ElementType, UID> &) const;
+        const TrivialRepresentationType &dispatch(ArrayActions::GetValueOverview<ElementType, UID> &) const;
         template<typename PrintHook>
-        FilterReturnType<ArrayActions::GetValueOverview<ElementType, UID>> dispatch(ArrayActions::GetValueOverview<ElementType, UID> &, PrintHook hook) const;
-
-        template<typename T>
-        void dispatch(T &) const {};
+        const TrivialRepresentationType &dispatch(ArrayActions::GetValueOverview<ElementType, UID> &, PrintHook hook) const;
 
         const TrivialRepresentationType &getTrivialRepresentation() const;
 
@@ -138,13 +110,13 @@ namespace SmartAq::Utils {
         bool hasValidRuntimeData(int index) const;
 
         private:
-            template <typename VariantType>
-            std::optional<unsigned int> findIndex(const VariantType& indexOrName, bool findFreeSlotOtherwise = false) const;
+        template <typename VariantType>
+        std::optional<unsigned int> findIndex(const VariantType& indexOrName, bool findFreeSlotOtherwise = false) const;
 
-            TrivialRepresentationType data;
-            std::array<std::optional<RuntimeType>, NumElements> runtimeData;
+        TrivialRepresentationType data;
+        std::array<std::optional<RuntimeType>, NumElements> runtimeData;
 
-            mutable std::recursive_mutex instanceMutex;
+        mutable std::recursive_mutex instanceMutex;
     };
 
     // TODO: add return value to indicate if it is a newly created value
@@ -164,7 +136,7 @@ namespace SmartAq::Utils {
         {
             for (unsigned int i = 0; i < NumElements; ++i)
             {
-                if (*name == data.names[i].data())
+                if (*name == data.values[i].name)
                 {
                     foundName = i;
                     break;
@@ -187,7 +159,7 @@ namespace SmartAq::Utils {
 
         if (findFreeSlotOtherwise) {
             for (unsigned int i = 0; i < NumElements; ++i) {
-                if (!data.initialized[i]) {
+                if (!data.values[i].initialized) {
                     return i;
                 }
             }
@@ -202,12 +174,12 @@ namespace SmartAq::Utils {
         std::unique_lock instanceGuard{instanceMutex};
         data = newValue;
 
-        for (unsigned int i = 0; i < data.initialized.size(); ++i) {
-            if (!data.initialized[i]) {
+        for (unsigned int i = 0; i < data.values.size(); ++i) {
+            if (!data.values[i].initialized) {
                 continue;
             }
 
-            if (!createRuntime(&data.values[i], runtimeData[i])) {
+            if (!createRuntime(&data.values[i].value, runtimeData[i])) {
                 // If it fails, we could reset data.initialized ?
             }
         }
@@ -217,14 +189,14 @@ namespace SmartAq::Utils {
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event) -> const TrivialRepresentationType & {
         auto doNothing = [](auto &, auto &) -> bool { return true; };
         return dispatch(event, doNothing);
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename UpdateHook>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> FilterReturnType<ArrayActions::SetValue<BaseType, UID>> {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::SetValue<BaseType, UID> &event, const UpdateHook &update) -> const TrivialRepresentationType & {
         std::unique_lock instanceGuard{instanceMutex};
 
         std::optional<unsigned int> foundIndex = findIndex(event.index, true);
@@ -234,11 +206,12 @@ namespace SmartAq::Utils {
             return data;
         }
 
-        auto successfullySet = update(runtimeData[*foundIndex], data.values[*foundIndex], event.jsonSettingValue);
+        auto &currentValue = data.values[*foundIndex];
+        auto successfullySet = update(runtimeData[*foundIndex], currentValue.value, event.jsonSettingValue);
         if (successfullySet) {
-            data.initialized[*foundIndex] = true;
+            currentValue.initialized = true;
             if (event.settingName) {
-                data.names[*foundIndex] = *event.settingName;
+                currentValue.name = *event.settingName;
             }
             event.result.collection_result = CollectionOperationResult::ok;
             event.result.index = foundIndex;
@@ -252,7 +225,7 @@ namespace SmartAq::Utils {
 
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::RemoveValue<BaseType, UID> &event) -> FilterReturnType<ArrayActions::RemoveValue<BaseType, UID>> {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::RemoveValue<BaseType, UID> &event) -> const TrivialRepresentationType & {
         std::unique_lock instanceGuard{instanceMutex};
 
         std::optional<unsigned int> indexToDelete = findIndex(event.index);
@@ -266,20 +239,16 @@ namespace SmartAq::Utils {
         event.result.collection_result = CollectionOperationResult::ok;
         // First delete class, so the class can use the information in the trivial representation if needed
         runtimeData[*indexToDelete] = std::nullopt;
-        data.values[*indexToDelete] = BaseType{};
-        data.names[*indexToDelete][0] = '\0';
-        data.initialized[*indexToDelete] = false;
-
+        data.values[*indexToDelete] = typename TrivialRepresentationType::ValueType{ BaseType{}, false, ""};
         return data;
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValue<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValue<BaseType, UID>> {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValue<BaseType, UID> &event) const -> const TrivialRepresentationType &  {
         Logger::log(LogLevel::Info, "Try locking to read");
         std::unique_lock instanceGuard{instanceMutex};
 
         auto foundIndex = findIndex(event.index);
-
         if (!foundIndex.has_value()) {
             event.result.collection_result = CollectionOperationResult::index_invalid;
             return data;
@@ -292,11 +261,11 @@ namespace SmartAq::Utils {
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
-        auto printLambda = [](auto &out, const auto &name, const auto &, int index, bool) -> int {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event) const -> const TrivialRepresentationType & {
+        auto printLambda = []<typename NameType>(auto &out, const NameType &name, const auto &, int index, bool) -> int {
             const bool firstPrint = index > 0;
-            const char *format = ", { index : %u, description : %M }";
-            return json_printf(&out, format + (firstPrint ? 1 : 0), index, json_printf_single<std::decay_t<decltype(name)>>, &name);
+            auto format = ", { index : %u, description : %M }";
+            return json_printf(&out, format + (firstPrint ? 1 : 0), index, json_printf_single<NameType>, &name);
         };
 
         return dispatch(event, printLambda);
@@ -304,7 +273,7 @@ namespace SmartAq::Utils {
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
     template<typename PrintHook>
-    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> FilterReturnType<ArrayActions::GetValueOverview<BaseType, UID>> {
+    auto EventAccessArray<BaseType, RuntimeType, Size, UID>::dispatch(ArrayActions::GetValueOverview<BaseType, UID> &event, PrintHook printHook) const -> const TrivialRepresentationType & {
         std::unique_lock  instanceGuard{instanceMutex};
 
         unsigned int start_index = 0;
@@ -321,8 +290,9 @@ namespace SmartAq::Utils {
         json_printf(&out, "[");
         int written = 0;
         for (unsigned int index = start_index; index < Size; ++index) {
-            if (data.initialized[index]) {
-                written += printHook(out, data.names[index], data.values[index], index, written == 0);
+            auto &currentValue = data.values[index];
+            if (currentValue.initialized) {
+                written += printHook(out, currentValue.name, currentValue.value, index, written == 0);
             }
         }
         json_printf(&out, " ]");
@@ -337,7 +307,7 @@ namespace SmartAq::Utils {
             return false;
         }
 
-        return data.initialized[index] && runtimeData[index].has_value();
+        return data.values[index].initialized && runtimeData[index].has_value();
     }
 
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID>
@@ -353,7 +323,6 @@ namespace SmartAq::Utils {
         std::unique_lock instanceGuard{instanceMutex};
 
         auto findIndexResult = findIndex(index, false);
-
         if (!findIndexResult)
         {
             return;
@@ -370,7 +339,6 @@ namespace SmartAq::Utils {
         std::unique_lock instanceGuard{instanceMutex};
 
         auto findIndexResult = findIndex(index, false);
-
         if (!findIndexResult)
         {
             return;
