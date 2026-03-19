@@ -15,7 +15,7 @@
 #include "utils/utils.h"
 #include "utils/stack_string.h"
 #include "utils/variant_utils.h"
-#include "storage/serialized_representation.h"
+#include "utils/serialization/serialized_representation.h"
 #include "storage/store.h"
 
 namespace SmartAq::Utils {
@@ -77,7 +77,7 @@ namespace SmartAq::Utils {
     template<ValidBaseType BaseType, typename RuntimeType, size_t Size, size_t UID = 0>
     struct EventAccessArray final {
         using ElementType = BaseType;
-        using TrivialRepresentationType = SerializedRepresentationCollection<BaseType, Size>;
+        using TrivialRepresentationType = BinarySerializedRepresentationCollection<BaseType, Size>;
 
         static constexpr size_t NumElements = Size;
         static constexpr size_t UniqueIdentifier = UID;

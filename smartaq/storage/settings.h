@@ -7,28 +7,17 @@
 #include <charconv>
 #include <cstdio>
 
-#include "esp_http_client.h"
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "nvs_flash_utils.h"
-
-// #include "utils/sd_filesystem.h"
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
+#include "utils/type_helper.h"
 #include "utils/logger.h"
 #include "utils/stack_string.h"
-#include "storage/rest_storage.h"
+#include "utils/serialization/serializer.h"
 #include "build_config.h"
 
 enum struct SettingInitType { instant, lazy_load };
 
-template<typename T>
-concept StandardLayoutType = std::is_standard_layout_v<T>;
-
-template<typename T>
-concept ValidSettingType = std::is_standard_layout_v<T>;
-
-template<ValidSettingType SettingType, ConstexprPath Path, typename FilesystemType, auto InitType = SettingInitType::lazy_load>
+template<typename SettingType, ConstexprPath Path, typename FilesystemType, auto InitType = SettingInitType::lazy_load>
 class FilesystemSetting final {
     public:
         FilesystemSetting() { initialize(); }
@@ -47,11 +36,11 @@ class FilesystemSetting final {
             std::unique_lock instanceGard{instanceMutex};
             initFilesystem();
 
+            Serializer<SettingType>::serialize(m_setting, new_value, [&](const auto &name, const auto &value)
+            {
+                storeToFilesystem(name, value);
+            });
             m_setting = new_value;
-
-            if (m_initialized) {
-                storeToFilesystem();
-            }
 
             return *this;
         }
@@ -59,6 +48,10 @@ class FilesystemSetting final {
         const auto &get_value() {
             std::unique_lock instanceGard{instanceMutex};
             initFilesystem();
+            Serializer<SettingType>::deserialize(m_setting, [&](const auto &name, auto &value)
+            {
+                loadFromFilesystem(name, value);
+            });
 
             return m_setting;
         }
@@ -66,24 +59,25 @@ class FilesystemSetting final {
     private:
 
         template<typename ArrayType>
-        bool copyFilenameToBuffer(ArrayType &dst, const char *extension = "") {
-            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s%s", sizeof(FilesystemType::path.value),
+        bool copyFilenameToBuffer(ArrayType& dst, const char* filename, const char* extension = "")
+        {
+            auto result = snprintf(dst->data(), dst->size(), "%.*s/%.*s/%s.%s", sizeof(FilesystemType::path.value),
                                    FilesystemType::path.value,
-                                   sizeof(Path.value), Path.value, extension);
+                                   sizeof(Path.value), Path.value, filename, extension);
             return result > 0 && result < dst->size();
         }
 
-        FILE *openTmpFile(bool createIfNotExists = true) {
-            auto filename = SmallerBufferPoolType::get_free_buffer();
-            copyFilenameToBuffer(filename, ".tmp");
+        FILE *openTmpFile(const char *filename, bool createIfNotExists = true) {
+            auto filenameBuffer = SmallerBufferPoolType::get_free_buffer();
+            copyFilenameToBuffer(filenameBuffer, filename, ".tmp");
 
-            Logger::log(LogLevel::Info, "Trying to open tmp file : %s", filename->data());
-            auto opened_file = fopen(filename->data(), "r+");
+            Logger::log(LogLevel::Info, "Trying to open tmp file : %s", filenameBuffer->data());
+            auto opened_file = fopen(filenameBuffer->data(), "r+");
 
             if (opened_file == nullptr && createIfNotExists) {
                 // File doesn't exist yet or can't be opened try to open the file again, and create it if it doesn't exist
                 Logger::log(LogLevel::Info, "Couldn't open tmp file -> creating file");
-                opened_file = fopen(filename->data(), "w+");
+                opened_file = fopen(filenameBuffer->data(), "w+");
 
                 if (!opened_file) {
                     Logger::log(LogLevel::Info, "Couldn't create tmp file");
@@ -114,31 +108,31 @@ class FilesystemSetting final {
             }
 
             m_initialized = true;
-
-            return loadFromFilesystem();
+            return ESP_OK;
         }
 
-        esp_err_t loadFromFilesystem() {
+        template<IsByteCopyable T>
+        esp_err_t loadFromFilesystem(const char *filename, T &value) {
             if (!m_initialized) {
                 return ESP_FAIL;
             }
 
             Logger::log(LogLevel::Info, "Loading from filesystem");
-            auto filename = SmallerBufferPoolType::get_free_buffer();
-            copyFilenameToBuffer(filename);
+            auto filenameBuffer = SmallerBufferPoolType::get_free_buffer();
+            copyFilenameToBuffer(filenameBuffer, filename);
 
-            Logger::log(LogLevel::Debug, "Trying to open file : %s", filename->data());
-            auto opened_file = std::fopen(filename->data(), "r+");
+            Logger::log(LogLevel::Debug, "Trying to open file : %s", filenameBuffer->data());
+            auto opened_file = std::fopen(filenameBuffer->data(), "r+");
             DoFinally closeOp( [&opened_file]() {
                 std::fclose(opened_file);
             });
 
             if (!opened_file) {
-                Logger::log(LogLevel::Warning, "File doesn't exist, trying to open tmp file: %s", filename->data());
-                opened_file = openTmpFile(false);
+                Logger::log(LogLevel::Warning, "File doesn't exist, trying to open tmp file: %s", filenameBuffer->data());
+                opened_file = openTmpFile(filename, false);
 
                 if (opened_file == nullptr) {
-                    Logger::log(LogLevel::Warning, "Couldn't open tmp file for: %s", filename->data());
+                    Logger::log(LogLevel::Warning, "Couldn't open tmp file for: %s", filenameBuffer->data());
                     return ESP_FAIL;
                 }
             }
@@ -146,35 +140,31 @@ class FilesystemSetting final {
             std::fseek(opened_file, 0, SEEK_END);
             auto file_size = std::ftell(opened_file);
 
-            if (file_size != sizeof(SettingType)) {
+            if (file_size != sizeof(T)) {
                 Logger::log(LogLevel::Warning, "File size of %s is %d and that isn't the correct size %d", 
-                    SettingType::name,
+                    SettingType::StorageName,
                     static_cast<int>(file_size),
-                    static_cast<int>(sizeof(SettingType)));
+                    static_cast<int>(sizeof(T)));
                 return ESP_FAIL;
             }
 
             std::fseek(opened_file, 0, SEEK_SET);
-            auto read_size = std::fread(reinterpret_cast<void *>(&m_setting), sizeof(SettingType), 1, opened_file);
+            const auto read_size = std::fread(reinterpret_cast<void *>(&value), sizeof(T), 1, opened_file);
 
-            Logger::log(LogLevel::Info, "Read %d bytes from the sd card", read_size * sizeof(SettingType));
+            Logger::log(LogLevel::Info, "Read %d bytes from the sd card", read_size * sizeof(T));
 
             return read_size == 1;
         }
 
-        esp_err_t storeToFilesystem() {
+        template<IsByteCopyable T>
+        esp_err_t storeToFilesystem(const char *filename, const T &value) {
             if (!m_initialized) {
                 return ESP_FAIL;
             }
 
             Logger::log(LogLevel::Info, "Writing to filesystem");
 
-            if (std::memcmp(reinterpret_cast<void *>(&m_written), reinterpret_cast<void *>(&m_setting), sizeof(SettingType)) == 0) {
-                Logger::log(LogLevel::Info, "Setting didn't change -> don't write to flash %s", Path);
-                return ESP_OK;
-            }
-
-            auto target_file = openTmpFile(true);
+            auto target_file = openTmpFile(filename, true);
 
             if (!target_file) {
                 Logger::log(LogLevel::Info, "Couldn't open tmp file");
@@ -185,20 +175,20 @@ class FilesystemSetting final {
 
             Logger::log(LogLevel::Info, "Opened tmp file");
 
-            auto written_size = std::fwrite(reinterpret_cast<void *>(&m_setting), sizeof(SettingType), 1, target_file);
+            auto written_size = std::fwrite(reinterpret_cast<const void *>(&value), sizeof(T), 1, target_file);
             std::fclose(target_file);
-            Logger::log(LogLevel::Info, "Wrote %d bytes to the filesystem", written_size * sizeof(SettingType));
+            Logger::log(LogLevel::Info, "Wrote %d bytes to the filesystem", written_size * sizeof(T));
 
             int rename_result = -1;
             if (written_size == 1) {
-                auto filename = SmallerBufferPoolType::get_free_buffer();
-                auto tmp_filename = SmallerBufferPoolType::get_free_buffer();
+                auto filenameBuffer = SmallerBufferPoolType::get_free_buffer();
+                auto tmp_filenameBuffer = SmallerBufferPoolType::get_free_buffer();
                 // TODO: check results of both methods
-                copyFilenameToBuffer(tmp_filename, ".tmp");
-                copyFilenameToBuffer(filename);
-                std::remove(filename->data());
-                Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filename->data(), filename->data());
-                rename_result = std::rename(tmp_filename->data(), filename->data());
+                copyFilenameToBuffer(tmp_filenameBuffer, filename, ".tmp");
+                copyFilenameToBuffer(filenameBuffer, filename);
+                std::remove(filenameBuffer->data());
+                Logger::log(LogLevel::Info, "Renaming %s to %s", tmp_filenameBuffer->data(), filenameBuffer->data());
+                rename_result = std::rename(tmp_filenameBuffer->data(), filenameBuffer->data());
             } else {
                 Logger::log(LogLevel::Warning, "Setting couldn't be written skipping renaming to real file to avoid issues");
             }
@@ -211,7 +201,6 @@ class FilesystemSetting final {
                 return false;
             }
 
-            m_written = m_setting;
             return true;
         }
     
@@ -219,5 +208,4 @@ class FilesystemSetting final {
         std::optional<FilesystemType> m_filesystem = std::nullopt;
         std::mutex instanceMutex;
         SettingType m_setting;
-        SettingType m_written;
 };
