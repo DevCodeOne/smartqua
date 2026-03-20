@@ -6,7 +6,7 @@
 
 #include "esp_heap_caps.h"
 
-class timeval;
+struct timeval;
 
 class SntpClock final {
     public:

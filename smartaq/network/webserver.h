@@ -14,6 +14,7 @@
 #include <sys/unistd.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/_default_fcntl.h>
 
 // TODO: configure via esp settings
 #if defined(CONFIG_ESP_HTTPS_SERVER_ENABLE) && CONFIG_ESP_HTTPS_SERVER_ENABLE == y
