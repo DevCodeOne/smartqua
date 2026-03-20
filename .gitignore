@@ -1,12 +1,20 @@
 /*
 
-!src/**
+!smartaq/
 !smartaq/**
+!include/
 !include/**
+!.github/
 !.github/**
 !doc/**
+!header_only/
 !header_only/**
+!external_libs/
 !external_libs/**
+!tests/
+!tests/**
+!thirdparty/
+!thirdparty/**
 
 !.gitignore
 !.gitmodules
@@ -15,3 +23,6 @@
 !LICENSE
 !partitions.csv
 !sdkconfig
+!README.md
+
+smartaq/auth.h
