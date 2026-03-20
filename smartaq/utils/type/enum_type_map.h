@@ -1,28 +1,27 @@
 #pragma once
 
-#include <algorithm>
 #include <type_traits>
 
-#include "utils/utils.h"
+#include "utils/type/unique_type_list.h"
+#include "utils/type/enum_sequence.h"
 #include "utils/constexpr_for.h"
 
-template<typename T>
-concept EnumType = std::is_enum_v<T>;
-
 template<auto v, typename T>
-requires (EnumType<decltype(v)>)
+requires (IsEnumType<decltype(v)>)
 struct EnumTypePair {
     using type = T;
     static constexpr auto value = v;
 };
 
-
 template<typename ... ValueTypePairs>
 requires (AllUniqueV<std::integral_constant<decltype(ValueTypePairs::value), ValueTypePairs::value> ...>)
 class EnumTypeMap {
 public:
+    using EnumType = std::common_type_t<std::decay_t<decltype(ValueTypePairs::value)> ...>;
     using KeyList = UniqueTypeList<std::integral_constant<std::decay_t<decltype(ValueTypePairs::value)>,
         ValueTypePairs::value> ...>;
+    using KeyListSequence = EnumSequence<EnumType, ValueTypePairs::value ...>;
+
     using KeyValueList = UniqueTypeList<ValueTypePairs ...>;
 
     template<auto EnumValue>
@@ -33,11 +32,11 @@ public:
 
     static constexpr size_t Size = sizeof...(ValueTypePairs);
 
-    template <typename T, typename ValueType = std::common_type_t<decltype(ValueTypePairs::value)...>,
+    template <typename T,
               auto ArraySize = CountTypeV<T, typename ValueTypePairs::type...>>
-    static constexpr std::array<ValueType, ArraySize> collectKeysWithType()
+    static constexpr std::array<EnumType, ArraySize> collectKeysWithType()
     {
-        std::array<ValueType, ArraySize> keys{};
+        std::array<EnumType, ArraySize> keys{};
         using ListOfEntries = std::tuple<ValueTypePairs...>;
 
         auto currentEntry = keys.begin();

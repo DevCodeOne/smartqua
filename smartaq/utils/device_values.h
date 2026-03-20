@@ -436,7 +436,7 @@ template<bool Reading, auto Size, typename T>
         // Boolean: Use %d (0/1)
         format.append(R"(%B})");
     }
-    else if constexpr (isArithmeticInteger<T>)
+    else if constexpr (IsArithmeticInteger<T>)
     {
         // Integer types: Use %d
         format.append(R"(%d})");

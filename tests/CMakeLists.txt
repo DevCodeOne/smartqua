@@ -26,6 +26,9 @@ add_executable(smartaq_tests
         enum_type_map_tests.cpp
         schedule_tracker_two_entries_tests.cpp
         schedule_tracker_set_channel_times.cpp
+        utils_tests.cpp
+        device_state_tests.cpp
+        type_list_tests.cpp
 )
 target_link_libraries(smartaq_tests PUBLIC smartaq_lib)
 target_link_libraries(smartaq_tests PUBLIC GTest::gtest_main)

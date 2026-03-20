@@ -10,7 +10,9 @@
 
 #include "build_config.h"
 #include "device_types.h"
+#include "drivers/device_state.h"
 #include "utils/constexpr_for.h"
+#include "utils/type/type_list.h"
 
 // TODO: setup drivers
 // one driver for all devices on that bus ?
@@ -25,9 +27,22 @@
 // TODO: custom data types
 // TODO: maybe use fixed size decimal numbers
 // TODO: where to put the list of device drivers ?
+
+template<typename T>
+struct ExtractState
+{
+    using type = T::State;
+};
+
 template<typename ... DeviceDrivers>
 class device final {
 public:
+    using StateVariant = TypeListGenerator<
+        CombineFilters<HasDeviceState, UniqueTypes>::GenerateFilter,
+        DeviceDrivers...>::type::
+            template transform<ExtractState>::
+            template generateType<std::variant>;
+
     template<typename DriverType>
     device(DriverType driver);
     device(const device &) = default;
@@ -44,6 +59,7 @@ public:
     DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
     DeviceOperationResult get_info(char *output_buffer, size_t output_buffer_len) const;
 
+    StateVariant get_state() const;
 private:
     std::variant<DeviceDrivers ...> m_driver = nullptr;
 };
@@ -89,10 +105,10 @@ std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *devic
     constexprFor<DeviceValueUnion::Types::Size>([&found_device_driver, &device_conf]<typename Index>(Index){
         using driver_type = std::tuple_element_t<Index::value, std::tuple<DeviceDrivers ...>>;
 
-        if (std::strncmp(device_conf->device_driver_name.data(), driver_type::name, name_length) == 0) {
+        if (device_conf->device_driver_name == driver_type::name) {
             Logger::log(LogLevel::Warning, "Found driver %s", device_conf->device_driver_name.data());
-            auto result = driver_type::create_driver(device_conf);
 
+            auto result = driver_type::create_driver(device_conf);
             if (!result.has_value()) {
                 Logger::log(LogLevel::Warning, "Failed to create device with driver %s", device_conf->device_driver_name.data());
                 return;
@@ -136,6 +152,18 @@ DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, s
             Logger::log(LogLevel::Info, "Delegating get_info to driver");
             return current_driver.get_info(output_buffer, output_buffer_len); 
         }, m_driver);
+}
+
+template <typename ... DeviceDrivers>
+auto device<DeviceDrivers...>::get_state() const -> StateVariant
+{
+    return std::visit([&]<typename D>(D &current_driver)
+    {
+        if constexpr (HasDeviceState<D>::value)
+        {
+            return current_driver.get_state();
+        }
+    }, m_driver);
 }
 
 template<typename ... DeviceDrivers>

@@ -9,7 +9,7 @@
 
 #include "utils/filesystem_utils.h"
 #include "utils/utils.h"
-#include "utils/type_helper.h"
+#include "utils/type/type_helper.h"
 #include "utils/logger.h"
 #include "utils/stack_string.h"
 #include "utils/serialization/serializer.h"

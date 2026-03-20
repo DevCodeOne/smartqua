@@ -102,30 +102,22 @@ public:
     using EventAccessArrayType = SmartAq::Utils::EventAccessArray<DeviceConfig, device<DeviceDrivers ...>, N, device_uid>;
     using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
-    template<typename T>
-    using FilterReturnType = std::conditional_t<!
-        AllUniqueV<T,
-            AddDevice,
-            RemoveSingleDevice,
-            WriteToDevice,
-            WriteDeviceOptions>, const TrivialRepresentationType &, IgnoredEvent>;
-
     DeviceSettings &operator=(const TrivialRepresentationType &new_value);
     
     // Ignore other read and write events
     template<typename T>
-    FilterReturnType<T> dispatch(T &event) {}
+    IgnoredEvent dispatch(T &) {}
 
     template<typename T>
-    void dispatch(T &event) const {}
+    void dispatch(T &) const {}
 
-    FilterReturnType<AddDevice> dispatch(AddDevice &event);
+    const TrivialRepresentationType &dispatch(AddDevice &event);
 
-    FilterReturnType<RemoveSingleDevice> dispatch(RemoveSingleDevice &event);
+    const TrivialRepresentationType &dispatch(RemoveSingleDevice &event);
 
-    FilterReturnType<WriteToDevice> dispatch(WriteToDevice &event);
+    const TrivialRepresentationType &dispatch(WriteToDevice &event);
 
-    FilterReturnType<WriteDeviceOptions> dispatch(WriteDeviceOptions &event);
+    const TrivialRepresentationType &dispatch(WriteDeviceOptions &event);
 
     void dispatch(ReadFromDevice &event) const;
 
@@ -172,8 +164,7 @@ void DeviceSettings<N, DeviceDrivers ...>::initializeUpdater() {
 
 template<size_t N, typename ... DeviceDrivers>
 void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
-    auto typeInstance = reinterpret_cast<DeviceSettings<N, DeviceDrivers ...> *>(instance);
-
+    auto typeInstance = static_cast<DeviceSettings *>(instance);
     if (typeInstance == nullptr) {
         return;
     }
@@ -185,7 +176,7 @@ void DeviceSettings<N, DeviceDrivers ...>::updateDeviceRuntime(void *instance) {
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto DeviceSettings<N, DeviceDrivers ...>::dispatch(AddDevice &event) -> FilterReturnType<AddDevice> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(AddDevice &event) -> const TrivialRepresentationType & {
     using ArrayEventType = SmartAq::Utils::ArrayActions::SetValue<DeviceConfig, device_uid>;
     return m_data.dispatch(static_cast<ArrayEventType &>(event), 
         [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
@@ -197,12 +188,12 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(AddDevice &event) -> FilterR
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto DeviceSettings<N, DeviceDrivers ...>::dispatch(RemoveSingleDevice &event) -> FilterReturnType<RemoveSingleDevice> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(RemoveSingleDevice &event) -> const TrivialRepresentationType & {
     return m_data.dispatch(event);
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteToDevice &event) -> FilterReturnType<WriteToDevice> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteToDevice &event) -> const TrivialRepresentationType & {
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
 
     m_data.invokeOnRuntimeData(event.index, [&event](auto &currentDevice) {
@@ -215,7 +206,7 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteToDevice &event) -> Fil
 }
 
 template<size_t N, typename ... DeviceDrivers>
-auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteDeviceOptions &event) -> FilterReturnType<WriteToDevice> {
+auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteDeviceOptions &event) -> const TrivialRepresentationType &{
     event.result.collection_result = DeviceCollectionOperation::index_invalid;
     event.output_dst = nullptr;
     event.output_len = 0;
@@ -227,9 +218,9 @@ auto DeviceSettings<N, DeviceDrivers ...>::dispatch(WriteDeviceOptions &event) -
     };
 
     return m_data.dispatch(setEvent, 
-        [&event](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
+        [&event, funcName = __FUNCTION__](auto &currentDevice, auto &currentTrivialValue, const auto &jsonSettingValue) {
             if (!currentDevice) {
-                Logger::log(LogLevel::Error, "%s %d current device is not valid", __FUNCTION__, event.index);
+                Logger::log(LogLevel::Error, "%s %d current device is not valid", funcName, event.index);
                 event.result.collection_result = DeviceCollectionOperation::index_invalid;
                 return currentDevice.has_value();
             }
@@ -267,11 +258,11 @@ void DeviceSettings<N, DeviceDrivers ...>::dispatch(RetrieveDeviceInfo &event) c
 
 template<size_t N, typename ... DeviceDrivers>
 void DeviceSettings<N, DeviceDrivers ...>::dispatch(RetrieveDeviceOverview &event) const {
-    m_data.dispatch(event, [](auto &out, const auto &name, const auto &trivialValue, auto index, bool firstPrint) -> int {
-        const char *format = ", { index : %u, description : %M, driver_name : %M }";
+    m_data.dispatch(event, []<typename NameType>(auto &out, const NameType &name, const auto &trivialValue, auto index, bool firstPrint) -> int {
+        auto format = ", { index : %u, description : %M, driver_name : %M }";
         return json_printf(&out, format + (firstPrint ? 1 : 0), 
             index,
-            json_printf_single<std::decay_t<decltype(name)>>, &name,
+            json_printf_single<NameType>, &name,
             json_printf_single<std::decay_t<decltype(trivialValue.device_driver_name)>>, &trivialValue.device_driver_name);
     });
 }

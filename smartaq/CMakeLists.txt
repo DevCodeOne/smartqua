@@ -42,7 +42,8 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     drivers/hal/device_config.h
     drivers/i2c_address_value.h
     drivers/device_types.h
-        drivers/sensor_driver_interface.h
+    drivers/sensor_driver_interface.h
+    drivers/device_state.h
 
     utils/container/event_access_array.h
     utils/container/lookup_table.h
@@ -62,10 +63,17 @@ set(SMARTAQ_PLATFORM_INDEPENDENT_LIB_SOURCES
     utils/serialization/number_conversion.h
     utils/serialization/json_utils.h utils/serialization/json_utils.cpp
     utils/serialization/device_values_serialization.h
-    utils/type/type_helper.h
+    utils/serialization/serialized_representation.h
+    utils/serialization/serializer.h
     utils/device_values.h utils/device_values.cpp
     utils/conditional_thread_safety.h
     utils/variant_utils.h
+
+    utils/type/type_helper.h
+    utils/type/type_list.h
+    utils/type/unique_type_list.h
+    utils/type/type_utils.h
+    utils/type/enum_sequence.h
 )
 
 if (NOT "$ENV{IDF_PATH}" STREQUAL "")
