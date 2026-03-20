@@ -62,7 +62,7 @@ public:
     DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
     DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
 
-    DeviceState oneIteration();
+    SensorState oneIteration();
     bool reinit();
 private:
     using AddressTracker = ResourceLookupTable<ThreadSafety::Safe,

@@ -130,9 +130,9 @@ DeviceOperationResult Bme280Driver::get_info(char *output, size_t output_buffer_
     return DeviceOperationResult::ok;
 }
 
-DeviceState Bme280Driver::oneIteration() {
+SensorState Bme280Driver::oneIteration() {
     if (!mDevice.has_value()) {
-        return DeviceState::ReadError;
+        return SensorState::ReadError;
     }
 
     float temperature = 0;
@@ -142,7 +142,7 @@ DeviceState Bme280Driver::oneIteration() {
 
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't get measurements");
-        return DeviceState::ReadError;
+        return SensorState::ReadError;
     }
 
     Logger::log(LogLevel::Info, "Got temperature : %f, humidity : %f, pressure : %f ",
@@ -169,10 +169,10 @@ DeviceState Bme280Driver::oneIteration() {
 
     if (thereWasAnIssue)
     {
-        return DeviceState::SampleIssue;
+        return SensorState::SampleIssue;
     }
 
-    return DeviceState::Ok;
+    return SensorState::Ok;
 }
 
 bool Bme280Driver::reinit()
@@ -203,12 +203,8 @@ Bme280Driver::~Bme280Driver() {
 
 Bme280Driver::Bme280Driver(Bme280Driver&& other) noexcept
     : mTracker(std::move(other.mTracker))
-      , mI2cResource(std::move(other.mI2cResource))
-      ,
-      mDevice(other
-          .
-          mDevice
-      )
+    , mI2cResource(std::move(other.mI2cResource))
+    , mDevice(other.mDevice)
 {
     other.mDevice = std::nullopt;
 }

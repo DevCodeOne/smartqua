@@ -46,7 +46,7 @@ class Ds18x20Driver final {
         DeviceOperationResult read_value(std::string_view what, DeviceValues &value) const;
         DeviceOperationResult get_info(char *output, size_t output_buffer_len) const;
 
-        DeviceState oneIteration();
+        SensorState oneIteration();
         bool reinit();
     private:
         Ds18x20Driver(const DeviceConfig*conf, std::shared_ptr<GpioResource> pin);

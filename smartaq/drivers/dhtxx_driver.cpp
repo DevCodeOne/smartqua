@@ -54,7 +54,7 @@ bool DhtXXDriver::reinit() {
     return true;
 }
 
-DeviceState DhtXXDriver::oneIteration()
+SensorState DhtXXDriver::oneIteration()
 {
     const auto* config = mConf->accessConfig<DhtXXDriverData>();
 
@@ -68,7 +68,7 @@ DeviceState DhtXXDriver::oneIteration()
     if (error != ESP_OK)
     {
         Logger::log(LogLevel::Error, "Failed to read temperature and/or humidity");
-        return DeviceState::ReadError;
+        return SensorState::ReadError;
     }
 
     bool noIssue = true;
@@ -77,10 +77,10 @@ DeviceState DhtXXDriver::oneIteration()
 
     if (!noIssue)
     {
-        return DeviceState::SampleIssue;
+        return SensorState::SampleIssue;
     }
 
-    return DeviceState::Ok;
+    return SensorState::Ok;
 }
 
 DhtXXDriver::DhtXXDriver(DhtXXDriver &&other) noexcept : mConf(other.mConf), mPin(std::move(other.mPin)) {

@@ -62,7 +62,7 @@ class DhtXXDriver final {
     DeviceOperationResult call_device_action(DeviceConfig *config, const std::string_view &action, const std::string_view &json) const;
     DeviceOperationResult update_runtime_data();
 
-    DeviceState oneIteration();
+    SensorState oneIteration();
     bool reinit();
 
     private:

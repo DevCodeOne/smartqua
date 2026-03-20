@@ -15,7 +15,7 @@ concept HasDriverInfo = requires(Driver &instance)
     std::is_same_v<decltype(ThisDriverInfo::Name), const char *>;
 };
 
-enum struct DeviceState
+enum struct SensorState
 {
     Ok = 0, ReadError, SampleIssue
 };
@@ -23,7 +23,7 @@ enum struct DeviceState
 template<typename Driver>
 concept HasDriverFunctions = requires(Driver &instance)
 {
-    { instance.oneIteration() } -> std::same_as<DeviceState>;
+    { instance.oneIteration() } -> std::same_as<SensorState>;
     { instance.reinit() } -> std::convertible_to<bool>;
 };
 
@@ -184,7 +184,7 @@ void SensorDriverInterface<Driver>::updateThread(void* instance)
 
     auto deviceState = asInstancePtr->mDriver->oneIteration();
 
-    if (deviceState == DeviceState::ReadError)
+    if (deviceState == SensorState::ReadError)
     {
         ++asInstancePtr->mErrorCount;
     }

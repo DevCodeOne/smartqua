@@ -135,7 +135,7 @@ DeviceOperationResult Ds18x20Driver::get_info(char *output_buffer, size_t output
     return DeviceOperationResult::ok;
 }
 
-DeviceState Ds18x20Driver::oneIteration()
+SensorState Ds18x20Driver::oneIteration()
 {
     using namespace std::chrono_literals;
 
@@ -151,17 +151,17 @@ DeviceState Ds18x20Driver::oneIteration()
     if (result != ESP_OK)
     {
         Logger::log(LogLevel::Warning, "Couldn't read temperature");
-        return DeviceState::ReadError;
+        return SensorState::ReadError;
     }
 
     Logger::log(LogLevel::Info, "Read temperature : %d", static_cast<int>(temperature * 1000));
     if (!mTemperatureReadings.putSample(temperature))
     {
         Logger::log(LogLevel::Warning, "There was an issue with the sample");
-        return DeviceState::SampleIssue;
+        return SensorState::SampleIssue;
     }
 
-    return DeviceState::Ok;
+    return SensorState::Ok;
 }
 
 bool Ds18x20Driver::reinit()
