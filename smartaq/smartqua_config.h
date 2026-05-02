@@ -69,7 +69,7 @@ using SettingType = Settings<max_setting_size>;
 using GlobalStoreType = Store<
     SingleTypeStore<DeviceSettingsType,
                     LocalSaveType<DeviceSettingsType::TrivialRepresentationType,
-                                  ConstexprPath("devices.bin")>>
-    , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings.bin")>>
+                                  ConstexprPath("devices")>>
+    , SingleTypeStore<SettingType, LocalSaveType<SettingType::TrivialRepresentationType, ConstexprPath("settings")>>
 >;
 extern std::unique_ptr<GlobalStoreType, SPIRAMDeleter<GlobalStoreType>> globalStore;
