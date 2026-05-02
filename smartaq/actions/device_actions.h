@@ -99,7 +99,7 @@ public:
     DeviceSettings() = default;
     ~DeviceSettings() = default;
 
-    using EventAccessArrayType = SmartAq::Utils::EventAccessArray<DeviceConfig, device<DeviceDrivers ...>, N, device_uid>;
+    using EventAccessArrayType = SmartAq::Utils::EventAccessArray<DeviceConfig, DeviceVariant<DeviceDrivers ...>, N, device_uid>;
     using TrivialRepresentationType = typename EventAccessArrayType::TrivialRepresentationType;
 
     DeviceSettings &operator=(const TrivialRepresentationType &new_value);
@@ -138,8 +138,10 @@ private:
 
 template<size_t N, typename ... DeviceDrivers>
 DeviceSettings<N, DeviceDrivers ...> &DeviceSettings<N, DeviceDrivers ...>::operator=(const TrivialRepresentationType &new_value) {
+    Logger::log(LogLevel::Info, "Initializing device collection");
     m_data.initialize(new_value, [](const auto &trivialValue, auto &currentRuntimeData) {
         currentRuntimeData = create_device<DeviceDrivers ...>(trivialValue);
+        Logger::log(LogLevel::Debug, "Device created successfully");
         return currentRuntimeData.has_value();
     });
     initializeUpdater();

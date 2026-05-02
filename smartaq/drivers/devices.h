@@ -28,14 +28,8 @@
 // TODO: maybe use fixed size decimal numbers
 // TODO: where to put the list of device drivers ?
 
-template<typename T>
-struct ExtractState
-{
-    using type = T::State;
-};
-
 template<typename ... DeviceDrivers>
-class device final {
+class DeviceVariant final {
 public:
     using StateVariant = TypeListGenerator<
         CombineFilters<HasDeviceState, UniqueTypes>::GenerateFilter,
@@ -44,13 +38,13 @@ public:
             template generateType<std::variant>;
 
     template<typename DriverType>
-    device(DriverType driver);
-    device(const device &) = default;
-    device(device &&) = default;
-    ~device() = default;
+    explicit DeviceVariant(DriverType driver);
+    DeviceVariant(const DeviceVariant &) = default;
+    DeviceVariant(DeviceVariant &&) = default;
+    ~DeviceVariant() = default;
 
-    device &operator=(const device &other) = default;
-    device &operator=(device &&other) = default;
+    DeviceVariant &operator=(const DeviceVariant &other) = default;
+    DeviceVariant &operator=(DeviceVariant &&other) = default;
 
     DeviceOperationResult write_value(std::string_view what, const DeviceValues &value);
     // To calibrate something or execute actions
@@ -68,8 +62,8 @@ private:
 // the correct driver will be found by the device_name
 // device_conf_out will contain the necessary data for the driver to be initialized from storage
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, DeviceConfig &device_conf_out) {
-    std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
+std::optional<DeviceVariant<DeviceDrivers ...>> create_device(std::string_view driver_name, std::string_view input, DeviceConfig &device_conf_out) {
+    std::optional<DeviceVariant<DeviceDrivers ...>> found_device_driver = std::nullopt;
     Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
     constexprFor<DeviceValueUnion::Types::Size>(
@@ -85,22 +79,22 @@ std::optional<device<DeviceDrivers ...>> create_device(std::string_view driver_n
             device_conf_out.device_driver_name = driver_type::name;
             auto result = driver_type::create_driver(input, device_conf_out);
             
-            // Driver creation wasn't successfull
+            // Driver creation wasn't successful
             if (!result.has_value()) {
                 Logger::log(LogLevel::Warning, "Device couldn't be created");
                 return;
             }
 
             Logger::log(LogLevel::Info, "Device was created successfully");
-            found_device_driver = std::move(*result);
+            found_device_driver = DeviceVariant<DeviceDrivers ...>(std::move(*result));
         });
 
     return found_device_driver;
 }
 
 template<typename ... DeviceDrivers>
-std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *device_conf) {
-    std::optional<device<DeviceDrivers ...>> found_device_driver = std::nullopt; 
+std::optional<DeviceVariant<DeviceDrivers ...>> create_device(const DeviceConfig *device_conf) {
+    std::optional<DeviceVariant<DeviceDrivers ...>> found_device_driver = std::nullopt;
 
     constexprFor<DeviceValueUnion::Types::Size>([&found_device_driver, &device_conf]<typename Index>(Index){
         using driver_type = std::tuple_element_t<Index::value, std::tuple<DeviceDrivers ...>>;
@@ -115,7 +109,7 @@ std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *devic
             }
 
             Logger::log(LogLevel::Info, "Created device with driver %s", device_conf->device_driver_name.data());
-            found_device_driver = std::move(*result);
+            found_device_driver = DeviceVariant<DeviceDrivers ...>{std::move(*result)};
         }
     });
 
@@ -124,11 +118,11 @@ std::optional<device<DeviceDrivers ...>> create_device(const DeviceConfig *devic
 
 template<typename ... DeviceDrivers>
 template<typename DriverType>
-device<DeviceDrivers ...>::device(DriverType driver) : m_driver(std::move(driver)) {}
+DeviceVariant<DeviceDrivers ...>::DeviceVariant(DriverType driver) : m_driver(std::move(driver)) {}
 
 // TODO: same thing as in read_value
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view what, const DeviceValues &value) {
+DeviceOperationResult DeviceVariant<DeviceDrivers ...>::write_value(std::string_view what, const DeviceValues &value) {
     return std::visit(
         [&what, &value](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_value to driver");
@@ -137,7 +131,7 @@ DeviceOperationResult device<DeviceDrivers ...>::write_value(std::string_view wh
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::read_value(std::string_view what, DeviceValues &value) const {
+DeviceOperationResult DeviceVariant<DeviceDrivers ...>::read_value(std::string_view what, DeviceValues &value) const {
     return std::visit(
         [&value, what](const auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating read_value to driver");
@@ -146,7 +140,7 @@ DeviceOperationResult device<DeviceDrivers ...>::read_value(std::string_view wha
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
+DeviceOperationResult DeviceVariant<DeviceDrivers ...>::get_info(char *output_buffer, size_t output_buffer_len) const {
     return std::visit(
         [output_buffer, output_buffer_len](const auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating get_info to driver");
@@ -155,7 +149,7 @@ DeviceOperationResult device<DeviceDrivers ...>::get_info(char *output_buffer, s
 }
 
 template <typename ... DeviceDrivers>
-auto device<DeviceDrivers...>::get_state() const -> StateVariant
+auto DeviceVariant<DeviceDrivers...>::get_state() const -> StateVariant
 {
     return std::visit([&]<typename D>(D &current_driver)
     {
@@ -167,7 +161,7 @@ auto device<DeviceDrivers...>::get_state() const -> StateVariant
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
+DeviceOperationResult DeviceVariant<DeviceDrivers ...>::call_device_action(DeviceConfig*conf, const std::string_view &action, const std::string_view &json) {
     return std::visit(
         [&conf, &action, &json](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating write_options to driver");
@@ -176,7 +170,7 @@ DeviceOperationResult device<DeviceDrivers ...>::call_device_action(DeviceConfig
 }
 
 template<typename ... DeviceDrivers>
-DeviceOperationResult device<DeviceDrivers ...>::update_runtime_data() {
+DeviceOperationResult DeviceVariant<DeviceDrivers ...>::update_runtime_data() {
     return std::visit(
         [](auto &current_driver) { 
             Logger::log(LogLevel::Info, "Delegating updating_runtime_data to driver");
