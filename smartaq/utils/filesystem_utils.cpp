@@ -1,52 +1,59 @@
 #include "filesystem_utils.h"
 
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <string_view>
 #include <sys/stat.h>
 
-#include "ctre.hpp"
-
 #include "utils/do_finally.h"
 #include "utils/stack_string.h"
-
-static constexpr ctll::fixed_string directory_pattern{R"(\/(\w+))"};
 
 // TODO: Move to header, when it is not dependent on esp32
 static constexpr size_t max_path_length = 32;
 
 // TODO: again replace with std::string_view, optimize, first check if folder already exists
-bool ensure_path_exists(const char *path, uint32_t mask) {
-    if (!BasicStackString<max_path_length>::canHold(path)) {
+bool ensurePathExists(const char* path, uint32_t mask)
+{
+    if (path == nullptr || path[0] == '\0')
+    {
+        return false;
+    }
+
+    if (!BasicStackString<max_path_length>::canHold(path))
+    {
         return false;
     }
 
     BasicStackString<max_path_length> pathCopy{path};
+    std::string_view pathView{pathCopy.data()};
 
-    if (int result = mkdir(pathCopy.data(), mask); result == EEXIST) {
+    const auto firstDirectoryStart = pathView.find_first_not_of('/');
+
+    if (firstDirectoryStart == std::string_view::npos)
+    {
         return true;
     }
 
-    pathCopy.clear();
+    for (auto separator = pathView.find_first_of('/', firstDirectoryStart);
+         separator != std::string_view::npos;
+         separator = pathView.find_first_of('/', separator + 1))
+    {
+        pathCopy.data()[separator] = '\0';
 
-    // Only use return codes of mkdir, stat is way to slow
-    bool path_exists = true;
-    for (auto directory : ctre::search_all<directory_pattern>(path)) {
-        std::string_view directoryView(directory.get<0>());
+        const int result = mkdir(pathCopy.data(), mask);
 
-        const bool appendResult = pathCopy.append(directoryView);
+        pathCopy.data()[separator] = '/';
 
-        if (!appendResult) {
+        if (result == -1 && errno != EEXIST)
+        {
             return false;
-        }
-
-        int result = mkdir(pathCopy.data(), mask);
-
-        if (result == ENOTDIR) {
-            path_exists = false;
         }
     }
 
-    return path_exists;
+    const int result = mkdir(pathCopy.data(), mask);
+
+    return result == 0 || errno == EEXIST;
 }
 
 int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t dst_len) {
@@ -55,7 +62,6 @@ int64_t loadFileCompletelyIntoBuffer(std::string_view path, void *dst, size_t ds
     if (!PathString::canHold(path.data())) {
         return -1;
     }
-
     PathString pathCopy{path};
     auto opened_file = std::fopen(pathCopy.data(), "rb");
     DoFinally closeOp( [&opened_file]() {
@@ -129,7 +135,7 @@ bool safeWriteToFile(std::string_view path, std::string_view tmpExtension, const
     PathString tmpPathCopy;
     parentPath(path, tmpPathCopy);
 
-    if (!ensure_path_exists(tmpPathCopy.data())) {
+    if (!ensurePathExists(tmpPathCopy.data())) {
         // Logger::log(LogLevel::Error, "Couldn't create path : %.*s", tmpPathCopy.len(), tmpPathCopy.data());
         return false;
     }

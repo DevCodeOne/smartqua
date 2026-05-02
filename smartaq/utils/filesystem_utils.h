@@ -6,7 +6,7 @@
 
 #include "stack_string.h"
 
-bool ensure_path_exists(const char *path, uint32_t mask = 0777);
+bool ensurePathExists(const char *path, uint32_t mask = 0777);
 
 template<size_t DstLength>
 requires (DstLength >= 2)
@@ -58,12 +58,4 @@ enum struct FileSystemStatus {
 
 FileSystemStatus writeTestFile(const char *path, std::string_view content);
 
-template<size_t N>
-struct ConstexprPath {
-    constexpr explicit ConstexprPath(const char (&path)[N]) {
-        std::copy_n(path, N, value);
-    }
-
-    static constexpr size_t length = N;
-    char value[N];
-};
+#include "utils/type/constexpr_str.h"
