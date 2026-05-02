@@ -97,9 +97,13 @@ struct Serializer<BinarySerializedRepresentationCollection<T, Size>>
     template<typename Callback>
     static void deserialize(BinarySerializedRepresentationCollection<T, Size> &value, Callback callback)
     {
-        for (auto &current : value)
+        Logger::log(LogLevel::Debug, "Deserializing collection");
+        char buffer[16];
+        for (unsigned int index = 0; index < Size; ++index)
         {
-            callback(current.name.data(), current.value);
+            snprintf(buffer, sizeof(buffer), "%u.bin", index);
+            Logger::log(LogLevel::Debug, "Deserializing item %u", index);
+            callback(buffer, value.values[index]);
         }
     }
 };
