@@ -15,24 +15,24 @@ struct BinarySerializedRepresentation
 {
     static const constexpr char *const StorageName{ BaseType::StorageName };
 
-    bool operator==(const BinarySerializedRepresentation &other) const
+    bool shouldBeWritten(const BinarySerializedRepresentation &other) const
     {
-        if (not initialized || not other.initialized)
+        if (!initialized && !other.initialized)
         {
             return false;
+        }
+
+        if (!other.initialized)
+        {
+            return true;
         }
 
         if (name != other.name)
         {
-            return false;
+            return true;
         }
 
-        return std::memcmp(&value, &other.value, sizeof(value)) == 0;
-    }
-
-    bool operator!=(const BinarySerializedRepresentation &other) const
-    {
-        return !(*this == other);
+        return std::memcmp(&value, &other.value, sizeof(value)) != 0;
     }
 
     BaseType value;
@@ -56,27 +56,6 @@ template<ValidBaseType BaseType, size_t Size>
     std::array<BinarySerializedRepresentation<BaseType>, Size> values;
 };
 
-
-template<ValidBaseType T>
-struct Serializer<BinarySerializedRepresentation<T>>
-{
-    template<typename Callback>
-    static void serialize(const BinarySerializedRepresentation<T> &written, const BinarySerializedRepresentation<T> &value, Callback callback)
-    {
-        if (written == value)
-        {
-            return;
-        }
-        callback(value.name, value);
-    }
-
-    template<typename Callback>
-    static void deserialize(BinarySerializedRepresentation<T> &value, Callback callback)
-    {
-        callback(value.name, value);
-    }
-};
-
 // TODO: replace const char * -> name.data() with better type
 template<ValidBaseType T, size_t Size>
 struct Serializer<BinarySerializedRepresentationCollection<T, Size>>
@@ -84,13 +63,14 @@ struct Serializer<BinarySerializedRepresentationCollection<T, Size>>
     template<typename Callback>
     static void serialize(const BinarySerializedRepresentationCollection<T, Size> &writtenValue, const BinarySerializedRepresentationCollection<T, Size> &value, Callback callback)
     {
-        for (const auto &[written, current] : std::views::zip(writtenValue, value))
+        char buffer[16];
+        for (const auto &[index, values] : std::views::enumerate(std::views::zip(writtenValue, value)))
         {
-            if (written == current)
+            if (auto &[written, current] = values; written.shouldBeWritten(current))
             {
-                continue;
+                snprintf(buffer, sizeof(buffer), "%u.bin", index);
+                callback(buffer, current);
             }
-            callback(current.name.data(), current.value);
         }
     }
 
