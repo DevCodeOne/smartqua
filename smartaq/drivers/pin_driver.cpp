@@ -156,6 +156,7 @@ void PinDriver::initPinDriverStatics() {
     static std::once_flag initPinDriverStatics{};
     std::call_once(initPinDriverStatics, [](){
         Logger::log(LogLevel::Info, "Initialized static pin settings and threads");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         ledc_fade_func_install(0);
     });
 }
@@ -165,6 +166,18 @@ std::optional<PinDriver> PinDriver::createPwmConfig(const DeviceConfig *config, 
 
     if (timer == nullptr || !timer->isValid()) {
         Logger::log(LogLevel::Warning, "Couldn't create ledc driver or timer wasn't valid");
+        return std::nullopt;
+    }
+
+    const ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .duty_resolution  = LEDC_TIMER_13_BIT,
+        .timer_num        = timer->timerNum(),
+        .freq_hz          = pinConf->timer_conf.frequency,
+        .clk_cfg          = LEDC_USE_APB_CLK,
+    };
+    if (ledc_timer_config(&ledc_timer) != ESP_OK) {
+        Logger::log(LogLevel::Warning, "Failed to configure LEDC timer");
         return std::nullopt;
     }
 
@@ -189,18 +202,16 @@ std::optional<PinDriver> PinDriver::createPwmConfig(const DeviceConfig *config, 
     ledc_channel.intr_type = ledc_intr_type_t::LEDC_INTR_DISABLE;
 
     auto result = ledc_channel_config(&ledc_channel);
-
     if (result != ESP_OK) {
         Logger::log(LogLevel::Warning, "Couldn't create ledc driver");
         return std::nullopt;
     }
+    initPinDriverStatics();
 
     return std::make_optional(PinDriver{config, timer, gpio, channel});
 }
 
 std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
-    initPinDriverStatics();
-
     auto *pinConf = config->accessConfig<PinConfig>();
 
     if (pinConf->type == PinType::Invalid) {
