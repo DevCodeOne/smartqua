@@ -169,18 +169,6 @@ std::optional<PinDriver> PinDriver::createPwmConfig(const DeviceConfig *config, 
         return std::nullopt;
     }
 
-    const ledc_timer_config_t ledc_timer = {
-        .speed_mode       = LEDC_LOW_SPEED_MODE,
-        .duty_resolution  = LEDC_TIMER_13_BIT,
-        .timer_num        = timer->timerNum(),
-        .freq_hz          = pinConf->timer_conf.frequency,
-        .clk_cfg          = LEDC_USE_APB_CLK,
-    };
-    if (ledc_timer_config(&ledc_timer) != ESP_OK) {
-        Logger::log(LogLevel::Warning, "Failed to configure LEDC timer");
-        return std::nullopt;
-    }
-
     auto channel = DeviceResource::get_led_channel();
 
     if (channel == nullptr) {
@@ -247,11 +235,11 @@ std::optional<PinDriver> PinDriver::create_driver(const DeviceConfig *config) {
 std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, DeviceConfig&deviceConfOut) {
     // Only prepare device_conf_out in this method and pass it along
     PinConfig newConf{};
-    uint16_t frequency = newConf.timer_conf.frequency;
-    uint16_t resolution = newConf.timer_conf.resolution;
-    uint16_t channel = newConf.channel;
-    uint16_t max_value = newConf.max_value;
-    uint16_t gpio_num = newConf.gpio_num;
+    unsigned int frequency = newConf.timer_conf.frequency;
+    unsigned int resolution = newConf.timer_conf.resolution;
+    unsigned int channel = newConf.channel;
+    unsigned int max_value = 0;
+    unsigned int gpio_num = newConf.gpio_num;
     bool fade = newConf.fade;
     bool invert = newConf.invert;
 
@@ -264,6 +252,11 @@ std::optional<PinDriver> PinDriver::create_driver(const std::string_view input, 
     assign_result &= checkAssign(newConf.timer_conf.frequency, frequency);
     assign_result &= checkAssign(newConf.timer_conf.resolution, resolution);
     assign_result &= checkAssign(newConf.channel, channel);
+
+    if (max_value == 0)
+    {
+        max_value = (1 << resolution) - 1;
+    }
     assign_result &= checkAssign(newConf.max_value, max_value);
     assign_result &= checkAssign(newConf.gpio_num, gpio_num);
     newConf.fade = static_cast<bool>(fade);
