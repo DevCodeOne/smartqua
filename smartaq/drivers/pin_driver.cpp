@@ -295,7 +295,8 @@ bool PinDriver::adjustPwmOutput(const DeviceValues &value, const PinConfig *pinC
         static constexpr auto MaxPercentageValue = 100;
         const auto clampedPercentage = std::clamp<decltype(asPercentage)::value_type>(
             *asPercentage, 0, MaxPercentageValue);
-        pwmValue = static_cast<PwmType>((pinConf->max_value / MaxPercentageValue) * clampedPercentage);
+        pwmValue = static_cast<PwmType>(
+            (static_cast<uint32_t>(pinConf->max_value) * clampedPercentage) / MaxPercentageValue);
     }
     else
     {
