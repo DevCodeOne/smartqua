@@ -1,12 +1,7 @@
 #pragma once
 
-#include <cstdint>
-#include <array>
-#include <shared_mutex>
 #include <string_view>
 #include <optional>
-
-#include "driver/ledc.h"
 
 #include "hal/gpio_types.h"
 

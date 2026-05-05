@@ -12,6 +12,7 @@
 #include "hal/ledc_types.h"
 #include "utils/logger.h"
 #include "utils/check_assign.h"
+#include "utils/linear_mapping_utils.h"
 
 PinDriver::PinDriver(const DeviceConfig*conf, std::shared_ptr<TimerResource> timer, std::shared_ptr<GpioResource> gpio, std::shared_ptr<LedChannel> channel)
 : m_conf(conf), m_timer(timer), m_gpio(gpio), m_channel(channel) { }
@@ -70,6 +71,7 @@ bool PinDriver::adjustTimedValue(const DeviceValues& value, const PinConfig *pin
         Logger::log(LogLevel::Debug, "generic_unsigned_integral has value");
         secondsTillReset = seconds(*asGenericUnsigned);
     } else {
+        Logger::log(LogLevel::Debug, "No valid time unit found in DeviceValues");
         return false;
     }
 
@@ -285,11 +287,13 @@ bool PinDriver::adjustPwmOutput(const DeviceValues &value, const PinConfig *pinC
     }
     else if (const auto asPercentage = value.getAsUnitAsType<DeviceValueUnit::percentage>(); asPercentage)
     {
-        static constexpr auto MaxPercentageValue = 100;
-        const auto clampedPercentage = std::clamp<decltype(asPercentage)::value_type>(
-            *asPercentage, 0, MaxPercentageValue);
-        pwmValue = static_cast<PwmType>(
-            (static_cast<uint32_t>(pinConf->max_value) * clampedPercentage) / MaxPercentageValue);
+        using PercentageType = decltype(asPercentage)::value_type;
+        pwmValue = linear_alg::linearMap<PwmType>(
+            *asPercentage,
+            PercentageType{0},
+            PercentageType{100},
+            PwmType{0},
+            pinConf->max_value);
     }
     else
     {
