@@ -37,6 +37,8 @@ public:
             template transform<ExtractState>::
             template generateType<std::variant>;
 
+    static constexpr auto NumDrivers = sizeof...(DeviceDrivers);
+
     template<typename DriverType>
     explicit DeviceVariant(DriverType driver);
     DeviceVariant(const DeviceVariant &) = default;
@@ -66,7 +68,7 @@ std::optional<DeviceVariant<DeviceDrivers ...>> create_device(std::string_view d
     std::optional<DeviceVariant<DeviceDrivers ...>> found_device_driver = std::nullopt;
     Logger::log(LogLevel::Info, "Searching driver %.*s", driver_name.length(), driver_name.data());
 
-    constexprFor<DeviceValueUnion::Types::Size>(
+    constexprFor<sizeof...(DeviceDrivers)>(
         [input, driver_name, &device_conf_out, &found_device_driver]<typename Index>(Index) constexpr {
             using driver_type = std::tuple_element_t<Index::value, std::tuple<DeviceDrivers ...>>;
 
@@ -89,6 +91,11 @@ std::optional<DeviceVariant<DeviceDrivers ...>> create_device(std::string_view d
             found_device_driver = DeviceVariant<DeviceDrivers ...>(std::move(*result));
         });
 
+    if (!found_device_driver.has_value())
+    {
+        Logger::log(LogLevel::Warning, "Couldn't find driver %.*s", driver_name.length(), driver_name.data());
+    }
+
     return found_device_driver;
 }
 
@@ -96,7 +103,7 @@ template<typename ... DeviceDrivers>
 std::optional<DeviceVariant<DeviceDrivers ...>> create_device(const DeviceConfig *device_conf) {
     std::optional<DeviceVariant<DeviceDrivers ...>> found_device_driver = std::nullopt;
 
-    constexprFor<DeviceValueUnion::Types::Size>([&found_device_driver, &device_conf]<typename Index>(Index){
+    constexprFor<sizeof...(DeviceDrivers)>([&found_device_driver, &device_conf]<typename Index>(Index){
         using driver_type = std::tuple_element_t<Index::value, std::tuple<DeviceDrivers ...>>;
 
         if (device_conf->device_driver_name == driver_type::name) {
